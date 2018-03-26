@@ -3,7 +3,7 @@
  * Позволяет участникам создавать новые учетные записи.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -23,7 +23,7 @@ if (!isset($_GET['agree']) && !isset($_GET['cancel']) && !isset($_POST['form_sen
 if (!$forum_user['is_guest'])
 {
 	header('Location: '.forum_link($forum_url['index']));
-	exit;
+	die;
 }
 
 // Load the profile.php language file
@@ -141,83 +141,44 @@ if (isset($_POST['form_sent']))
 			else
 				$language = $forum_config['o_default_lang'];
 
-			$initial_group_id = (!$forum_config['o_regs_verify']) ? $forum_config['o_default_user_group'] : FORUM_UNVERIFIED;
+			//$initial_group_id = (!$forum_config['o_regs_verify']) ? $forum_config['o_default_user_group'] : FORUM_UNVERIFIED;
 			$salt = random_key(12);
 			$password_hash = forum_hash($password1, $salt);
 
 			// Insert the new user into the database. We do this now to get the last inserted id for later use.
 			$user_info = array(
-				'username'		=>	$username,
-				'group_id'		=>	$initial_group_id,
-				'salt'			=>	$salt,
-				'password'		=>	$password1,
-				'password_hash'		=>	$password_hash,
-				'email'			=>	$email1,
-				'email_setting'		=>	$forum_config['o_default_email_setting'],
-				'timezone'		=>	$_POST['timezone'],
-				'dst'			=>	isset($_POST['dst']) ? '1' : '0',
-				'language'		=>	$language,
-				'style'			=>	$forum_config['o_default_style'],
-				'registered'		=>	time(),
-				'registration_ip'	=>	get_remote_address(),
-				'activate_key'		=>	($forum_config['o_regs_verify']) ? '\''.random_key(8, true).'\'' : 'NULL',
-				'user_agent'		=>	!empty($_SERVER['HTTP_USER_AGENT']) ? str_replace(' ', '', $_SERVER['HTTP_USER_AGENT']) : '',
-				'require_verification'	=>	($forum_config['o_regs_verify'] == '1'),
-				'notify_admins'		=>	($forum_config['o_regs_report'] == '1')
+				'username'				=>	$username,
+				'salt'					=>	$salt,
+				'password_hash'			=>	$password_hash,
+				'email'					=>	$email1,
+				'timezone'				=>	$_POST['timezone'],
+				'dst'					=>	isset($_POST['dst']) ? '1' : '0',
+				'language'				=>	$language,
+				'banned_email'			=>	$banned_email,
+				'dupe_list'				=>	$dupe_list
 			);
 
 			($hook = get_hook('rg_register_pre_add_user')) ? eval($hook) : null;
 			if (!defined('FORUM_FUNCTIONS_ADD_USER'))
 				require FORUM_ROOT.'include/functions/add_user.php';
-
 			add_user($user_info, $new_uid);
-
-			// If we previously found out that the e-mail was banned
-			if ($banned_email && $forum_config['o_mailing_list'] != '')
-			{
-				$mail_tpl = forum_trim(file_get_contents(FORUM_ROOT.'lang/'.$forum_user['language'].'/mail_templates/banned_email.tpl'));
-
-				$first_crlf = strpos($mail_tpl, "\n");
-				$mail_subject = forum_trim(substr($mail_tpl, 8, $first_crlf-8));
-				$mail_message = forum_trim(substr($mail_tpl, $first_crlf));
-
-				$mail_subject = str_replace('<mail_subject>', $lang_common['Banned email notification'], $mail_subject);
-				$mail_message = str_replace('<user>', $username, $mail_message);
-				$mail_message = str_replace('<new_email>', $email1, $mail_message);
-				$mail_message = str_replace('<profile_user>', forum_link($forum_url['user'], $new_uid), $mail_message);
-				$mail_message = str_replace('<board_mailer>', sprintf($lang_common['Forum mailer'], $forum_config['o_board_title']), $mail_message);
-
-				($hook = get_hook('rg_register_banned_email')) ? eval($hook) : null;
-
-				forum_mail($forum_config['o_mailing_list'], $mail_subject, $mail_message);
-			}
-
-			// If we previously found out that the e-mail was a dupe
-			if (!empty($dupe_list) && $forum_config['o_mailing_list'] != '')
-			{
-
-				$mail_tpl = forum_trim(file_get_contents(FORUM_ROOT.'lang/'.$forum_user['language'].'/mail_templates/dupe_email.tpl'));
-				$first_crlf = strpos($mail_tpl, "\n");
-
-				$mail_subject = forum_trim(substr($mail_tpl, 8, $first_crlf-8));
-				$mail_message = forum_trim(substr($mail_tpl, $first_crlf));
-
-				$mail_subject = str_replace('<mail_subject>', $lang_common['Duplicate email notification'], $mail_subject);
-				$mail_message = str_replace('<user>', $username, $mail_message);
-				$mail_message = str_replace('<first_user>', implode(', ', $dupe_list), $mail_message);
-				$mail_message = str_replace('<profile_user>', forum_link($forum_url['user'], $new_uid), $mail_message);
-				$mail_message = str_replace('<board_mailer>', sprintf($lang_common['Forum mailer'], $forum_config['o_board_title']), $mail_message);
-
-				($hook = get_hook('rg_register_dupe_email')) ? eval($hook) : null;
-
-				forum_mail($forum_config['o_mailing_list'], $mail_subject, $mail_message);
-			}
 
 			($hook = get_hook('rg_register_pre_login_redirect')) ? eval($hook) : null;
 
 			// Must the user verify the registration or do we log him/her in right now?
 			if ($forum_config['o_regs_verify'])
 				message(sprintf($lang_profile['Reg e-mail'], '<a href="mailto:'.forum_htmlencode($forum_config['o_admin_email']).'">'.forum_htmlencode($forum_config['o_admin_email']).'</a>'));
+			else
+			{
+				// Remove this user's guest entry from the online list
+				$query = array(
+					'DELETE'	=> 'online',
+					'WHERE'		=> 'ident=\''.$forum_db->escape(get_remote_address()).'\''
+				);
+
+				($hook = get_hook('rg_register_qr_delete_online_user')) ? eval($hook) : null;
+				$forum_db->query_build($query) or error(__FILE__, __LINE__);
+			}
 
 			$expire = time() + $forum_config['o_timeout_visit'];
 
@@ -339,8 +300,7 @@ $forum_page['crumbs'] = array(
 
 ($hook = get_hook('rg_register_pre_header_load')) ? eval($hook) : null;
 
-$forum_js->addFile($base_url.'/include/js/jquery.js');
-$forum_js->addFile($base_url.'/include/js/jquery.pstrength.js');
+$forum_js->addFile(array($js['jquery'], $js['pstrength']));
 $forum_js->addCode('$(function() {
 $(\'.password\').pstrength();
 });');
@@ -399,7 +359,8 @@ ob_start();
 					</div>
 				</div>
 <?php ($hook = get_hook('rg_register_pre_password')) ? eval($hook) : null; ?>
-<?php if (!$forum_config['o_regs_verify']): ?>				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
+<?php if (!$forum_config['o_regs_verify']): ?>
+				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text required">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Password'] ?> <em><?php echo $lang_common['Required'] ?></em></span> <small>&#160;</small></label><br />
 						<span class="fld-input"><input type="password" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_password1" size="35" class="password" /></span>
@@ -412,14 +373,16 @@ ob_start();
 						<span class="fld-input"><input type="password" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_password2" size="35" class="inputbox" /></span>
 					</div>
 				</div>
-<?php endif; ($hook = get_hook('rg_register_pre_email')) ? eval($hook) : null; ?>				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
+<?php endif; ($hook = get_hook('rg_register_pre_email')) ? eval($hook) : null; ?>
+				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text required">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['E-mail'] ?> <em><?php echo $lang_common['Required'] ?></em></span> <br /><small<?php echo ($forum_config['o_regs_verify']) ? ' class="important"' : '' ?>><?php echo ($forum_config['o_regs_verify']) ? $lang_profile['E-mail activation help'] : $lang_profile['E-mail help'] ?></small></label><br /> 
 						<span class="fld-input"><input type="text" id="lolfld<?php echo $forum_page['fld_count'] ?>" name="email1" value="" size="35" maxlength="80" /><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_<?php echo input_name('email1') ?>" value="<?php echo(isset($_POST['req_'.input_name('email1')]) ? forum_htmlencode($_POST['req_'.input_name('email1')]) : '') ?>" size="35" maxlength="80" class="inputbox" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('rg_register_pre_email_confirm')) ? eval($hook) : null; ?>
-<?php if ($forum_config['o_regs_verify']): ?>				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
+<?php if ($forum_config['o_regs_verify']): ?>
+				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text required">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Confirm e-mail'] ?> <em><?php echo $lang_common['Required'] ?></em></span> <small><?php echo $lang_profile['Confirm e-mail help'] ?></small></label><br />
 						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_email2" value="<?php echo(isset($_POST['req_email2']) ? forum_htmlencode($_POST['req_email2']) : '') ?>" size="35" maxlength="80" class="inputbox" /></span>

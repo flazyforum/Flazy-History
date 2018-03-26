@@ -3,44 +3,47 @@
  * Отображает панель ББ-кодов.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
 
 
-($hook = get_hook('bb_start')) ? eval($hook) : null;
+($hook = get_hook('bb_fl_start')) ? eval($hook) : null;
 
 
 if ($forum_config['p_enable_bb_panel'] && $forum_user['show_bb_panel'])
 {
-        $forum_js->addFile($base_url.'/include/js/bb.js');
-
+	// Load the bb.php language file
+	require FORUM_ROOT.'lang/'.$forum_user['language'].'/bb.php';
+	$forum_js->addFile($base_url.'/js/bb.js');
 	$url_bl = $base_url.'/img/style/b_bl.gif';
+
+	// li id => (js onclick , lang_bb)
 	$bbcode = array(
-		'font'		=> 	array('changeVisibility(\'font-area\')', 'Шрифт'),
-		'size'		=> 	array('changeVisibility(\'size-area\')', 'Размер текста'),
-		'bold'		=> 	array('bbcode(\'[b]\',\'[/b]\')', 'Жирный'),
-		'italic'	=> 	array('bbcode(\'[i]\',\'[/i]\')', 'Наклонный'),
-		'underline'	=> 	array('bbcode(\'[u]\',\'[/u]\')', 'Подчеркнутый'),
-		'strike'	=> 	array('bbcode(\'[s]\',\'[/s]\')', 'Зачеркнутый'),
-		'left'		=> 	array('bbcode(\'[left]\',\'[/left]\')', 'Выравнивание по левому краю'),
-		'center'	=> 	array('bbcode(\'[center]\',\'[/center]\')', 'Выравнивание по центру'),
-		'right'		=> 	array('bbcode(\'[right]\',\'[/right]\')', 'Выравнивание по правому краю'),
-		'list'		=> 	array('bbcode(\'[list=*][*]\',\'[/*][/list]\')', 'Список'),
-		'link'		=> 	array('tag(\'[url]\',\'[/url]\', tag_url)', 'Ссылка'),
-		'email'		=> 	array('tag(\'[email]\',\'[/email]\', tag_email)', 'E-mail'),
-		'image'		=> 	array('tag(\'[img]\',\'[/img]\', tag_image)', 'Изображение'),
-		'video'		=> 	array('tag(\'[video]\',\'[/video]\', tag_video)', 'Видео'),
-		'hide'		=> 	array('tag_hide()', 'Хайд'),
-		'spo'		=> 	array('tag(\'[spoiler]\',\'[/spoiler]\', tag_spoiler)', 'Спойлер'),
-		'quote'		=> 	array('bbcode(\'[quote]\',\'[/quote]\')', 'Цитата'),
-		'code'		=> 	array('bbcode(\'[code]\',\'[/code]\')', 'Код'),
-		'color'		=> 	array('changeVisibility(\'color-area\')', 'Цвет'),
-		'smile'		=> 	array('changeVisibility(\'smilies-area\')', 'Смайлики'),
+		'font'		=> 	array('visibility(\'font-area\')', 'Font'),
+		'size'		=> 	array('visibility(\'size-area\')', 'Size'),
+		'bold'		=> 	array('bbcode(\'[b]\',\'[/b]\')', 'Bold'),
+		'italic'	=> 	array('bbcode(\'[i]\',\'[/i]\')', 'Italic'),
+		'underline'	=> 	array('bbcode(\'[u]\',\'[/u]\')', 'Underline'),
+		'strike'	=> 	array('bbcode(\'[s]\',\'[/s]\')', 'Strike'),
+		'left'		=> 	array('bbcode(\'[left]\',\'[/left]\')', 'Left'),
+		'center'	=> 	array('bbcode(\'[center]\',\'[/center]\')', 'Center'),
+		'right'		=> 	array('bbcode(\'[right]\',\'[/right]\')', 'Right'),
+		'list'		=> 	array('bbcode(\'[list=*][*]\',\'[/*][/list]\')', 'List'),
+		'link'		=> 	array('tag(\'[url]\',\'[/url]\', tag_url)', 'Link'),
+		'email'		=> 	array('tag(\'[email]\',\'[/email]\', tag_email)', 'Email'),
+		'image'		=> 	array('tag(\'[img]\',\'[/img]\', tag_image)', 'Image'),
+		'video'		=> 	array('tag(\'[video]\',\'[/video]\', tag_video)', 'Video'),
+		'hide'		=> 	array('tag_hide()', 'Hide'),
+		'quote'		=> 	array('bbcode(\'[quote]\',\'[/quote]\')', 'Quote'),
+		'code'		=> 	array('bbcode(\'[code]\',\'[/code]\')', 'Code'),
+		'color'		=> 	array('visibility(\'color-area\')', 'Color'),
+		'smile'		=> 	array('visibility(\'smilies-area\')', 'Smile'),
+		'speller'	=> 	array('spellCheck()', 'Speller'),
 	);
 
-	($hook = get_hook('bb_pre_bb_list')) ? eval($hook) : null;
+	($hook = get_hook('bb_fl_pre_bb_list')) ? eval($hook) : null;
 
 ?>
 					<ul id="bbcode">
@@ -49,18 +52,18 @@ if ($forum_config['p_enable_bb_panel'] && $forum_user['show_bb_panel'])
 	foreach ($bbcode as $bb_type => $bb_text)
 	{
 ?>
-						<li id="bt-<?php echo $bb_type ?>"><span><img onclick="<?php echo $bb_text[0] ?>" src="<?php echo $url_bl ?>" title="<?php echo $bb_text[1] ?>" alt="" /></span></li>
+						<li id="bt-<?php echo $bb_type ?>"><span><img onclick="<?php echo $bb_text['0'] ?>" src="<?php echo $url_bl ?>" title="<?php echo $lang_bb[$bb_text['1']] ?>" alt="" /></span></li>
 <?php
 
 	}
 ?>
 					</ul>
-					<div class="bbm" id="font-area" style="display:none" onclick="changeVisibility('font-area')">
+					<div class="bbm" id="font-area" style="display:none" onclick="visibility('font-area')">
 <?php
 
-	$font_list = array(1 => 'Arial', 'Arial Black', 'Arial Narrow', 'Book Antiqua', 'Century Gothic', 'Comic Sans Ms', 'Courier New', 'Fixedsys', 'Franklin Gothic Medium', 'Garamond', 'Georgia', 'Impact', 'Lucida Console', 'Microsoft Sans Serif', 'Palatino Linotype', 'System', 'Tahoma', 'Times New Roman', 'Trebuchet Ms', 'Verdana');
+	$font_list = array('Arial', 'Arial Black', 'Arial Narrow', 'Book Antiqua', 'Century Gothic', 'Comic Sans Ms', 'Courier New', 'Fixedsys', 'Franklin Gothic Medium', 'Garamond', 'Georgia', 'Impact', 'Lucida Console', 'Microsoft Sans Serif', 'Palatino Linotype', 'System', 'Tahoma', 'Times New Roman', 'Trebuchet Ms', 'Verdana');
 
-	($hook = get_hook('bb_pre_bb_list_font')) ? eval($hook) : null;
+	($hook = get_hook('bb_fl_pre_bb_list_font')) ? eval($hook) : null;
 
 	foreach ($font_list as $font)
 	{
@@ -73,12 +76,12 @@ if ($forum_config['p_enable_bb_panel'] && $forum_user['show_bb_panel'])
 
 ?>
 					</div>
-					<div class="bbm" id="size-area" style="display:none" onclick="changeVisibility('size-area')">
+					<div class="bbm" id="size-area" style="display:none" onclick="visibility('size-area')">
 <?php
  
-	$size_list = array(1 => '8', '10', '12', '14', '16', '18', '20');
+	$size_list = array('8', '10', '12', '14', '16', '18', '20');
 
-	($hook = get_hook('bb_pre_bb_list_size')) ? eval($hook) : null;
+	($hook = get_hook('bb_fl_pre_bb_list_size')) ? eval($hook) : null;
 
 	foreach ($size_list as $size)
 	{
@@ -91,14 +94,14 @@ if ($forum_config['p_enable_bb_panel'] && $forum_user['show_bb_panel'])
 
 ?>
 					</div>
-					<div class="bbm" id="color-area" style="display:none" onclick="changeVisibility('color-area')">
+					<div class="bbm" id="color-area" style="display:none" onclick="visibility('color-area')">
 					<table cellspacing="0" cellpadding="0">
 						<tr>
 <?php 
 
-	$color_list = array(1 => 'black', 'silver', 'gray', 'white', 'maroon', 'red', 'purple', 'fuchsia', 'green', 'lime', 'olive', 'yellow', 'navy', 'blue', 'teal', 'aqua');
+	$color_list = array('black', 'silver', 'gray', 'white', 'maroon', 'red', 'purple', 'fuchsia', 'green', 'lime', 'olive', 'yellow', 'navy', 'blue', 'teal', 'aqua');
 
-	($hook = get_hook('bb_pre_bb_list_color')) ? eval($hook) : null;
+	($hook = get_hook('bb_fl_pre_bb_list_color')) ? eval($hook) : null;
 
 	foreach ($color_list as $color)
 	{
@@ -113,7 +116,7 @@ if ($forum_config['p_enable_bb_panel'] && $forum_user['show_bb_panel'])
 						</tr>
 					</table>
 					</div>
-					<div class="bbm" id="smilies-area" style="display:none" onclick="changeVisibility('smilies-area')">
+					<div class="bbm" id="smilies-area" style="display:none" onclick="visibility('smilies-area')">
 <?php
 
 	if (!defined('FORUM_SMILIES_LOADED'))
@@ -129,18 +132,18 @@ if ($forum_config['p_enable_bb_panel'] && $forum_user['show_bb_panel'])
 	{
 
 ?>
-						<img onclick="smile('<?php echo $smiley_texts[0] ?>')" src="<?php echo $base_url ?>/img/smilies/<?php echo $smiley_img ?>" alt="<?php echo $smiley_texts[0] ?>" title="<?php echo $smiley_texts[0] ?>"/>
+						<img onclick="smile('<?php echo $smiley_texts['0'] ?>')" src="<?php echo $base_url ?>/img/smilies/<?php echo $smiley_img ?>" alt="<?php echo $smiley_texts['0'] ?>" title="<?php echo $smiley_texts['0'] ?>"/>
 <?php
 
 	}
 
 ?>
-						<p><a href="<?php echo forum_link('smilies.php') ?>" onclick="return smile_pop(this.href);"><span><?php echo $lang_common['All'] ?></span></a></p>
+						<p><a href="<?php echo forum_link('smilies.php') ?>" onclick="return smile_pop(this.href);"><span><?php echo $lang_bb['All'] ?></span></a></p>
 					</div>
 <?php
 
 }
 
-($hook = get_hook('bb_end')) ? eval($hook) : null;
+($hook = get_hook('bb_fl_end')) ? eval($hook) : null;
 
 ?>

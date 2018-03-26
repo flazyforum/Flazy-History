@@ -3,7 +3,7 @@
  * Загружает надлежащий класс слоя базы данных.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,7 +11,7 @@
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
 // Return current timestamp (with microseconds) as a float (used in dblayer)
 if (defined('FORUM_SHOW_QUERIES'))

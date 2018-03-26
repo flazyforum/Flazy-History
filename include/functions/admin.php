@@ -3,7 +3,7 @@
  * Общие функции используемые в админстрировании.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,7 +11,7 @@
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
 // Display the admin navigation menu
 function generate_admin_menu($submenu)
@@ -69,13 +69,12 @@ function generate_admin_menu($submenu)
 				$forum_page['admin_submenu']['prune'] = '<li class="'.((FORUM_PAGE == 'admin-prune') ? 'active' : 'normal').((empty($forum_page['admin_submenu'])) ? ' item1' : '').'"><a href="'.forum_link('admin/prune.php').'">'.$lang_admin_common['Prune topics'].'</a></li>';
 				$forum_page['admin_submenu']['reindex'] = '<li class="'.((FORUM_PAGE == 'admin-reindex') ? 'active' : 'normal').((empty($forum_page['admin_submenu'])) ? ' item1' : '').'"><a href="'.forum_link('admin/reindex.php').'">'.$lang_admin_common['Rebuild index'].'</a></li>';
 				$forum_page['admin_submenu']['options-maintenance'] = '<li class="'.((FORUM_PAGE == 'admin-maintenace') ? 'active' : 'normal').((empty($forum_page['admin_submenu'])) ? ' item1' : '').'"><a href="'.forum_link('admin/settings.php?section=maintenance').'">'.$lang_admin_common['Maintenance mode'].'</a></li>';
-				$forum_page['admin_submenu']['clear_cache'] = '<li class="'.((FORUM_PAGE == 'admin-clear-cache') ? 'active' : 'normal').'"><a href="'.forum_link('admin/cache_sync.php').'">'.$lang_admin_common['Cache'].'</a></li>';
+				$forum_page['admin_submenu']['clear_cache'] = '<li class="'.((FORUM_PAGE == 'admin-clear-cache') ? 'active' : 'normal').'"><a href="'.forum_link('admin/cache.php').'">'.$lang_admin_common['Cache'].'</a></li>';
 			}
 			else if (FORUM_PAGE_SECTION == 'extensions')
 			{
 				$forum_page['admin_submenu']['extensions-manage'] = '<li class="'.((FORUM_PAGE == 'admin-extensions-manage') ? 'active' : 'normal').((empty($forum_page['admin_submenu'])) ? ' item1' : '').'"><a href="'.forum_link('admin/extensions.php?section=manage').'">'.$lang_admin_common['Manage extensions'].'</a></li>';
 				$forum_page['admin_submenu']['extensions-hotfixes'] = '<li class="'.((FORUM_PAGE == 'admin-extensions-hotfixes') ? 'active' : 'normal').((empty($forum_page['admin_submenu'])) ? ' item1' : '').'"><a href="'.forum_link('admin/extensions.php?section=hotfixes').'">'.$lang_admin_common['Manage hotfixes'].'</a></li>';
-				$forum_page['admin_submenu']['extensions-repository'] = '<li class="'.((FORUM_PAGE == 'admin-extensions-repository') ? 'active' : 'normal').((empty($forum_page['admin_submenu'])) ? ' item1' : '').'"><a href="'.forum_link('admin/extensions.php?section=repository').'">'.$lang_admin_common['Manage repository'].'</a></li>';
 			}
 		}
 
@@ -158,26 +157,17 @@ function prune($forum_id, $prune_sticky, $prune_date)
 		($hook = get_hook('ca_fn_prune_qr_prune_topics')) ? eval($hook) : null;
 		$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
-		$poll_topic_ids = isset($topic_ids) ? $topic_ids : implode(',', $topics);
 		$query = array(
 			'DELETE'	=> 'voting',
-			'WHERE'		=> 'topic_id IN('.$poll_topic_ids.')'
+			'WHERE'		=> 'topic_id IN('.$topic_ids.')'
 		);
 
 		($hook = get_hook('ca_fn_prune_qr_prune_voting')) ? eval($hook) : null;
 		$forum_db->query_build($query) or error(__FILE__, __LINE__);
-			
-		$query = array(
-			'DELETE'	=> 'questions',
-			'WHERE'		=> 'topic_id IN('.$poll_topic_ids.')'
-		);
-
-		($hook = get_hook('ca_fn_prune_qr_prune_questions')) ? eval($hook) : null;
-		$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 		$query = array(
 			'DELETE'	=> 'answers',
-			'WHERE'		=> 'topic_id IN('.$poll_topic_ids.')'
+			'WHERE'		=> 'topic_id IN('.$topic_ids.')'
 		);
 
 		($hook = get_hook('ca_fn_prune_qr_prune_answers')) ? eval($hook) : null;

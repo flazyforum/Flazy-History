@@ -3,7 +3,7 @@
  * Обновление в указаном форуме\теме колличества сообщений, тем и т.д..
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,7 +11,7 @@
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
 // Update replies, last_post, last_post_id and last_poster for a topic
 function sync_topic($topic_id)
@@ -35,7 +35,7 @@ function sync_topic($topic_id)
 
 	// Get last_post, last_post_id and last_poster
 	$query = array(
-		'SELECT'	=> 'p.posted, p.id, p.poster',
+		'SELECT'	=> 'p.posted, p.id, p.poster, p.poster_id',
 		'FROM'		=> 'posts AS p',
 		'WHERE'		=> 'p.topic_id='.$topic_id,
 		'ORDER BY'	=> 'p.id DESC',
@@ -44,12 +44,12 @@ function sync_topic($topic_id)
 
 	($hook = get_hook('fn_sync_topic_qr_get_topic_last_post_data')) ? eval($hook) : null;
 	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-	list($last_post, $last_post_id, $last_poster) = $forum_db->fetch_row($result);
+	list($last_post, $last_post_id, $last_poster, $last_poster_id) = $forum_db->fetch_row($result);
 
 	// Now update the topic
 	$query = array(
 		'UPDATE'	=> 'topics',
-		'SET'		=> 'num_replies='.$num_replies.', last_post='.$last_post.', last_post_id='.$last_post_id.', last_poster=\''.$forum_db->escape($last_poster).'\'',
+		'SET'		=> 'num_replies='.$num_replies.', last_post='.$last_post.', last_post_id='.$last_post_id.', last_poster=\''.$forum_db->escape($last_poster).'\', last_poster_id=\''.$forum_db->escape($last_poster_id).'\'',
 		'WHERE'		=> 'id='.$topic_id
 	);
 

@@ -3,7 +3,7 @@
  * Регулярные выражения используемые в соответствии с SEF URL и его URL.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -31,11 +31,10 @@ $rewrite_rules = array(
 
 '/^user[\/_-]?([0-9]+)(\.html?|\/)?$/i'		=> 'profile.php?id=$1',
 '/^user[\/_-]?([0-9]+)[\/_-]?([a-z]+)(\.html?|\/)?$/i'		=> 'profile.php?section=$2&id=$1',
-'/^user[\/_-]?([0-9]+)[\/_-]?pm[\/_-]?send(\.html?|\/)?$/i'	=> 'profile.php?id=$1&action=pm_send',
-'/^user[\/_-]?([0-9]+)[\/_-]?pm[\/_-]?compose[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> 'profile.php?id=$1&section=pm&pmpage=compose&receiver_id=$2',
-'/^user[\/_-]?([0-9]+)[\/_-]?pm[\/_-]?([0-9a-z]+)(\.html?|\/)?$/i'	=> 'profile.php?id=$1&section=pm&pmpage=$2',
-'/^user[\/_-]?([0-9]+)[\/_-]?pm[\/_-]?([0-9a-z]+)[\/_-]?(p|page\/)([0-9]+)(\.html?|\/)?$/i'	=> 'profile.php?id=$1&section=pm&pmpage=$2&p=$4',
-'/^user[\/_-]?([0-9]+)[\/_-]?pm[\/_-]?([0-9a-z]+)[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> 'profile.php?id=$1&section=pm&pmpage=$2&message_id=$3',
+
+'/^pm[\/_-]?([a-z]+)(\.html?|\/)?$/i'	=> 'pm.php?section=$1',
+'/^pm[\/_-]?([a-z]+)[\/_-]?(p|page\/)([0-9]+)(\.html?|\/)?$/i'	=> 'pm.php?section=$1&p=$2',
+'/^pm[\/_-]?(message|edit|write|delete)[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> 'pm.php?section=$1&id=$2',
 
 '/^(delete)[\/_-]?(avatar|user)?[\/_-]?([0-9]+)[\/_-]?([a-z0-9]+)?(\.html?|\/)?$/i'	=> 'profile.php?action=$1_$2&id=$3&csrf_token=$4',
 

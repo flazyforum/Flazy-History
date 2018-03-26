@@ -5,7 +5,7 @@
  * Allows administrators and moderators to handle reported posts.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -67,6 +67,10 @@ if (isset($_POST['mark_as_read']))
 
 	($hook = get_hook('arp_mark_as_read_qr_mark_reports_as_read_to_post')) ? eval($hook) : null;
 	$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+	if (!defined('FORUM_CACHE_FUNCTIONS_LOADED'))
+		require FORUM_ROOT.'include/cache/report.php';
+	generate_report_cache();
 
 	($hook = get_hook('arp_mark_as_read_pre_redirect')) ? eval($hook) : null;
 

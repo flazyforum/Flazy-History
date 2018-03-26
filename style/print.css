@@ -10,7 +10,7 @@ body {
 	font: 75%/1.4em Verdana, Helvetica, Arial, sans-serif;
 }
 .brd #brd-access,
-.brd #brd-visit, .brd #brd-pagepost-top, .brd #brd-crumbs-end, .brd #brd-pagepost-end,
+.brd #brd-visit, .brd #brd-crumbs-end, .brd .posting,
 .brd .topic-poll, .brd .main-subhead, .brd .main-pagehead,
 .brd #brd-announcement, .brd #brd-adbox, .brd #brd-guestbox,
 .brd .post-author, .brd .postfoot, .brd .main-options,

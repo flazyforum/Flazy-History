@@ -5,7 +5,7 @@
  * Allows administrators to control the extensions and hotfixes installed in the site.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -539,12 +539,14 @@ else if (isset($_GET['uninstall']))
 					</div>
 				</div>
 			</div>
-<?php if ($ext_data['uninstall_note'] != ''): ?>			<div class="ct-box warn-box">
+<?php if ($ext_data['uninstall_note'] != ''): ?>
+			<div class="ct-box warn-box">
 				<p class="important"><strong><?php echo $lang_admin_ext['Uninstall note'] ?></strong></p>
 				<p><?php echo forum_htmlencode($ext_data['uninstall_note']) ?></p>
 			</div>
 <?php endif; ?>
-<?php if (strpos($id, 'hotfix_') !== 0): ?>			<div class="ct-box warn-box">
+<?php if (strpos($id, 'hotfix_') !== 0): ?>
+			<div class="ct-box warn-box">
 				<p class="warn"><?php echo $lang_admin_ext['Installed extensions warn'] ?></p>
 			</div>
 <?php endif; ?>				<div class="frm-buttons">

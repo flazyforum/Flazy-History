@@ -3,7 +3,7 @@
  * Создать новое сообщение.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,7 +11,7 @@
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
 // Отправка писем по подписке
 function send_subscriptions($post_info, $new_pid)
@@ -45,19 +45,19 @@ function send_subscriptions($post_info, $new_pid)
 		'JOINS'		=> array(
 			array(
 				'INNER JOIN'	=> 'subscriptions AS s',
-				'ON'		=> 'u.id=s.user_id'
+				'ON'			=> 'u.id=s.user_id'
 			),
 			array(
-				'LEFT JOIN'	=> 'forum_perms AS fp',
-				'ON'		=> '(fp.forum_id='.$post_info['forum_id'].' AND fp.group_id=u.group_id)'
+				'LEFT JOIN'		=> 'forum_perms AS fp',
+				'ON'			=> '(fp.forum_id='.$post_info['forum_id'].' AND fp.group_id=u.group_id)'
 			),
 			array(
-				'LEFT JOIN'	=> 'online AS o',
-				'ON'		=> 'u.id=o.user_id'
+				'LEFT JOIN'		=> 'online AS o',
+				'ON'			=> 'u.id=o.user_id'
 			),
 			array(
-				'LEFT JOIN'	=> 'bans AS b',
-				'ON'		=> 'u.username=b.username'
+				'LEFT JOIN'		=> 'bans AS b',
+				'ON'			=> 'u.username=b.username'
 			),
 		),
 		//'WHERE'		=> 'b.username IS NULL AND COALESCE(o.logged, u.last_visit)>'.$previous_post_time.' AND (fp.read_forum IS NULL OR fp.read_forum=1) AND s.topic_id='.$post_info['topic_id'].' AND u.id!='.$post_info['poster_id']
@@ -202,7 +202,7 @@ function add_post($post_info, &$new_pid)
 	// Update topic
 	$query = array(
 		'UPDATE'	=> 'topics',
-		'SET'		=> 'num_replies='.$num_replies.', last_post='.$post_info['posted'].', last_post_id='.$new_pid.', last_poster=\''.$forum_db->escape($post_info['poster']).'\'',
+		'SET'		=> 'num_replies='.$num_replies.', last_post='.$post_info['posted'].', last_post_id='.$new_pid.', last_poster=\''.$forum_db->escape($post_info['poster']).'\', last_poster_id='.$post_info['poster_id'],
 		'WHERE'		=> 'id='.$post_info['topic_id']
 	);
 
@@ -236,10 +236,12 @@ function add_post($post_info, &$new_pid)
 		{
 			$query = array(
 				'UPDATE'	=> 'users',
-				'SET'		=> 'num_posts=num_posts+1, last_post='.$post_info['posted'].', user_agent=\''.$post_info['user_agent'].'\'',
+				'SET'		=> 'last_post='.$post_info['posted'],
 				'WHERE'		=> 'id='.$post_info['poster_id']
 			);
 
+			if ($post_info['counter'])
+				$query['SET'] .= ', num_posts=num_posts+1';
 		}
 
 		($hook = get_hook('fn_add_post_qr_update_last_post')) ? eval($hook) : null;

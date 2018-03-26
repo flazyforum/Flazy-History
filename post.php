@@ -3,7 +3,7 @@
  * Добавляет новое сообщение в указанную тему или новую тему в указанный форум.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -33,20 +33,20 @@ if ($tid < 1 && $fid < 1 || $tid > 0 && $fid > 0)
 if ($tid)
 {
 	$query = array(
-		'SELECT'	=> 'f.id, f.forum_name, f.moderators, f.redirect_url, fp.post_replies, fp.post_topics, t.subject, t.description, t.closed, s.user_id AS is_subscribed',
+		'SELECT'	=> 'f.id, f.forum_name, f.moderators, f.redirect_url, f.counter, fp.post_replies, fp.post_topics, t.subject, t.description, t.closed, s.user_id AS is_subscribed',
 		'FROM'		=> 'topics AS t',
 		'JOINS'		=> array(
 			array(
 				'INNER JOIN'	=> 'forums AS f',
-				'ON'		=> 'f.id=t.forum_id'
+				'ON'			=> 'f.id=t.forum_id'
 			),
 			array(
-				'LEFT JOIN'	=> 'forum_perms AS fp',
-				'ON'		=> 'fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id']
+				'LEFT JOIN'		=> 'forum_perms AS fp',
+				'ON'			=> 'fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id']
 			),
 			array(
-				'LEFT JOIN'	=> 'subscriptions AS s',
-				'ON'		=> 't.id=s.topic_id AND s.user_id='.$forum_user['id']
+				'LEFT JOIN'		=> 'subscriptions AS s',
+				'ON'			=> 't.id=s.topic_id AND s.user_id='.$forum_user['id']
 			)
 		),
 		'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1) AND t.id='.$tid
@@ -66,7 +66,7 @@ if ($tid)
 else
 {
 	$query = array(
-		'SELECT'	=> 'f.id, f.forum_name, f.moderators, f.redirect_url, fp.post_replies, fp.post_topics',
+		'SELECT'	=> 'f.id, f.forum_name, f.moderators, f.redirect_url, f.counter, fp.post_replies, fp.post_topics',
 		'FROM'		=> 'forums AS f',
 		'JOINS'		=> array(
 			array(
@@ -109,7 +109,7 @@ if ((($tid && (($cur_posting['post_replies'] == '' && !$forum_user['g_post_repli
 ($hook = get_hook('po_posting_location_selected')) ? eval($hook) : null;
 
 //Can unvoted user read voting results?
-$read_unvote_users = ($forum_config['p_poll_enable_read'] && isset($_POST['read_unvote_users']) && $_POST['read_unvote_users'] == 1) ? 1 : 0;
+$read_unvote = ($forum_config['p_poll_enable_read'] && isset($_POST['read_unvote']) && $_POST['read_unvote'] == 1) ? 1 : 0;
 //Can user change opinion?
 $revote = ($forum_config['p_poll_enable_revote'] && isset($_POST['revouting']) && $_POST['revouting'] == 1) ? 1 : 0;
 
@@ -117,7 +117,6 @@ $revote = ($forum_config['p_poll_enable_revote'] && isset($_POST['revouting']) &
 $errors = array();
 
 $options_count = 2;
-$poll = 'NULL';
 if (isset($_POST['update_poll']))
 {
 	($hook = get_hook('po_form_update_poll')) ? eval($hook) : null;
@@ -131,7 +130,7 @@ if (isset($_POST['update_poll']))
 	$description = forum_trim($_POST['desc']);
 	$message = forum_linebreaks(forum_trim($_POST['req_message']));
 	$question = forum_trim($_POST['question']);
-	$answers = array_values( $_POST['answer']);
+	$answers = array_values($_POST['answer']);
 	$days = intval($_POST['days']);
 	$votes = intval($_POST['votes']);
 
@@ -159,7 +158,7 @@ if (isset($_POST['form_sent']))
 	($hook = get_hook('po_form_submitted')) ? eval($hook) : null;
 
 	// Make sure form_user is correct
-	if (($forum_user['is_guest'] && $_POST['form_user'] != 'Гость') || (!$forum_user['is_guest'] && $_POST['form_user'] != $forum_user['username']))
+	if (($forum_user['is_guest'] && $_POST['form_user'] != 'Guest') || (!$forum_user['is_guest'] && $_POST['form_user'] != $forum_user['username']))
 		message($lang_common['Bad request']);
 	
 	// Check for use of incorrect URLs
@@ -183,30 +182,42 @@ if (isset($_POST['form_sent']))
 		else if (!$forum_config['p_subject_all_caps'] && is_all_uppercase($subject) && !$forum_page['is_admmod'])
 			$errors[] = $lang_post['All caps subject'];
 
-		$description = forum_trim($_POST['desc']);
+		$description = forum_trim($_POST['description']);
 		if (utf8_strlen($description) > 100)
 			$errors[] = $lang_post['Too long description'];
 		else if (!$forum_config['p_subject_all_caps'] && is_all_uppercase($description) && !$forum_page['is_admmod'])
 			$errors[] = $lang_post['All caps description'];
 
-		$question = (isset($_POST['question'])) ? forum_trim($_POST['question']) : '';
-		$answers = (isset($_POST['answer']) && !empty($_POST['answer']) && is_array($_POST['answer'])) ? array_values( $_POST['answer']) : 0;
-		$days = isset($_POST['days']) && !empty($_POST['days']) ? intval($_POST['days']) : 0;
-		$votes = isset($_POST['votes']) && !empty($_POST['votes']) ? intval($_POST['votes']) : 0;
-
-		if (!empty($_POST['question']) && utf8_strlen($question) < 6)
+		$question = forum_trim($_POST['question']);
+		if (utf8_strlen($question) < 6 && $question != '')
 			$errors[] = $lang_post['Poll question info'];
-		if ($answers == 0 && !empty($_POST['answer']))
-			message($lang_post['Bad request']);
+
+		$answers_form = $_POST['answer'];
+		$answers = array();
+		if ($question != '')
+		{
+			foreach ($answers_form as $ans_num => $ans)
+				if ($ans != '')
+					$answers[] = forum_trim($ans);
+
+			$answers = array_unique($answers);
+			if (count($answers) < 2)
+				$errors[] = $lang_post['Min count options'];
+		}
+
+		$read_unvote = ($forum_config['p_poll_enable_read'] && (isset($_POST['read_unvote']) && $_POST['read_unvote'] == '1')) ? '1' : '0';
+		$revote = ($forum_config['p_poll_enable_revote'] && (isset($_POST['revote']) && $_POST['revote'] == '1')) ? '1' : '0';
+
+		$days = intval($_POST['days']);
 		if ($days > 90 || $days < 0)
 			$errors[] = $lang_post['Days limit'];
+
+		$votes = intval($_POST['votes']);
 		if ($votes != 0 && ($votes > 1000 || $votes < 10))
 			$errors[] = $lang_post['Votes count'];
-		if (!empty($_POST['question']) && $days < 0 && $votes == 0)
-			$errors[] = $lang_post['Input error'];
 
-		if (!empty($question) && !empty($answers[0]))
-			$poll = '1';
+		if ($question != '' && $days < 0 && $votes == 0)
+			$errors[] = $lang_post['Input error'];
 	}
 
 	// If the user is logged in we get the username and e-mail from $forum_user
@@ -221,9 +232,6 @@ if (isset($_POST['form_sent']))
 		$username = forum_trim($_POST['req_username']);
 		$email = strtolower(forum_trim(($forum_config['p_force_guest_email']) ? $_POST['req_email'] : $_POST['email']));
 
-		// Load the profile.php language file
-		require FORUM_ROOT.'lang/'.$forum_user['language'].'/profile.php';
-
 		// It's a guest, so we have to validate the username
 		require FORUM_ROOT.'include/functions/validate_username.php';
 		$errors = array_merge($errors, validate_username($username));
@@ -235,16 +243,16 @@ if (isset($_POST['form_sent']))
 
 			if (!is_valid_email($email))
 				$errors[] = $lang_post['Invalid e-mail'];
-			if (!is_banned_email($email))
-				$errors[] = $lang_profile['Banned e-mail'];
+			if (is_banned_email($email))
+				$errors[] = $lang_post['Banned e-mail'];
 		}
 
-		if ($forum_config['o_spam_email'] && stop_spam('email', $email1))
-			$errors[] = $lang_profile['Blocked e-mail'].' '.$lang_profile['Blocked mistake'];
+		if ($forum_config['o_spam_email'] && stop_spam('email', $email))
+			$errors[] = $lang_post['Blocked e-mail'].' '.$lang_post['Blocked mistake'];
 		if ($forum_config['o_spam_ip'] && stop_spam('ip', get_remote_address()))
-			$errors[] = $lang_profile['Blocked IP'].' '.$lang_profile['Blocked mistake'];
+			$errors[] = $lang_post['Blocked IP'].' '.$lang_post['Blocked mistake'];
 		if ($forum_config['o_spam_name'] && stop_spam('username', $username))
-			$errors[] = $lang_profile['Blocked name'].' '.$lang_profile['Blocked mistake'];
+			$errors[] = $lang_post['Blocked name'].' '.$lang_post['Blocked mistake'];
 	}
 
 	// If we're an administrator or moderator, make sure the CSRF token in $_POST is valid
@@ -260,7 +268,7 @@ if (isset($_POST['form_sent']))
 		$errors[] = $lang_post['All caps message'];
 
 	$merged = false;
-	if ($forum_config['o_merge_timeout'] && time() - $cur_posting['posted'] < $forum_config['o_merge_timeout'] && !$forum_user['is_guest'] )
+	if (!$fid && ((!empty($forum_config['o_merge_timeout']) && time() - $cur_posting['posted'] < $forum_config['o_merge_timeout']) || $forum_config['o_merge_timeout'] == '1') && !$forum_user['is_guest'] && !empty($cur_posting['post_id']))
 	{
 		$merge = isset($_POST['merge']) ? 1 : 0;
 		if ((($forum_user['is_admmod'] && $merge == 1) || !$forum_user['is_admmod']))
@@ -297,72 +305,69 @@ if (isset($_POST['form_sent']))
 		if ($tid && !$merged)
 		{
 			$post_info = array(
-				'is_guest'		=> $forum_user['is_guest'],
-				'poster'		=> $username,
-				'poster_id'		=> $forum_user['id'], // Always 1 for guest posts
+				'is_guest'			=> $forum_user['is_guest'],
+				'poster'			=> $username,
+				'poster_id'			=> $forum_user['id'], // Always 1 for guest posts
 				'poster_email'		=> ($forum_user['is_guest'] && $email != '') ? $email : null, // Always null for non-guest posts
-				'subject'		=> $cur_posting['subject'],
+				'subject'			=> $cur_posting['subject'],
 				'description'		=> $cur_posting['description'],
-				'message'		=> $message,
+				'message'			=> $message,
 				'hide_smilies'		=> $hide_smilies,
-				'posted'		=> $now,
-				'user_agent'		=> !empty($_SERVER['HTTP_USER_AGENT']) ? str_replace(' ', '', $_SERVER['HTTP_USER_AGENT']) : '',
+				'posted'			=> $now,
 				'subscr_action'		=> ($forum_config['o_subscriptions'] && $subscribe && !$is_subscribed) ? 1 : (($forum_config['o_subscriptions'] && !$subscribe && $is_subscribed) ? 2 : 0),
-				'topic_id'		=> $tid,
-				'forum_id'		=> $cur_posting['id'],
+				'topic_id'			=> $tid,
+				'forum_id'			=> $cur_posting['id'],
 				'update_user'		=> true,
+				'counter'			=> $cur_posting['counter'],
 				'update_unread'		=> true
 			);
 
 			($hook = get_hook('po_pre_add_post')) ? eval($hook) : null;
 			if (!defined('FORUM_FUNCTIONS_ADD_POST'))
 				require FORUM_ROOT.'include/functions/add_post.php';
-
 			add_post($post_info, $new_pid);
 		}
 		else if ($tid && $merged)
 		{
 			$post_info = array(
-				'message'		=> $message,
+				'message'			=> $message,
 				'hide_smilies'		=> $hide_smilies,
-				'poster_id'		=> $forum_user['id'],
-				'post_id'		=> $cur_posting['post_id'],
-				'posted'		=> $now,
-				'user_agent'		=> !empty($_SERVER['HTTP_USER_AGENT']) ? str_replace(' ', '', $_SERVER['HTTP_USER_AGENT']) : '',
-				'topic_id'		=> $tid,
-				'forum_id'		=> $cur_posting['id'],
+				'poster_id'			=> $forum_user['id'],
+				'post_id'			=> $cur_posting['post_id'],
+				'posted'			=> $now,
+				'topic_id'			=> $tid,
+				'forum_id'			=> $cur_posting['id'],
 			);
 
 			($hook = get_hook('po_pre_merged_post')) ? eval($hook) : null;
 			if (!defined('FORUM_FUNCTIONS_MERGET_POST'))
 				require FORUM_ROOT.'include/functions/merged_post.php';
-
 			merged_post($post_info, $new_pid);
 		}
 		// If it's a new topic
 		else if ($fid)
 		{
 			$post_info = array(
-				'is_guest'		=> $forum_user['is_guest'],
-				'poster'		=> $username,
-				'poster_id'		=> $forum_user['id'], // Always 1 for guest posts
+				'is_guest'			=> $forum_user['is_guest'],
+				'poster'			=> $username,
+				'poster_id'			=> $forum_user['id'], // Always 1 for guest posts
 				'poster_email'		=> ($forum_user['is_guest'] && $email != '') ? $email : null, // Always null for non-guest posts
-				'subject'		=> $subject,
+				'subject'			=> $subject,
 				'description'		=> $description,
-				'poll'			=> $poll,
-				'message'		=> $message,
+				'message'			=> $message,
 				'hide_smilies'		=> $hide_smilies,
-				'posted'		=> $now,
-				'user_agent'		=> !empty($_SERVER['HTTP_USER_AGENT']) ? str_replace(' ', '', $_SERVER['HTTP_USER_AGENT']) : '',
-				'question'		=> $question,
-				'answers'		=> $answers,
-				'days'			=> $days,
-				'votes'			=> $votes,
-				'read_unvote_users'	=> $read_unvote_users,
-				'revote'		=> $revote,
-				'subscribe'		=> ($forum_config['o_subscriptions'] && (isset($_POST['subscribe']) && $_POST['subscribe'] == '1')),
-				'forum_id'		=> $fid,
+				'posted'			=> $now,
+				'question'			=> $question,
+				'answers'			=> $answers,
+				'days'				=> $days,
+				'votes'				=> $votes,
+				'read_unvote'		=> $read_unvote,
+				'revote'			=> $revote,
+				'poll_created'		=> ($question) ? $now : 0,
+				'subscribe'			=> ($forum_config['o_subscriptions'] && (isset($_POST['subscribe']) && $_POST['subscribe'] == '1')),
+				'forum_id'			=> $fid,
 				'update_user'		=> true,
+				'counter'			=> $cur_posting['counter'],
 				'update_unread'		=> true
 			);
 
@@ -447,8 +452,8 @@ $forum_page['form_action'] = ($tid ? forum_link($forum_url['new_reply'], $tid) :
 $forum_page['form_attributes'] = array();
 
 $forum_page['hidden_fields'] = array(
-	'form_sent'	=> '<input type="hidden" name="form_sent" value="1" />',
-	'form_user'	=> '<input type="hidden" name="form_user" value="'.((!$forum_user['is_guest']) ? forum_htmlencode($forum_user['username']) : 'Guest').'" />',
+	'form_sent'		=> '<input type="hidden" name="form_sent" value="1" />',
+	'form_user'		=> '<input type="hidden" name="form_user" value="'.((!$forum_user['is_guest']) ? forum_htmlencode($forum_user['username']) : 'Guest').'" />',
 	'csrf_token'	=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
 );
 
@@ -470,7 +475,7 @@ $forum_page['crumbs'][] = $tid ? $lang_post['Post reply'] : $lang_post['Post new
 
 ($hook = get_hook('po_pre_header_load')) ? eval($hook) : null;
 
-define('FORUM_PAGE', 'post');
+define('FORUM_PAGE', (isset($fid) ? 'new-': '').'post');
 require FORUM_ROOT.'header.php';
 
 // START SUBST - <!-- forum_main -->
@@ -482,18 +487,8 @@ ob_start();
 if (isset($_POST['preview']) && empty($errors))
 {
 
-	$forum_js->addFile($base_url.'/include/js/jquery.js');
+	$forum_js->addFile($js['jquery']);
 	$forum_js->addCode('$(document).ready( function() {
-		$(".spoiler-head").toggle(
-			function() {
-			$(this).children().text(\''.$lang_common['Hide spoiler'].'\');
-				$(this).next().show("slow");
-			},
-			function() {
-				$(this).children().text(\''.$lang_common['Show spoiler'].'\');
-				$(this).next().hide("slow");
-			}
-		)
 		$(\'.hide-head\').toggle(
 			function() {
 			$(this).children().text(\''.$lang_common['Hidden text'].'\');
@@ -635,14 +630,15 @@ if ($fid)
 					</div>
 				</div>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
-					<div class="sf-box text required longtext">
-						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_post['Topic description'] ?><em></em></span></label><br />
-						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="desc" value="<?php if (isset($_POST['desc'])) echo forum_htmlencode($description); ?>" size="80" maxlength="100" class="inputbox" /></span>
+					<div class="sf-box text longtext">
+						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_post['Topic description'] ?><em></em></span></label>
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="description" value="<?php if (isset($_POST['description'])) echo forum_htmlencode($description); ?>" size="80" maxlength="100" /></span>
 					</div>
 				</div>
 <?php
 
 }
+
 ($hook = get_hook('po_pre_post_contents')) ? eval($hook) : null;
 
 ?>
@@ -650,7 +646,7 @@ if ($fid)
 					<div class="txt-box textarea required">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_post['Write message'] ?> <?php if ($forum_config['p_force_guest_email']) echo '<em>'.$lang_common['Required'].'</em>' ?></span></label><br />
 <?php require FORUM_ROOT.'bb.php'; ?>
-						<div class="txt-input"><span class="fld-input"><textarea id="fld<?php echo $forum_page['fld_count'] ?>" class="inputbox"  name="req_message" rows="14" cols="95"><?php echo isset($_POST['req_message']) ? forum_htmlencode($message) : (isset($forum_page['quote']) ? forum_htmlencode($forum_page['quote']) : '');   ?></textarea></span></div>
+						<div class="txt-input"><span class="fld-input"><textarea id="text" class="inputbox"  name="req_message" rows="14" cols="95"><?php echo isset($_POST['req_message']) ? forum_htmlencode($message) : (isset($forum_page['quote']) ? forum_htmlencode($forum_page['quote']) : '');   ?></textarea></span></div>
 					</div>
 				</div>
 <?php
@@ -658,7 +654,7 @@ if ($fid)
 $forum_page['checkboxes'] = array();
 if ($forum_config['o_smilies'])
 	$forum_page['checkboxes']['hide_smilies'] = '<div class="mf-item"><span class="fld-input"><input type="checkbox" id="fld'.(++$forum_page['fld_count']).'" name="hide_smilies" value="1"'.(isset($_POST['hide_smilies']) ? ' checked="checked"' : '').' /></span> <label for="fld'.$forum_page['fld_count'].'">'.$lang_post['Hide smilies'].'</label></div>';
-if ($forum_user['is_admmod'] && $forum_config['o_merge_timeout'])
+if ($tid && $forum_config['o_merge_timeout'])
 	$forum_page['checkboxes']['merge'] = '<div class="mf-item"><span class="fld-input"><input type="checkbox" id="fld'.(++$forum_page['fld_count']).'" name="merge" value="1"'.(!isset($_POST['merge']) ? ' checked="checked"' : '').' /></span> <label for="fld'.$forum_page['fld_count'].'">'.$lang_post['Merge posts'].'</label></div>';
 
 // Check/uncheck the checkbox for subscriptions depending on scenario
@@ -705,7 +701,7 @@ if (!empty($forum_page['checkboxes']))
 ($hook = get_hook('po_req_info_fieldset_end')) ? eval($hook) : null;
 
 //Show form for creation of poll
-if (($fid && empty($forum_user['is_guest'])) && ($forum_user['g_poll_add'] || $forum_user['g_id'] == FORUM_ADMIN))
+if ($fid && ($forum_user['g_poll_add'] || $forum_user['g_id'] == FORUM_ADMIN))
 {
 
 	require FORUM_ROOT.'include/functions/form_poll.php';

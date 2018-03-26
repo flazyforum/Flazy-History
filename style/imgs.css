@@ -76,6 +76,15 @@ a.wiki {
 .moikrug {
 	background-image: url(../img/style/p_moikrug.png);
 }
+.facebook {
+	background-image: url(../img/style/p_facebook.png);
+}
+.twitter {
+	background-image: url(../img/style/p_twitter.png);
+}
+.lastfm {
+	background-image: url(../img/style/p_lastfm.png);
+}
 .browser {
 	background-image: url(../img/style/p_browser.png);
 }
@@ -133,19 +142,19 @@ a.wiki {
 #bt-hide span {
 	background-position: -222px 0;
 }
-#bt-spo span {
+#bt-quote span {
 	background-position: -238px 0;
 }
-#bt-quote span {
+#bt-code span {
 	background-position: -254px 0;
 }
-#bt-code span {
+#bt-color span {
 	background-position: -270px 0;
 }
-#bt-color span {
-	background-position: -286px 0;
-}
 #bt-smile span {
+	background-position: -286px 0
+}
+#bt-speller span {
 	background-position: -302px 0;
 }
 .brd .main-options span.feed a {

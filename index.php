@@ -3,7 +3,7 @@
  * Показывает список категорий/форумов, что участники могут видеть, вместе с некоторыми статистическими данными.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL версии 2 или выше
  * @package Flazy
  */
@@ -35,11 +35,11 @@ if (!$forum_user['is_guest'])
 		'JOINS'		=> array(
 			array(
 				'INNER JOIN'	=> 'forums AS f',
-				'ON'		=> 'f.id=t.forum_id'
+				'ON'			=> 'f.id=t.forum_id'
 			),
 			array(
-				'LEFT JOIN'	=> 'forum_perms AS fp',
-				'ON'		=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
+				'LEFT JOIN'		=> 'forum_perms AS fp',
+				'ON'			=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
 			)
 		),
 		'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1) AND t.last_post>'.$forum_user['last_visit'].' AND t.moved_to IS NULL'
@@ -69,12 +69,9 @@ if (!$forum_user['is_guest'])
 
 ($hook = get_hook('in_pre_header_load')) ? eval($hook) : null;
 
-$forum_js->addFile($base_url.'/include/js/jquery.js');
-$forum_js->addFile($base_url.'/include/js/jquery.tooltip.js');
+$forum_js->addFile(array($js['jquery'], $js['tooltip'], $js['cookies']));
 $forum_js->addCode('$(document).ready(function() {
 		$(\'a.toggle\').show();
-		$(\'a.toggle\').toggle(function() {$(this).attr(\'title\', \''.$lang_index['Show category'].'\');},
-		function() {$(this).attr(\'title\', \''.$lang_index['Hide category'].'\');});
 		$(\'.info-lastpost a, #brd-today a\').tooltip({ track: true, delay: 0, showURL: false, showBody: " - ", fade: 250 });
 		$(\'#block\').click($.tooltip.block);
 	});');
@@ -90,11 +87,11 @@ ob_start();
 
 // Print the categories and forums
 $query = array(
-	'SELECT'	=> 'c.id AS cid, c.cat_name, f.id AS fid, f.forum_name, f.forum_desc, f.redirect_url, f.moderators, f.num_topics, f.num_posts, f.last_post, f.last_post_id, f.last_poster, f.sort_by, t.subject, t.description, u.id AS uid',
+	'SELECT'	=> 'c.id AS cid, c.cat_name, f.id AS fid, f.forum_name, f.forum_desc, f.redirect_url, f.moderators, f.num_topics, f.num_posts, f.last_post, f.last_post_id, f.last_poster, f.sort_by, t.subject, t.description, t.last_poster_id',
 	'FROM'		=> 'categories AS c',
 	'JOINS'		=> array(
 		array(
-			'INNER JOIN'		=> 'forums AS f',
+			'INNER JOIN'	=> 'forums AS f',
 			'ON'			=> 'c.id=f.cat_id'
 		),
 		array(
@@ -104,10 +101,6 @@ $query = array(
 		array(
 			'LEFT JOIN'		=> 'topics AS t',
 			'ON'			=> 'f.last_post_id=t.last_post_id'
-		),
-		array(
-			'LEFT JOIN'		=> 'users AS u',
-			'ON'			=> 'u.username=t.last_poster'
 		)
 	),
 	'WHERE'		=> ($cid ? 'c.id='.$cid . ' AND ' : '').'fp.read_forum IS NULL OR fp.read_forum=1',
@@ -117,7 +110,7 @@ $query = array(
 ($hook = get_hook('in_qr_get_cats_and_forums')) ? eval($hook) : null;
 $result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 
-$forum_page['cur_category'] = $forum_page['cat_count'] = $forum_page['item_count'] = 0;
+$forum_page['cur_category'] = $forum_page['item_count'] = 0;
 
 while ($cur_forum = $forum_db->fetch_assoc($result))
 {
@@ -130,7 +123,6 @@ while ($cur_forum = $forum_db->fetch_assoc($result))
 		if ($forum_page['cur_category'] != 0)
 			echo "\t".'</div>'."\n";
 
-		++$forum_page['cat_count'];
 		$forum_page['item_count'] = 1;
 
 		$forum_page['item_header'] = array();
@@ -139,14 +131,17 @@ while ($cur_forum = $forum_db->fetch_assoc($result))
 		$forum_page['item_header']['info']['post'] = '<strong class="info-posts">'.$lang_index['posts'].'</strong>';
 		$forum_page['item_header']['info']['lastpost'] = '<strong class="info-lastpost">'.$lang_index['last post'].'</strong>';
 
+		$forum_page['toggle'][] = 'if($.cookie(\'#category'.$cur_forum['cid'].'\')) {$(\'#category'.$cur_forum['cid'].'\').hide(); $(\'#toggle'.$cur_forum['cid'].'\').toggleClass(\'hide\'); }'."\n";
+
 		($hook = get_hook('in_forum_pre_cat_head')) ? eval($hook) : null;
+
 ?>
 	<div class="main-subhead">
-		<a id="toggle<? echo $forum_page['cat_count'] ?>" href="#" onclick="$('#category<? echo $forum_page['cat_count'] ?>').toggle(500); $('#toggle<? echo $forum_page['cat_count'] ?>').toggleClass('hide');" class="toggle hide" title="<?php echo $lang_index['Hide category'] ?>">&nbsp;</a>
+		<a id="toggle<? echo $cur_forum['cid'] ?>" href="#" onclick="$('#category<? echo $cur_forum['cid'] ?>').toggle(500); $('#toggle<? echo $cur_forum['cid'] ?>').toggleClass('hide'); if($.cookie('#category<?php echo $cur_forum['cid'] ?>')) $.cookie('#category<? echo $cur_forum['cid'] ?>', null); else $.cookie('#category<? echo $cur_forum['cid'] ?>', 'hide', {expires: 365}); return false;" class="toggle hide">&nbsp;</a>
 		<h2 class="hn"><span id="cat<? echo $cur_forum['cid'] ?>"><?php echo forum_htmlencode($cur_forum['cat_name']) ?></span></h2>
 		<p class="item-summary"><span><?php printf($lang_index['Category subtitle'], implode(' ', $forum_page['item_header']['subject']), implode(', ', $forum_page['item_header']['info'])) ?></span></p>
 	</div>
-	<div id="category<?php echo $forum_page['cat_count'] ?>" class="main-content main-category">
+	<div id="category<?php echo $cur_forum['cid'] ?>" class="main-content main-category">
 <?php
 
 		$forum_page['cur_category'] = $cur_forum['cid'];
@@ -158,7 +153,7 @@ while ($cur_forum = $forum_db->fetch_assoc($result))
 	// Is this a redirect forum?
 	if ($cur_forum['redirect_url'] != '')
 	{
-		$forum_page['item_body']['subject']['title'] = '<h3 class="hn"><a class="external" href="'.forum_htmlencode($cur_forum['redirect_url']).'" title="'.sprintf($lang_index['Link to'], forum_htmlencode($cur_forum['redirect_url'])).'"><span>'.forum_htmlencode($cur_forum['forum_name']).'</span></a></h3>';
+		$forum_page['item_body']['subject']['title'] = '<h3 class="hn"><a class="external" href="'.forum_link('click.php').'?'.forum_htmlencode($cur_forum['redirect_url']).'" title="'.sprintf($lang_index['Link to'], forum_htmlencode($cur_forum['redirect_url'])).'"><span>'.forum_htmlencode($cur_forum['forum_name']).'</span></a></h3>';
 		$forum_page['item_status']['redirect'] = 'redirect';
 
 		if ($cur_forum['forum_desc'] != '')
@@ -241,7 +236,7 @@ while ($cur_forum = $forum_db->fetch_assoc($result))
 			$desc['subject'] = forum_htmlencode(forum_htmlencode($cur_forum['subject']));
 			$desc['description'] = ($cur_forum['description'] != '') ?' - '.forum_htmlencode(forum_htmlencode($cur_forum['description'])) : '';
 
-			$forum_page['item_body']['info']['lastpost'] = '<li class="info-lastpost"><span class="label">'.$lang_index['Last post'].'</span> <strong><a href="'.forum_link($forum_url['post'], $cur_forum['last_post_id']).'" title="'.implode('', $desc).'">'.(utf8_strlen($cur_forum['subject']) > 20 ? forum_htmlencode(forum_trim(utf8_substr($cur_forum['subject'], 0, 23))).$lang_common['Spacer'] : forum_htmlencode($cur_forum['subject'])).'</a></strong><cite>'.format_time($cur_forum['last_post']).$lang_common['Title separator'].($cur_forum['uid'] > 1 ? '<a href="'.forum_link($forum_url['user'], $cur_forum['uid']).'">'. forum_htmlencode($cur_forum['last_poster']).'</a>': forum_htmlencode($cur_forum['last_poster'])).'</cite></li>';
+			$forum_page['item_body']['info']['lastpost'] = '<li class="info-lastpost"><span class="label">'.$lang_index['Last post'].'</span> <strong><a href="'.forum_link($forum_url['post'], $cur_forum['last_post_id']).'" title="'.implode('', $desc).'">'.(utf8_strlen($cur_forum['subject']) > 20 ? forum_htmlencode(forum_trim(utf8_substr($cur_forum['subject'], 0, 23))).$lang_common['Spacer'] : forum_htmlencode($cur_forum['subject'])).'</a></strong><cite>'.format_time($cur_forum['last_post']).$lang_common['Title separator'].($cur_forum['last_poster_id'] > 1 ? '<a href="'.forum_link($forum_url['user'], $cur_forum['last_poster_id']).'">'. forum_htmlencode($cur_forum['last_poster']).'</a>': forum_htmlencode($cur_forum['last_poster'])).'</cite></li>';
 		}
 		else
 			$forum_page['item_body']['info']['lastpost'] = '<li class="info-lastpost"><strong>'.$lang_index['Forum is empty'].'</strong>'.($forum_user['id'] > 1 ? '<span><a href="'.forum_link($forum_url['new_topic'], $cur_forum['fid']).'">'.$lang_index['First post nag'].'</a></span>' : '' ).'</li>';
@@ -267,6 +262,9 @@ while ($cur_forum = $forum_db->fetch_assoc($result))
 <?php
 
 }
+$forum_js->addCode('$(document).ready(function() {
+		'.implode("\t\t", $forum_page['toggle']).'
+	});');
 // Did we output any categories and forums?
 if ($forum_page['cur_category'] > 0)
 	echo  "\t".'</div>'."\n";
@@ -355,11 +353,9 @@ $stats_list['no_of_topics'] = '<li class="st-activity"><span>'.sprintf($lang_ind
 <?php
 
 ($hook = get_hook('in_stats_end')) ? eval($hook) : null;
-($hook = get_hook('in_users_online_start')) ? eval($hook) : null;
 
 if ($forum_config['o_users_online'])
 {
-
 	// Fetch users online info and generate strings for output
 	$query = array(
 		'SELECT'	=> 'o.user_id, o.ident',
@@ -387,10 +383,11 @@ if ($forum_config['o_users_online'])
 			++$forum_page['num_guests'];
 	}
 
-	$forum_page['online_info'] = array();
-	$forum_page['online_info']['guests'] = '<strong>'.forum_number_format($forum_page['num_guests']).'</strong> '.declination($forum_page['num_guests'], array($lang_common['Guests none'], $lang_common['Guests single'], $lang_common['Guests plural']));
-	$forum_page['online_info']['users'] = '<strong>'.forum_number_format($forum_page['num_users']).'</strong> '.declination($forum_page['num_users'], array($lang_index['Users none'], $lang_index['Users single'], $lang_index['Users plural']));
-		
+	$forum_page['online_info'] = array(
+		'guests'	=> '<strong>'.forum_number_format($forum_page['num_guests']).'</strong> '.declination($forum_page['num_guests'], array($lang_common['Guests none'], $lang_common['Guests single'], $lang_common['Guests plural'])),
+		'users'		=> '<strong>'.forum_number_format($forum_page['num_users']).'</strong> '.declination($forum_page['num_users'], array($lang_index['Users none'], $lang_index['Users single'], $lang_index['Users plural']))
+	);
+
 	($hook = get_hook('in_users_online_pre_online_info_output')) ? eval($hook) : null;
 
 ?>
@@ -414,7 +411,7 @@ if ($forum_config['o_online_today'])
 		'ORDER BY'	=> 'u.username ASC'
 	);
 
-	($hook = get_hook('in_online_today_qr_get')) ? eval($hook) : null;	
+	($hook = get_hook('in_fl_online_today_qr_get')) ? eval($hook) : null;	
 	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 	$count_users = 0;
 	$users = array();
@@ -425,15 +422,19 @@ if ($forum_config['o_online_today'])
 		++$count_users;
 	}
 
-	$forum_page['online_info'] = '<strong>'.forum_number_format($count_users ).'</strong> '.declination($count_users , array($lang_index['Users none'], $lang_index['Users single'], $lang_index['Users plural']));
+	$forum_page['online_today'] = '<strong>'.forum_number_format($count_users ).'</strong> '.declination($count_users , array($lang_index['Users none'], $lang_index['Users single'], $lang_index['Users plural']));
+
+	($hook = get_hook('in_fl_pre_online_today_list')) ? eval($hook) : null;
+
 ?>
 <div id="brd-today" class="gen-content index-stat">
-	<h3 class="hn"><span><?php printf($lang_index['Online today'], forum_link($forum_url['statistic'], 'onlinetoday'), $forum_page['online_info']) ?></span></h3>
+	<h3 class="hn"><span><?php printf($lang_index['Online today'], forum_link($forum_url['statistic'], 'onlinetoday'), $forum_page['online_today']) ?></span></h3>
 <?php if ($count_users > 0): ?>
 	<p><?php echo implode($lang_index['Online list separator'], $users) ?></p>
 <?php endif; ($hook = get_hook('in_new_today_data')) ? eval($hook) : null; ?>
 </div>
 <?php
+
 }
 
 ($hook = get_hook('in_online_today_end')) ? eval($hook) : null;
@@ -441,68 +442,41 @@ if ($forum_config['o_online_today'])
 //Рекорд онлайна
 if ($forum_config['o_record'])
 {
-	if (!$forum_config['o_users_online'])
-	{
-		// Fetch users online info and generate strings for output
-		$query = array(
-			'SELECT'	=> 'o.user_id, o.ident',
-			'FROM'		=> 'online AS o',
-			'WHERE'		=> 'o.idle=0',
-			'ORDER BY'	=> 'o.ident'
-		);
+	$forum_page['most_online'] = array(
+		'guests'	=> '<strong>'.forum_number_format($forum_config['c_max_guests']).'</strong> '.declination($forum_config['c_max_guests'], array($lang_common['Guests none'], $lang_common['Guests single'], $lang_common['Guests plural'])),
+		'reg_users'	=> '<strong>'.forum_number_format($forum_config['c_max_users']).'</strong> '.declination($forum_config['c_max_users'], array($lang_index['Users none'], $lang_index['Users single'], $lang_index['Users plural'])),
+		'users'		=> '<strong>'.forum_number_format($forum_config['c_max_total_users']).'</strong> '.declination($forum_config['c_max_total_users'], array($lang_index['All users none'], $lang_index['All users single'], $lang_index['All users plural']))
+	);
 
-		($hook = get_hook('in_record_qr_get')) ? eval($hook) : null;	
-		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-	
-		$forum_page['num_guests'] = $forum_page['num_users'] = 0;
-		$users = array();
-
-		while ($forum_user_record = $forum_db->fetch_assoc($result))
-		{
-			if ($forum_user_record['user_id'] > 1)
-			{
-				$users[] = $forum_user_record['ident'];
-				++$forum_page['num_users'];
-			}
-			else
-				++$forum_page['num_guests'];
-		}
-	}
-
-	if (!defined('FORUM_FUNCTIONS_RECORD'))
-		require FORUM_ROOT.'include/functions/record.php';
-			
-	$forum_page['most_online'] = array();
-	$forum_page['most_online']['guests'] = '<strong>'.forum_number_format($forum_config['c_max_guests']).'</strong> '.declination($forum_config['c_max_guests'], array($lang_common['Guests none'], $lang_common['Guests single'], $lang_common['Guests plural']));
-	$forum_page['most_online']['reg_users'] = '<strong>'.forum_number_format($forum_config['c_max_users']).'</strong> '.declination($forum_config['c_max_users'], array($lang_index['Users none'], $lang_index['Users single'], $lang_index['Users plural']));
-	$forum_page['most_online']['users'] = '<strong>'.forum_number_format($forum_config['c_max_total_users']).'</strong> '.declination($forum_config['c_max_total_users'], array($lang_index['All users none'], $lang_index['All users single'], $lang_index['All users plural']));
-
-	($hook = get_hook('in_pre_mosl_online_list')) ? eval($hook) : null;
+	($hook = get_hook('in_fl_pre_most_online_list')) ? eval($hook) : null;
 
 ?>
 <div id="brd-mostonline" class="gen-content index-stat">
 	<h3 class="hn"><span><?php printf($lang_index['Most online'], implode($lang_index['Online list separator'], $forum_page['most_online'])) ?></span></h3>
-<?php ($hook = get_hook('in_pre_mosl_online_list')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('in_fl_pre_most_online_list')) ? eval($hook) : null; ?>
 </div>
 <?php
+
 }
 
-($hook = get_hook('in_statistic_end')) ? eval($hook) : null;
+($hook = get_hook('in_fl_statistic_end')) ? eval($hook) : null;
 
 //Ссылки на статистику
-if ($forum_config['o_record'])
+if ($forum_config['o_statistic'])
 {
-	$forum_page['stat']['top_author'] = '<a href="'.forum_link($forum_url['statistic'], 'topauthor').'">'.$lang_index['Top author'].'</a>';
-	$forum_page['stat']['top_replies'] = '<a href="'.forum_link($forum_url['statistic'], 'topreplies').'">'.$lang_index['Top replies'].'</a>';
-	$forum_page['stat']['top_views'] = '<a href="'.forum_link($forum_url['statistic'], 'topviews').'">'.$lang_index['Top views'].'</a>';
-	$forum_page['stat']['bans'] = '<a href="'.forum_link($forum_url['statistic'], 'bans').'">'.$lang_index['Bans'].'</a>';
+	$forum_page['stat'] = array(
+		'top_author'	=> '<a href="'.forum_link($forum_url['statistic'], 'topauthor').'">'.$lang_index['Top author'].'</a>',
+		'top_replies'	=> '<a href="'.forum_link($forum_url['statistic'], 'topreplies').'">'.$lang_index['Top replies'].'</a>',
+		'top_views'		=> '<a href="'.forum_link($forum_url['statistic'], 'topviews').'">'.$lang_index['Top views'].'</a>',
+		'bans'			=> '<a href="'.forum_link($forum_url['statistic'], 'bans').'">'.$lang_index['Bans'].'</a>',
+	);
 
-	($hook = get_hook('in_pre_stat_list')) ? eval($hook) : null;
+	($hook = get_hook('in_fl_pre_stat_list')) ? eval($hook) : null;
 
 ?>
 <div id="brd-statlist" class="gen-content index-stat">
 	<p><?php echo implode($lang_index['Online stats separator'], $forum_page['stat']) ?></p>
-<?php ($hook = get_hook('in_pre_stat_list')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('in_fl_pre_stat_list')) ? eval($hook) : null; ?>
 </div>
 <?php
 

@@ -3,7 +3,7 @@
  * Скрипт для просмотра и редактирования результатов голосования.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -13,31 +13,41 @@ if (!defined('FORUM_ROOT'))
 	define('FORUM_ROOT', './');
 require FORUM_ROOT.'include/common.php';
 
-($hook = get_hook('vp_start')) ? eval($hook) : null;
+($hook = get_hook('vp_fl_start')) ? eval($hook) : null;
 
 if (!$forum_user['is_admmod'])
 	message($lang_common['No permission']);
 
-$id = isset($_GET['id']) ? $_GET['id'] : null;
+$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 if ($id < 1)
 	message($lang_common['Bad request']);
+
+($hook = get_hook('vp_fl_info')) ? eval($hook) : null;
 
 // Load the reputation.php language file
 require FORUM_ROOT.'lang/'.$forum_user['language'].'/poll.php';
 
 $query = array(
-	'SELECT'	=> 'q.question, t.id AS topic_id, t.subject',
-	'FROM'		=> 'questions AS q',
+	'SELECT'	=> 'f.cat_id, c.cat_name, f.id AS forum_id, f.forum_name, t.question, t.subject',
+	'FROM'		=> 'topics AS t',
 	'JOINS'		=> array(
 		array(
-			'INNER JOIN'		=> 'topics AS t',
-			'ON'			=> 't.id=.q.topic_id'
+			'INNER JOIN'	=> 'forums AS f',
+			'ON'			=> 'f.id=t.forum_id'
+		),
+		array(
+			'INNER JOIN'	=> 'categories AS c',
+			'ON'			=> 'c.id=f.cat_id'
+		),
+		array(
+			'LEFT JOIN'		=> 'forum_perms AS fp',
+			'ON'			=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
 		)
 	),
-	'WHERE'		=> 'q.topic_id='.$id
+	'WHERE'		=> 't.id='.$id
 );
 
-($hook = get_hook('vp_qr_get_question')) ? eval($hook) : null;
+($hook = get_hook('vp_fl_qr_get_question')) ? eval($hook) : null;
 $result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 if (!$forum_db->num_rows($result))
@@ -45,12 +55,12 @@ if (!$forum_db->num_rows($result))
 
 $cur_topic = $forum_db->fetch_assoc($result);
 
+// Check for use of incorrect URLs
+confirm_current_url(forum_link($forum_url['poll'], array($id, sef_friendly($cur_topic['subject']))));
+
 if (isset($_POST['delete']))
 {
-	($hook = get_hook('vp_form_delete')) ? eval($hook) : null;
-
-	// Check for use of incorrect URLs
-	confirm_current_url(forum_link($forum_url['poll'], array($id, sef_friendly($cur_topic['question']))));
+	($hook = get_hook('vp_fl_form_delete')) ? eval($hook) : null;
 
 	// Delete reputation
 	$query = array(
@@ -58,25 +68,24 @@ if (isset($_POST['delete']))
 		'WHERE'		=> 'id IN('.implode(',', array_values($_POST['delete'])).')'
 	);
 
-	($hook = get_hook('vp_delete_voting_id_qr_get')) ? eval($hook) : null;
+	($hook = get_hook('vp_fl_delete_voting_id_qr_get')) ? eval($hook) : null;
 	$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
-	($hook = get_hook('vp_form_delete_pre_redirect')) ? eval($hook) : null;
+	($hook = get_hook('vp_fl_form_delete_pre_redirect')) ? eval($hook) : null;
 
-	redirect(forum_link($forum_url['poll'], array($id, sef_friendly($cur_topic['question']))), $lang_poll['Deleted redirect']);
+	redirect(forum_link($forum_url['poll'], array($id, sef_friendly($cur_topic['subject']))), $lang_poll['Deleted redirect']);
 }
 
 if ($id)
 {
-	// Check for use of incorrect URLs
-	confirm_current_url(forum_link($forum_url['poll'], array($id, sef_friendly($cur_topic['question']))));
+
 
 	$forum_page['form_action'] = forum_link($forum_url['poll'], array($id, sef_friendly($cur_topic['question'])));
 	$forum_page['form_attributes'] = array();
 
 	$forum_page['hidden_fields'] = array(
 		'form_sent'		=> '<input type="hidden" name="form_sent" value="1" />',
-		'csrf_token'		=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
+		'csrf_token'	=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
 	);
 
 	if ($forum_config['o_censoring'])
@@ -85,14 +94,14 @@ if ($id)
 		$cur_topic['question'] = censor_words($cur_topic['question']);
 	}
 
-	// Setup breadcrumbs
 	$forum_page['crumbs'] = array(
 		array($forum_config['o_board_title'], forum_link($forum_url['index'])),
-		array($cur_topic['subject'], forum_link($forum_url['topic'], array($cur_topic['topic_id'], sef_friendly($cur_topic['subject'])))),
-		array(forum_htmlencode($cur_topic['question']), forum_link($forum_url['poll'], array($id, sef_friendly($cur_topic['question']))))
+		array($cur_topic['cat_name'], forum_link($forum_url['category'], $cur_topic['cat_id'])),
+		array($cur_topic['forum_name'], forum_link($forum_url['forum'], array($cur_topic['forum_id'], sef_friendly($cur_topic['forum_name'])))),
+		array($cur_topic['subject'], forum_link($forum_url['poll'], array($id, sef_friendly($cur_topic['subject']))))
 	);
 
-	($hook = get_hook('vp_pre_header_load')) ? eval($hook) : null;
+	($hook = get_hook('vp_fl_pre_header_load')) ? eval($hook) : null;
 
 	define('FORUM_PAGE', 'viewpoll');
 	require FORUM_ROOT.'header.php';
@@ -118,7 +127,7 @@ if ($id)
 		'WHERE'		=> 'v.topic_id='.$id
 	);
 
-	($hook = get_hook('vp_qr_get_voting')) ? eval($hook) : null;
+	($hook = get_hook('vp_fl_qr_get_voting')) ? eval($hook) : null;
 	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 	if ($forum_db->num_rows($result) > 0)
 		list($vote_count) = $forum_db->fetch_row($result);
@@ -150,10 +159,10 @@ if ($id)
 		'ORDER BY'	=> 'a.id'
 	);
 
-	($hook = get_hook('vp_qr_get_select_answers')) ? eval($hook) : null;
+	($hook = get_hook('vp_fl_qr_get_select_answers')) ? eval($hook) : null;
 	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 
-	$num = 0;
+	$forum_page['item_count'] = 0;
 	while (list($answer, $vote) = $forum_db->fetch_row($result))
 	{
 		($hook = get_hook('vp_answers_loop_start')) ? eval($hook) : null;
@@ -161,14 +170,18 @@ if ($id)
 		if ($forum_config['o_censoring'])
 			$answer = censor_words($answer);
 
-		$vote_answers['answers'] = '<td class="tc0">'.forum_htmlencode($answer).'</td>';
-		$vote_answers['count'] = '<td class="tc1"><h1 class="count-poll" style="width: '.forum_number_format((float)$vote/$vote_count * 100, 2).'%;"/></td>';
-		$vote_answers['percent'] = '<td class="tc2">'.forum_number_format((float)$vote/$vote_count * 100, 2).'% — '.forum_number_format($vote).'</td>';
-		$num++;
+		$forum_page['table_row'] = array();
+		$forum_page['table_row']['answers'] = '<td class="tc'.count($forum_page['table_row']).'">'.forum_htmlencode($answer).'</td>';
+		$forum_page['table_row']['count'] = '<td class="tc'.count($forum_page['table_row']).'"><h1 class="count-poll" style="width: '.forum_number_format((float)$vote/$vote_count * 100, 2).'%;"/></td>';
+		$forum_page['table_row']['percent'] = '<td class="tc'.count($forum_page['table_row']).'">'.forum_number_format((float)$vote/$vote_count * 100, 2).'% — '.forum_number_format($vote).'</td>';
+
+		++$forum_page['item_count'];
+
+		($hook = get_hook('vp_fl_results_row_pre_data_output')) ? eval($hook) : null;
 
 ?>
-				<tr class="<?php echo ($num % 2 == 0 ? 'even' : 'odd') ?>">
-					<?php echo implode("\n\t\t\t\t\t", $vote_answers)."\n" ?>
+				<tr class="<?php echo ($forum_page['item_count'] % 2 != 0) ? 'odd' : 'even' ?><?php echo ($forum_page['item_count'] == 1) ? ' row1' : '' ?>">
+					<?php echo implode("\n\t\t\t\t\t\t", $forum_page['table_row'])."\n" ?>
 				</tr>
 <?php
 
@@ -186,11 +199,11 @@ if ($id)
 		'FROM'		=> 'answers AS a',
 		'JOINS'		=> array(
 			array(
-				'INNER JOIN'		=> 'voting AS v',
+				'INNER JOIN'	=> 'voting AS v',
 				'ON'			=> 'v.answer_id=.a.id'
 			),
 			array(
-				'INNER JOIN'		=> 'users AS u',
+				'INNER JOIN'	=> 'users AS u',
 				'ON'			=> 'u.id=v.user_id'
 			),
 		),
@@ -198,7 +211,7 @@ if ($id)
 		'ORDER BY'	=> 'a.id'
 	);
 
-	($hook = get_hook('vp_qr_get_select_answers')) ? eval($hook) : null;
+	($hook = get_hook('vp_fl_qr_get_select_answers')) ? eval($hook) : null;
 	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 	$forum_page['cur_answer'] = $forum_page['item_count'] = $forum_page['fld_count'] = 0;
@@ -259,7 +272,7 @@ if ($id)
 </div>
 <?php
 
-	($hook = get_hook('vp_end')) ? eval($hook) : null;
+	($hook = get_hook('vp_fl_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
 	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);

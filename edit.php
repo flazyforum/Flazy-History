@@ -5,7 +5,7 @@
  * Изменяет содержание указанного сообщения.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -32,24 +32,24 @@ confirm_current_url(forum_link($forum_url['edit'], $id));
 
 // Fetch some info about the post, the topic and the forum
 $query = array(
-	'SELECT'	=> 'f.id AS fid, f.forum_name, f.moderators, f.redirect_url, fp.post_replies, fp.post_topics, t.id AS tid, t.subject, t.description, t.poll, t.posted, t.first_post_id, t.closed, p.poster, p.poster_id, p.message, p.hide_smilies, p.posted AS time_posted, u.email',
+	'SELECT'	=> 'f.id AS fid, f.forum_name, f.moderators, f.redirect_url, fp.post_replies, fp.post_topics, t.id AS tid, t.subject, t.description, t.description, t.question, t.posted, t.first_post_id, t.closed, t.read_unvote, t.revote, t.days_count, t.votes_count, p.poster, p.poster_id, p.message, p.hide_smilies, p.posted AS time_posted, u.email',
 	'FROM'		=> 'posts AS p',
 	'JOINS'		=> array(
 		array(
 			'INNER JOIN'	=> 'topics AS t',
-			'ON'		=> 't.id=p.topic_id'
+			'ON'			=> 't.id=p.topic_id'
 		),
 		array(
 			'INNER JOIN'	=> 'forums AS f',
-			'ON'		=> 'f.id=t.forum_id'
+			'ON'			=> 'f.id=t.forum_id'
 		),
 		array(
-			'LEFT JOIN'	=> 'forum_perms AS fp',
-			'ON'		=> 'fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id']
+			'LEFT JOIN'		=> 'forum_perms AS fp',
+			'ON'			=> 'fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id']
 		),
 		array(
-			'LEFT JOIN'	=> 'users AS u',
-			'ON'		=> 'u.id=p.poster_id'
+			'LEFT JOIN'		=> 'users AS u',
+			'ON'			=> 'u.id=p.poster_id'
 		)
 	),
 	'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1) AND p.id='.$id
@@ -82,31 +82,19 @@ $can_edit_subject = $id == $cur_post['first_post_id'];
 
 // Start with a clean slate
 $errors = array();
-$poll = false;
 
-if ($cur_post['poll'])
+if ($cur_post['question'] != '')
 {
-	//Get info about poll
-	$query = array(
-		'SELECT'	=> 'q.question, q.read_unvote_users, q.revote, q.days_count, q.votes_count',
-		'FROM'		=> 'questions AS q',
-		'WHERE'		=> 'q.topic_id='.$cur_post['tid']
-	);
-
-	($hook = get_hook('ed_qr_get_questions')) ? eval($hook) : null;
-	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-
-	$cur_poll = $forum_db->fetch_assoc($result);
-	$poll = true;
+	($hook = get_hook('ed_fl_form_poll')) ? eval($hook) : null;
 
 	//User didn't edit smth
 	$query = array(
 		'SELECT'	=> 'a.id, a.answer',
 		'FROM'		=> 'answers AS a',
-		'WHERE'		=> 'a.topic_id='.$cur_post['tid']
+		'WHERE'		=> 'a.topic_id='.$cur_post['tid'],
 	);
 
-	($hook = get_hook('ed_qr_get_answers')) ? eval($hook) : null;
+	($hook = get_hook('ed_fl_qr_get_answers')) ? eval($hook) : null;
 	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 	
 	$answers = array();
@@ -117,28 +105,27 @@ if ($cur_post['poll'])
 			$answers[] = $row['answer'];
 		$options_count = $num_rows;
 	}
+
+	($hook = get_hook('ed_fl_form_poll_end')) ? eval($hook) : null;
 }
 
 
 //User press update poll
 if (isset($_POST['update_poll']))
 {
-	($hook = get_hook('ed_form_update_poll')) ? eval($hook) : null;
-
-	// Check for use of incorrect URLs
-	confirm_current_url(forum_link($forum_url['edit'], $id));
+	($hook = get_hook('ed_fl_form_update_poll')) ? eval($hook) : null;
 
 	unset($_POST['form_sent']);
 
 	$subject = forum_trim($_POST['req_subject']);
 	$description = forum_trim($_POST['desc']);
 	$message = forum_linebreaks(forum_trim($_POST['req_message']));
-	$question_poll = forum_trim($_POST['question']);
-	$answers = array_values( $_POST['answer']);
+	$question = forum_trim($_POST['question']);
+	$answers = array_values($_POST['answer']);
 	$days = intval($_POST['days']);
 	$votes = intval($_POST['votes']);
 
-	($hook = get_hook('ed_form_update_poll_post')) ? eval($hook) : null;
+	($hook = get_hook('ed_fl_form_update_poll_post')) ? eval($hook) : null;
 
 	$options_count = (!isset($_POST['ans_count']) || intval($_POST['ans_count']) < 2) ? 0 : intval($_POST['ans_count']);
 
@@ -152,9 +139,9 @@ if (isset($_POST['update_poll']))
 		$errors[] = sprintf($lang_post['Max count options'], $forum_config['p_poll_max_answers']);
 		$options_count =  $forum_config['p_poll_max_answers'];
 	}
+
+	($hook = get_hook('ed_fl_form_update_poll_end')) ? eval($hook) : null;
 }
-else
-	$options_count = 2;
 
 
 if (isset($_POST['form_sent']))
@@ -180,22 +167,43 @@ if (isset($_POST['form_sent']))
 		else if (!$forum_config['p_subject_all_caps'] && is_all_uppercase($description) && !$forum_page['is_admmod'])
 			$description = utf8_ucwords(utf8_strtolower($description));
 
-		if (($forum_user['g_id'] == FORUM_ADMIN || $forum_user['username'] == $cur_post['poster'])&& $poll)
-		{
-			$question_poll = (isset($_POST['question'])) ? forum_trim($_POST['question']) : '';
-			$answers = (isset($_POST['answer']) && !empty($_POST['answer']) && is_array($_POST['answer'])) ? array_values( $_POST['answer']) : null;
-			$days = isset($_POST['days']) && !empty($_POST['days']) ? intval($_POST['days']) : 0;
-			$votes = isset($_POST['votes']) && !empty($_POST['votes']) ? intval($_POST['votes']) : 0;
+		$reset_poll = (isset($_POST['reset_poll']) && $_POST['reset_poll'] == '1') ? 1 : 0;
+		$remove_poll = (isset($_POST['remove_poll']) && $_POST['remove_poll'] == '1') ? 1 : 0;
 
-			if (!empty($_POST['question']) && utf8_strlen($question_poll) < 6)
+		if (!$remove_poll)
+		{
+			$question = forum_trim($_POST['question']);
+			if (utf8_strlen($question) < 6 && $question != '')
 				$errors[] = $lang_post['Poll question info'];
-			if ($answers == null && !empty($_POST['answer']))
-				message($lang_post['Bad request']);
+
+			$answers_form = $_POST['answer'];
+			$answers = array();
+			if ($question != '')
+			{
+				foreach ($answers_form as $ans_num => $ans)
+					if ($ans != '')
+						$answers[] = forum_trim($ans);
+
+				$answers = array_unique($answers);
+				if (count($answers) < 2)
+					$errors[] = $lang_post['Min count options'];
+			}
+
+			$read_unvote = ($forum_config['p_poll_enable_read'] && (isset($_POST['read_unvote']) && $_POST['read_unvote'] == '1')) ? '1' : '0';
+			$revote = ($forum_config['p_poll_enable_revote'] && (isset($_POST['revote']) && $_POST['revote'] == '1')) ? '1' : '0';
+
+			$days = intval($_POST['days']);
 			if ($days > 90 || $days < 0)
 				$errors[] = $lang_post['Days limit'];
+
+			$votes = intval($_POST['votes']);
 			if ($votes != 0 && ($votes > 1000 || $votes < 10))
 				$errors[] = $lang_post['Votes count'];
-			if (!empty($_POST['question']) && $days < 0 && $votes == 0)
+
+			if ($question != '' && $days < 0 && $votes == 0)
+				$errors[] = $lang_post['Input error'];
+
+			if ($question != '' && $days < 0 && $votes == 0)
 				$errors[] = $lang_post['Input error'];
 		}
 	}
@@ -229,222 +237,6 @@ if (isset($_POST['form_sent']))
 	{
 		($hook = get_hook('ed_pre_post_edited')) ? eval($hook) : null;
 
-		if ($can_edit_subject && !$forum_user['is_guest'])
-		{
-			//Is there something to edit?
-			if ($poll)
-			{
-				$reset_poll = (isset($_POST['reset_poll']) && $_POST['reset_poll'] == '1') ? true : false;
-				$remove_poll = (isset($_POST['remove_poll']) && $_POST['remove_poll'] == '1') ? true : false;
-
-				//We need to reset poll
-				if ($reset_poll || $remove_poll)
-				{
-					//Remove voting results
-					$query = array(
-						'DELETE'	=> 'voting',
-						'WHERE'		=> 'topic_id='.$cur_post['tid']
-					);
-
-					($hook = get_hook('ed_qr_get_delete_voting')) ? eval($hook) : null;
-					$forum_db->query_build($query) or error(__FILE__, __LINE__);
-					if ($remove_poll)
-					{
-						//Remove questions
-						$query = array(
-							'DELETE'	=> 'questions',
-							'WHERE'		=> 'topic_id='.$cur_post['tid']
-						);
-
-						($hook = get_hook('ed_qr_get_delete_questions')) ? eval($hook) : null;
-						$forum_db->query_build($query) or error(__FILE__, __LINE__);
-
-						//Remove answers
-						$query = array(
-							'DELETE'	=> 'answers',
-							'WHERE'		=> 'topic_id='.$cur_post['tid']
-						);
-
-						($hook = get_hook('ed_qr_get_delete_answers')) ? eval($hook) : null;
-						$forum_db->query_build($query) or error(__FILE__, __LINE__);
-
-						//Remove poll
-						$query = array(
-							'UPDATE'	=> 'topics',
-							'SET'		=> 'poll=\'NULL\'',
-							'WHERE'		=> 'id='.$cur_post['tid']
-						);
-
-						($hook = get_hook('ed_qr_get_delete_poll')) ? eval($hook) : null;
-						$forum_db->query_build($query) or error(__FILE__, __LINE__);
-					}
-				}
-				else if ($forum_user['g_id'] == FORUM_ADMIN || $forum_user['username'] == $cur_post['poster'])
-				{
-					$count_answers = count($answers);
-					for ($ans_num = 0; $ans_num < $count_answers; $ans_num++)
-					{
-						 $ans = forum_trim($answers[$ans_num]);
-						 if (!empty($ans))
-							$answ[] = $ans;
-					}
-
-					//Determine how many new
-					$query = array(
-						'SELECT'	=> 'id',
-						'FROM'		=> 'answers',
-						'WHERE'		=> 'topic_id='.$cur_post['tid']
-					);
-
-					($hook = get_hook('ed_qr_get_answers_id')) ? eval($hook) : null;
-					$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-					$ans_ids = array();
-					while (list($ans_id) = $forum_db->fetch_row($result))
-						$ans_ids[] = $ans_id;
-
-					$count_answ = count($answ);
-					for ($ans_num = 0; $ans_num < $count_answ; $ans_num++)
-					{
-						//Old answer
-						if (isset($ans_ids[$ans_num]))
-						{
-							$query = array(
-								'UPDATE'	=> 'answers',
-								'SET'		=> 'answer=\''.$forum_db->escape($answ[$ans_num]).'\'',
-								'WHERE'		=> 'id='.$ans_ids[$ans_num]
-							);
-
-							($hook = get_hook('ed_qr_get_update_answers')) ? eval($hook) : null;
-							$forum_db->query_build($query) or error(__FILE__, __LINE__);
-						}
-						else
-						{
-							//New answer
-							$query = array(
-								'INSERT'	=> 'topic_id, answer',
-								'INTO'		=> 'answers',
-								'VALUES'	=> $cur_post['tid'].', \''.$forum_db->escape($answers[$ans_num]).'\''
-							);
-
-							($hook = get_hook('ed_qr_get_new_answers')) ? eval($hook) : null;
-							$forum_db->query_build($query) or error(__FILE__, __LINE__);
-						}
-					}
-
-					//Remove answers
-					if (count($ans_ids) > count($answ))
-					{
-						$ids = implode(',', array_slice($ans_ids, count($answ)));
-						$query = array(
-							'DELETE'	=> 'answers',
-							'WHERE'		=> 'id IN('.$ids .')'
-						);
-
-						($hook = get_hook('ed_qr_get_remove_answers')) ? eval($hook) : null;
-						$forum_db->query_build($query) or error(__FILE__, __LINE__);
-	
-						$query = array(
-							'DELETE'	=> 'voting',
-							'WHERE'		=> 'answer_id IN('.$ids.')'
-						);
-
-						($hook = get_hook('ed_qr_get_remove_voting')) ? eval($hook) : null;
-						$forum_db->query_build($query) or error(__FILE__, __LINE__);
-					}
-
-					//Update question if needed
-					$question_form = (isset($_POST['question'])) ? forum_trim($_POST['question']) : null;
-					if ($question_form == null)
-						message($lang_post['Empty question']);
-
-					$changes = array();
-					if ($cur_poll['question'] != $question_form)
-						$changes[] = 'question = \''.$forum_db->escape($question_form).'\'';
-
-					$read_unvote_users_form = ($forum_config['p_poll_enable_read'] && isset($_POST['read_unvote_users']) && $_POST['read_unvote_users'] == 1) ? 1 : 0;
-					$days = ($days == '') ? 0 : $days;
-					$vote = ($votes == '') ? 0 : $votes;
-					$revote_form = ($forum_config['p_poll_enable_revote'] && isset($_POST['revouting']) && $_POST['revouting'] == 1) ? 1 : 0;
-
-					if ($cur_poll['read_unvote_users'] != $read_unvote_users_form)
-						$changes[] = 'read_unvote_users='.$read_unvote_users_form;
-					if ($days != $cur_poll['days_count'])
-						$changes[] = 'days_count='.$days;
-					if ($votes != $cur_poll['votes_count'])
-						$changes[] = 'votes_count='.$votes;
-					if ($revote_form != $cur_poll['revote'])
-						$changes[] = 'revote='.$revote_form;
-
-					if (!empty($changes))
-					{
-						$query = array(
-							'UPDATE'	=> 'questions',
-							'SET'		=> implode(',', $changes),
-							'WHERE'		=> 'topic_id='.$cur_post['tid']
-						);
-
-						($hook = get_hook('ed_qr_get_update_questions')) ? eval($hook) : null;
-						$forum_db->query_build($query) or error(__FILE__, __LINE__);
-					}
-				}
-			}
-			else
-			{
-				//Is there something to add?
-				if (!empty($question_poll))
-				{
-					//Validate of pull_answers
-					$answ = array();
-					if ($answers != null)
-					{
-						$count_answers = count($answers);
-						for ($ans_num = 0; $ans_num < $count_answers; $ans_num++)
-						{
-							 $ans = forum_trim($answers[$ans_num]);
-							 if (!empty($ans))
-								$answ[] = $ans;
-						}
-						if (!empty($answ))
-							$answ = array_unique($answ);
-					}
-					if (!empty($answ) && count($answ) > 1)
-					{
-						//Can unvoted user read voting results?
-						$read_unvote_users = ($forum_config['p_poll_enable_read'] && isset($_POST['read_unvote_users']) && $_POST['read_unvote_users'] == 1) ? 1 : 0;
-						//Can user change opinion?
-						$revote = ($forum_config['p_poll_enable_revote'] && isset($_POST['revouting']) && $_POST['revouting'] == 1) ? 1 : 0;
-
-						if ($days == null)
-							$days = '\'NULL\'';
-						if ($votes == null)
-							$votes = '\'NULL\'';
-
-						$query = array(
-							'INSERT'	=> 'topic_id, question, read_unvote_users, revote, created, days_count, votes_count',
-							'INTO'		=> 'questions',
-							'VALUES'	=> $cur_post['tid'].', \''.$forum_db->escape($question_poll).'\', '.$read_unvote_users.', '.$revote.', '.time().', '.$days.', '.$votes
-						);
-
-						($hook = get_hook('ed_qr_get_insert_questions')) ? eval($hook) : null;
-						$forum_db->query_build($query) or error(__FILE__, __LINE__);
-
-						//Add answers to DB
-						foreach ($answ as $ans)
-						{
-							$query = array(
-								'INSERT'	=> 'topic_id, answer',
-								'INTO'		=> 'answers',
-								'VALUES'	=> $cur_post['tid'].', \''.$forum_db->escape($ans).'\''
-							);
-
-							($hook = get_hook('ed_qr_get_insert_add_questions')) ? eval($hook) : null;
-							$forum_db->query_build($query) or error(__FILE__, __LINE__);
-						}
-					}
-				}
-			}
-		}
-
 		if (!defined('FORUM_SEARCH_IDX_FUNCTIONS_LOADED'))
 			require FORUM_ROOT.'include/search_idx.php';
 
@@ -457,11 +249,114 @@ if (isset($_POST['form_sent']))
 				'WHERE'		=> 'id='.$cur_post['tid'].' OR moved_to='.$cur_post['tid']
 			);
 
-			if (!empty($answ) && count($answ) > 1)
-				$query['SET'] .= ', poll=\'1\'';
+			if (!empty($question))
+				$query['SET'] .= ', question=\''.$forum_db->escape($question).'\', read_unvote='.$read_unvote.', revote='.$revote.', poll_created='.time().', days_count='.$days.', votes_count='.$votes;
 
 			($hook = get_hook('ed_qr_update_subject')) ? eval($hook) : null;
 			$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+			//We need to reset poll
+			if ($reset_poll || $remove_poll)
+			{
+				//Remove voting results
+				$query = array(
+					'DELETE'	=> 'voting',
+					'WHERE'		=> 'topic_id='.$cur_post['tid']
+				);
+
+				($hook = get_hook('ed_fl_qr_get_delete_voting')) ? eval($hook) : null;
+				$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+				if ($remove_poll)
+				{
+					//Remove answers
+					$query = array(
+						'DELETE'	=> 'answers',
+						'WHERE'		=> 'topic_id='.$cur_post['tid']
+					);
+
+					($hook = get_hook('ed_fl_qr_get_delete_answers')) ? eval($hook) : null;
+					$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+					//Remove poll
+					$query = array(
+						'UPDATE'	=> 'topics',
+						'SET'		=> 'question=\'\', read_unvote=\'NULL\', revote=\'NULL\', poll_created=\'NULL\', days_count=\'NULL\', votes_count=\'NULL\'',
+						'WHERE'		=> 'id='.$cur_post['tid']
+					);
+
+					($hook = get_hook('ed_fl_qr_get_delete_poll')) ? eval($hook) : null;
+					$forum_db->query_build($query) or error(__FILE__, __LINE__);
+				}
+			}
+			else
+			{
+				//Determine how many new
+				$query = array(
+					'SELECT'	=> 'id',
+					'FROM'		=> 'answers',
+					'WHERE'		=> 'topic_id='.$cur_post['tid']
+				);
+
+				($hook = get_hook('ed_fl_qr_get_answers_id')) ? eval($hook) : null;
+				$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+				$ans_ids = array();
+				while (list($ans_id) = $forum_db->fetch_row($result))
+					$ans_ids[] = $ans_id;
+
+
+				foreach ($answers as $ans_num => $ans)
+				{
+					//Old answer
+					if (isset($ans_ids[$ans_num]))
+					{
+						$query = array(
+							'UPDATE'	=> 'answers',
+							'SET'		=> 'answer=\''.$forum_db->escape($ans).'\'',
+							'WHERE'		=> 'id='.$ans_ids[$ans_num]
+						);
+
+						($hook = get_hook('ed_fl_qr_get_update_answers')) ? eval($hook) : null;
+						$forum_db->query_build($query) or error(__FILE__, __LINE__);
+					}
+					else
+					{
+						//New answer
+						$query = array(
+							'INSERT'	=> 'topic_id, answer',
+							'INTO'		=> 'answers',
+							'VALUES'	=> $cur_post['tid'].', \''.$forum_db->escape($answers[$ans_num]).'\''
+						);
+
+						($hook = get_hook('ed_fl_qr_get_new_answers')) ? eval($hook) : null;
+						$forum_db->query_build($query) or error(__FILE__, __LINE__);
+					}
+				}
+
+				//Remove answers
+				$count_answ = count($answers);
+				if (count($ans_ids) > $count_answ)
+				{
+					$ids = implode(',', array_slice($ans_ids, $count_answ));
+					$query = array(
+						'DELETE'	=> 'answers',
+						'WHERE'		=> 'id IN('.$ids .')'
+					);
+
+					($hook = get_hook('ed_fl_qr_get_remove_answers')) ? eval($hook) : null;
+					$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+					$query = array(
+						'DELETE'	=> 'voting',
+						'WHERE'		=> 'answer_id IN('.$ids.')'
+					);
+
+					($hook = get_hook('ed_fl_qr_get_remove_voting')) ? eval($hook) : null;
+					$forum_db->query_build($query) or error(__FILE__, __LINE__);
+				}
+
+				($hook = get_hook('ed_fl_update_question')) ? eval($hook) : null;
+			}
 
 			// We changed the subject, so we need to take that into account when we update the search words
 			update_search_index('edit', $id, $message, $subject, $description);
@@ -712,7 +607,7 @@ if ($can_edit_subject)
 	$forum_page['group_count'] = $forum_page['item_count'] = $forum_page['fld_count'] = 0;
 
 	//Is there something?
-	if ($poll)
+	if ($cur_post['question'] != '')
 	{
 
 		if ($forum_user['g_id'] == FORUM_ADMIN || $forum_user['username'] == $cur_post['poster'])
@@ -737,7 +632,7 @@ if ($can_edit_subject)
 		}
 
 		if ($forum_user['g_id'] == FORUM_ADMIN || $forum_user['username'] == $cur_post['poster'])
-			form_poll(isset($_POST['question']) ? $_POST['question'] : $cur_poll['question'], $answers, $options_count, (!isset($days)) ? $cur_poll['days_count'] : $days, (!isset($votes)) ? (($cur_poll['votes_count'] == 0) ? '' : $cur_poll['votes_count']) : $votes);
+			form_poll(isset($_POST['question']) ? $_POST['question'] : $cur_post['question'], $answers, $options_count, (!isset($days)) ? $cur_post['days_count'] : $days, (!isset($votes)) ? (($cur_post['votes_count'] == 0) ? '' : $cur_post['votes_count']) : $votes);
 	}
 	else
 		form_poll(isset($_POST['question']) ? $_POST['question'] : '', (isset($answers) && $answers != null) ? $answers : array(), isset($options_count) ? $options_count : 2, (isset($days)) ? $days : '', (isset($votes) && $votes != null) ? $votes : '');

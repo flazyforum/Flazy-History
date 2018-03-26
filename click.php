@@ -3,7 +3,7 @@
  * Скрипт перенаправления внешних ссылок.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL версии 2 или выше
  * @package Flazy
  */
@@ -13,7 +13,7 @@ if (!defined('FORUM_ROOT'))
 	define('FORUM_ROOT', './');
 require FORUM_ROOT.'include/common.php';
 
-$return = ($hook = get_hook('cl_start')) ? eval($hook) : null;
+$return = ($hook = get_hook('cl_fl_start')) ? eval($hook) : null;
 if ($return != null)
 	return;
 
@@ -29,12 +29,12 @@ if (isset($_SERVER['QUERY_STRING']))
 	else
 	{
 		header('Location: ./'); 
-		exit;
+		die;
 
-		($hook = get_hook('cl_exit')) ? eval($hook) : null;
+		($hook = get_hook('cl_fl_die')) ? eval($hook) : null;
 	}
 }
 
-($hook = get_hook('cl_end')) ? eval($hook) : null;
+($hook = get_hook('cl_fl_end')) ? eval($hook) : null;
 
 ?>

@@ -3,10 +3,1000 @@
  * Общие функции используемые на форуме.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL версии 2 или выше
  * @package Flazy
  */
+
+//
+// Общие помощники и форумные обертки функций PHP
+//
+
+// Кодирует содержимое $str, чтобы они были безопасны для вывода на страницу
+function forum_htmlencode($str)
+{
+	$return = ($hook = get_hook('fn_forum_htmlencode_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+}
+
+
+// Trim whitespace including non-breaking space
+function forum_trim($str, $charlist = " \t\n\r\x0b\xc2\xa0")
+{
+	return utf8_trim($str, $charlist);
+}
+
+
+// Convert \r\n and \r to \n
+function forum_linebreaks($str)
+{
+	return str_replace(array("\r\n", "\r"), "\n", $str);
+}
+
+
+// Converts the CDATA end sequence ]]> into ]]&gt;
+function escape_cdata($str)
+{
+	return str_replace(']]>', ']]&gt;', $str);
+}
+
+
+// Inserts $element into $input at $offset
+// $offset can be either a numerical offset to insert at (eg: 0 inserts at the beginning of the array)
+// or a string, which is the key that the new element should be inserted before
+// $key is optional: it's used when inserting a new key/value pair into an associative array
+function array_insert(&$input, $offset, $element, $key = null)
+{
+	if ($key == null)
+		$key = $offset;
+
+	// Determine the proper offset if we're using a string
+	if (!is_int($offset))
+		$offset = array_search($offset, array_keys($input), true);
+
+	// Out of bounds checks
+	if ($offset > count($input))
+		$offset = count($input);
+	else if ($offset < 0)
+		$offset = 0;
+
+	$input = array_merge(array_slice($input, 0, $offset), array($key => $element), array_slice($input, $offset));
+}
+
+
+// Unset any variables instantiated as a result of register_globals being enabled
+function forum_unregister_globals()
+{
+	$register_globals = @ini_get('register_globals');
+	if ($register_globals === "" || $register_globals === "0" || strtolower($register_globals) === "off")
+		return;
+
+	// Prevent script.php?GLOBALS[foo]=bar
+	if (isset($_REQUEST['GLOBALS']) || isset($_FILES['GLOBALS']))
+		die('Нам кока-колу, два гамбургера и... большу картошку');
+
+	// Variables that shouldn't be unset
+	$no_unset = array('GLOBALS', '_GET', '_POST', '_COOKIE', '_REQUEST', '_SERVER', '_ENV', '_FILES');
+
+	// Remove elements in $GLOBALS that are present in any of the superglobals
+	$input = array_merge($_GET, $_POST, $_COOKIE, $_SERVER, $_ENV, $_FILES, isset($_SESSION) && is_array($_SESSION) ? $_SESSION : array());
+	foreach ($input as $k => $v)
+		if (!in_array($k, $no_unset) && isset($GLOBALS[$k]))
+		{
+			unset($GLOBALS[$k]);
+			unset($GLOBALS[$k]); // Double unset to circumvent the zend_hash_del_key_or_index hole in PHP <4.4.3 and <5.1.4
+		}
+}
+
+
+// Removes any "bad" characters (characters which mess with the display of a page, are invisible, etc) from user input
+function forum_remove_bad_characters()
+{
+	global $bad_utf8_chars;
+
+	$bad_utf8_chars = array("\0", "\xc2\xad", "\xcc\xb7", "\xcc\xb8", "\xe1\x85\x9F", "\xe1\x85\xA0", "\xe2\x80\x80", "\xe2\x80\x81", "\xe2\x80\x82", "\xe2\x80\x83", "\xe2\x80\x84", "\xe2\x80\x85", "\xe2\x80\x86", "\xe2\x80\x87", "\xe2\x80\x88", "\xe2\x80\x89", "\xe2\x80\x8a", "\xe2\x80\x8b", "\xe2\x80\x8e", "\xe2\x80\x8f", "\xe2\x80\xaa", "\xe2\x80\xab", "\xe2\x80\xac", "\xe2\x80\xad", "\xe2\x80\xae", "\xe2\x80\xaf", "\xe2\x81\x9f", "\xe3\x80\x80", "\xe3\x85\xa4", "\xef\xbb\xbf", "\xef\xbe\xa0", "\xef\xbf\xb9", "\xef\xbf\xba", "\xef\xbf\xbb", "\xE2\x80\x8D");
+
+	($hook = get_hook('fn_remove_bad_characters_start')) ? eval($hook) : null;
+
+	function _forum_remove_bad_characters($array)
+	{
+		global $bad_utf8_chars;
+		return is_array($array) ? array_map('_forum_remove_bad_characters', $array) : str_replace($bad_utf8_chars, '', $array);
+	}
+
+	$_GET = _forum_remove_bad_characters($_GET);
+	$_POST = _forum_remove_bad_characters($_POST);
+	$_COOKIE = _forum_remove_bad_characters($_COOKIE);
+	$_REQUEST = _forum_remove_bad_characters($_REQUEST);
+}
+
+
+// Fix the REQUEST_URI if we can, since both IIS6 and IIS7 break it
+function forum_fix_request_uri()
+{
+	global $forum_config;
+
+	if (!isset($_SERVER['REQUEST_URI']) || (isset($_SERVER['QUERY_STRING']) && !empty($_SERVER['QUERY_STRING']) && strpos($_SERVER['REQUEST_URI'], '?') === false))
+	{
+		// Workaround for a bug in IIS7
+		if (isset($_SERVER['HTTP_X_ORIGINAL_URL']))
+			$_SERVER['REQUEST_URI'] = $_SERVER['HTTP_X_ORIGINAL_URL'];
+
+		// IIS6 also doesn't set REQUEST_URI, If we are using the default SEF URL scheme then we can work around it
+		else if (!isset($forum_config) || $forum_config['o_sef'] == 'Default')
+		{
+			$requested_page = str_replace(array('%26', '%3D', '%2F', '%3F'), array('&', '=', '/', '?'), rawurlencode($_SERVER['PHP_SELF']));
+			$_SERVER['REQUEST_URI'] = $requested_page.(isset($_SERVER['QUERY_STRING']) && !empty($_SERVER['QUERY_STRING']) ? '?'.$_SERVER['QUERY_STRING'] : '');
+		}
+
+		// Otherwise I am not aware of a work around...
+		else
+			error('На веб-сервере, который вы используете, не правильно настроина переменная REQUEST_URI. Это обычно означает, что вы используете IIS6, или неисправленный IIS7. Пожалуйста, либо отключить SEF URL, либо обновите IIS7 и установите любые доступные патчи или попробуйте другой веб-сервер.');
+	}
+}
+
+
+// Set a cookie.
+// Like other headers, cookies must be sent before any output from your script.
+// Use headers_sent() to ckeck wether HTTP headers has been sent already.
+function forum_setcookie($name, $value, $expire)
+{
+	global $cookie_name, $cookie_path, $cookie_domain, $cookie_secure;
+
+	$return = ($hook = get_hook('fn_forum_setcookie_start')) ? eval($hook) : null;
+	if ($return != null)
+		return;
+
+	// Enable sending of a P3P header
+	@header('P3P: CP="CUR ADM"');
+
+	if (version_compare(PHP_VERSION, '5.2.0', '>='))
+		setcookie($name, $value, $expire, $cookie_path, $cookie_domain, $cookie_secure, true);
+	else
+		setcookie($name, $value, $expire, $cookie_path.'; HttpOnly', $cookie_domain, $cookie_secure);
+}
+
+
+// Clean version string from trailing '.0's
+function clean_version($version)
+{
+	return preg_replace('/(\.0)+(?!\.)|(\.0+$)/', '$2', $version);
+}
+
+
+// Checks if a string is in all uppercase
+function is_all_uppercase($string)
+{
+	return utf8_strtoupper($string) == $string && utf8_strtolower($string) != $string;
+}
+
+
+//
+// Разметка
+//
+
+// A wrapper for PHP's number_format function
+function forum_number_format($number, $decimals = 0)
+{
+	global $lang_common;
+
+	$return = ($hook = get_hook('fn_forum_number_format_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	return number_format($number, $decimals, $lang_common['lang_decimal_point'], $lang_common['lang_thousands_sep']);
+}
+
+
+// Format a time string according to $date_format, $time_format, and timezones
+define('FORUM_FT_DATETIME', 0);
+define('FORUM_FT_DATE', 1);
+define('FORUM_FT_TIME', 2);
+function format_time($timestamp, $type = FORUM_FT_DATETIME, $date_format = null, $time_format = null, $no_text = false)
+{
+	global $forum_config, $lang_common, $forum_user, $forum_time_formats, $forum_date_formats;
+
+	$return = ($hook = get_hook('fn_format_time_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	if ($timestamp == '')
+		return ($no_text ? '' : $lang_common['Never']);
+
+	if ($date_format == null)
+		$date_format = $forum_date_formats[$forum_user['date_format']];
+
+	if ($time_format == null)
+		$time_format = $forum_time_formats[$forum_user['time_format']];
+
+	$diff = ($forum_user['timezone'] + $forum_user['dst']) * 3600;
+	$timestamp += $diff;
+	$now = time();
+
+	$formatted_time = '';
+
+	if ($type == FORUM_FT_DATETIME || $type == FORUM_FT_DATE)
+	{
+		$formatted_time = gmdate($date_format, $timestamp);
+
+		if (!$no_text)
+		{
+			$base = gmdate('Y-m-d', $timestamp);
+			$today = gmdate('Y-m-d', $now + $diff);
+			$yesterday = gmdate('Y-m-d', $now + $diff - 86400);
+
+			if ($base == $today)
+				$formatted_time = $lang_common['Today'];
+			else if ($base == $yesterday)
+				$formatted_time = $lang_common['Yesterday'];
+		}
+	}
+
+	if ($type == FORUM_FT_DATETIME)
+		$formatted_time .= ' ';
+
+	if ($type == FORUM_FT_DATETIME || $type == FORUM_FT_TIME)
+		$formatted_time .= gmdate($time_format, $timestamp);
+
+	($hook = get_hook('fn_format_time_end')) ? eval($hook) : null;
+
+	return $formatted_time;
+}
+
+
+//function flazy_format_time
+define('FORUM_FT_BACK', 0);
+define('FORUM_FT_AFTER', 1);
+define('FORUM_FT_EMPTY', 2);
+function flazy_format_time($timestamp, $type = FORUM_FT_BACK, $date_only = false, $no_text = false)
+{
+	global $forum_config, $lang_common, $forum_user;
+
+	$return = ($hook = get_hook('fn_fl_flazy_format_time_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	if ($timestamp == '')
+		return ($no_text ? '' : $lang_common['Never']);
+
+	if ($type == FORUM_FT_BACK)
+		$way = $lang_common['Back'];
+	else if ($type == FORUM_FT_AFTER)
+		$way = $lang_common['After'];
+	else
+		$way = '';
+
+	if (!$date_only)
+	{
+		$diff = time() - $timestamp;
+		$rest = ($diff % 3600);
+		$restdays = ($diff % 86400);
+		$restweeks = ($diff % 604800);
+		$weeks = ($diff - $restweeks) / 604800;
+		$days = ($diff - $restdays) / 86400;
+		$hours = ($diff - $rest) / 3600;
+		$seconds = ($rest % 60);
+		$minutes = ($rest - $seconds) / 60;
+
+		//Недели
+		if ($weeks > 105)
+			return 'несколько лет '.$way;
+		else if ($weeks > 53)
+			return 'больше года '.$way;
+		else if ($weeks > 1)
+			return $weeks.' '.declination($weeks, array('неделю', 'недели', 'недель')).' '.$way;
+		//Дни
+		else if ($days > 1)
+			return $days.' '.declination($days, array('день', 'дня', 'дней')).' '.$way;
+		//Часы
+		else if($hours > 1)
+			return $hours.' '.declination($hours, array('час', 'часа', 'часов')).' '.$way;
+		//Минуты > 60
+		else if ($hours == 1)
+			return '1 час, '.$minutes.' '.declination($minutes, array('минуту', 'минуты', 'минут')).' '.$way;
+		// Минут
+		else if ($minutes > 0 && $minutes != 1)
+			return $minutes.' '.declination($minutes, array('минуту', 'минуты', 'минут')).' '.$way;
+		// Минута-секунды
+		else if ($minutes == 1)
+			return $minutes.' '.declination($minutes, array('минуту', 'минуты', 'минут')).' '.$seconds.' '.declination($seconds, array('секунду', 'секунды', 'секунд')).' '.$way;
+		// Секунд
+		else if ($minutes == 0)
+			return $seconds.' '.declination($seconds, array('секунду', 'секунды', 'секунд')).' '.$way;
+	}
+	else
+	{
+		$diff = ($forum_user['timezone'] - $forum_config['o_default_timezone']) * 3600;
+		$timestamp += $diff;
+		$now = time();
+
+		$date = date($forum_config['o_date_format'], $timestamp);
+		$today = date($forum_config['o_date_format'], $now + $diff);
+		$yesterday = date($forum_config['o_date_format'], $now + $diff - 86400);
+		return $date;
+	}
+}
+
+
+// Функция склонения числительных в русском языке
+function declination($number, $words)
+{
+	$return = ($hook = get_hook('fn_fl_declination_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	$cases = array(2, 0, 1, 1, 1, 2);
+
+	($hook = get_hook('fn_fl_declination_end')) ? eval($hook) : null;
+
+	return $words[($number % 100 > 4 && $number % 100 < 20) ? 2 : $cases[min($number % 10, 5)]];
+}
+
+
+// Создать "Меню", которое появляется в верхней части каждой страницы
+function generate_navlinks()
+{
+	global $forum_config, $lang_common, $forum_url, $forum_url_admin, $forum_user;
+
+	$return = ($hook = get_hook('fn_generate_navlinks_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	// Index should always be displayed
+	$links['index'] = '<li id="navindex" class="nav'.((FORUM_PAGE == 'index') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['index']).'"><span>'.$lang_common['Index'].'</span></a></li>';
+
+	if ($forum_user['g_read_board'] && $forum_user['g_view_users'])
+		$links['userlist'] = '<li id="navuserlist" class="nav'.((FORUM_PAGE == 'userlist') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['users']).'"><span>'.$lang_common['User list'].'</span></a></li>';
+
+	if ($forum_config['o_rules'] && (!$forum_user['is_guest'] || $forum_user['g_read_board'] || $forum_config['o_regs_allow']))
+		$links['rules'] = '<li id="navrules" class="nav'.((FORUM_PAGE == 'rules') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['rules']).'"><span>'.$lang_common['Rules'].'</span></a></li>';
+
+	if ($forum_user['is_guest'])
+	{
+		if ($forum_user['g_read_board'] && $forum_user['g_search'])
+			$links['search'] = '<li id="navsearch" class="nav'.((FORUM_PAGE == 'search') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['search']).'"><span>'.$lang_common['Search'].'</span></a></li>';
+
+		$links['register'] = '<li id="navregister" class="nav'.((FORUM_PAGE == 'register') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['register']).'"><span>'.$lang_common['Register'].'</span></a></li>';
+		$links['login'] = '<li id="navlogin" class="nav'.((FORUM_PAGE == 'login') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['login']).'"><span>'.$lang_common['Login'].'</span></a></li>';
+	}
+	else
+	{
+		if (!$forum_user['is_admmod'])
+		{
+			if ($forum_user['g_read_board'] && $forum_user['g_search'])
+				$links['search'] = '<li id="navsearch" class="nav'.((FORUM_PAGE == 'search') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['search']).'"><span>'.$lang_common['Search'].'</span></a></li>';
+
+			$links['profile'] = '<li id="navprofile" class="nav'.((substr(FORUM_PAGE, 0, 7) == 'profile') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['user'], $forum_user['id']).'"><span>'.$lang_common['Profile'].'</span></a></li>';
+
+			if ($forum_config['o_pm_show_global_link'])
+				$links['pm'] = '<li id="navpm" class="nav'.((FORUM_PAGE == 'profile-pm') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['pm'], 'inbox').'"><span>'.$lang_common['Private messages'].'</span></a></li>';
+
+			$links['logout'] = '<li id="navlogout" class="nav"><a href="'.forum_link($forum_url['logout'], array($forum_user['id'], generate_form_token('logout'.$forum_user['id']))).'"><span>'.$lang_common['Logout'].'</span></a></li>';
+
+		}
+		else
+		{
+			$links['search'] = '<li id="navsearch" class="nav'.((FORUM_PAGE == 'search') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['search']).'"><span>'.$lang_common['Search'].'</span></a></li>';
+
+			$links['profile'] = '<li id="navprofile" class="nav'.((substr(FORUM_PAGE, 0, 7) == 'profile') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['user'], $forum_user['id']).'"><span>'.$lang_common['Profile'].'</span></a></li>';
+
+			if ($forum_config['o_pm_show_global_link'])
+				$links['pm'] = '<li id="navpm" class="nav'.((FORUM_PAGE == 'profile-pm') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['pm'], 'inbox').'"><span>'.$lang_common['Private messages'].'</span></a></li>';
+
+			$links['logout'] = '<li id="navlogout" class="nav"><a href="'.forum_link($forum_url['logout'], array($forum_user['id'], generate_form_token('logout'.$forum_user['id']))).'"><span>'.$lang_common['Logout'].'</span></a></li>';
+			$links['admin'] = '<li id="navadmin" class="nav'.((substr(FORUM_PAGE, 0, 5) == 'admin') ? ' isactive' : '').'"><a href="'.forum_link('admin/admin.php').'"><span>'.$lang_common['Admin'].'</span></a></li>';
+		}
+	}
+
+	// Are there any additional navlinks we should insert into the array before imploding it?
+	if ($forum_config['o_additional_navlinks'] != '' && preg_match_all('#([0-9]+)\s*=\s*(.*?)\n#s', $forum_config['o_additional_navlinks']."\n", $extra_links))
+	{
+		// Insert any additional links into the $links array (at the correct index)
+		$num_links = count($extra_links[1]);
+		for ($i = 0; $i < $num_links; ++$i)
+			array_insert($links, (int)$extra_links[1][$i], '<li id="navextra'.($i + 1).'">'.$extra_links[2][$i].'</li>');
+	}
+
+
+	($hook = get_hook('fn_generate_navlinks_end')) ? eval($hook) : null;
+
+	return implode("\n\t\t", $links);
+}
+
+
+// Generate a string with page and item information for multipage headings
+function generate_items_info($label, $first, $total)
+{
+	global $forum_page, $lang_common;
+
+	$return = ($hook = get_hook('fn_generate_page_info_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	if ($forum_page['num_pages'] == 1)
+		$item_info =  '<span class="item-info">'.sprintf($lang_common['Item info single'], $label, forum_number_format($total)).'</span>';
+	else
+		$item_info = '<span class="item-info">'.sprintf($lang_common['Item info plural'], $label, forum_number_format($first), forum_number_format($forum_page['finish_at']), forum_number_format($total)).'</span>';
+
+	($hook = get_hook('fn_generate_page_info_end')) ? eval($hook) : null;
+
+	return $item_info;
+}
+
+
+// Generate a string with numbered links (for multipage scripts)
+function paginate($num_pages, $cur_page, $link, $separator, $args = null)
+{
+	global $forum_url, $lang_common;
+
+	$pages = array();
+	$link_to_all = false;
+
+	$return = ($hook = get_hook('fn_paginate_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	// If $cur_page == -1, we link to all pages (used in viewforum.php)
+	if ($cur_page == -1)
+	{
+		$cur_page = 1;
+		$link_to_all = true;
+	}
+
+	if ($num_pages <= 1)
+		$pages = array('<strong class="item1">1</strong>');
+	else
+	{
+		// Add a previous page link
+		if ($num_pages > 1 && $cur_page > 1)
+			$pages[] = '<span class="pevious"></span><a'.(empty($pages) ? ' class="item1"' : '').' href="'.forum_sublink($link, $forum_url['page'], ($cur_page - 1), $args).'">'.$lang_common['Previous'].'</a>';
+
+		if ($cur_page > 3)
+		{
+			$pages[] = '<a'.(empty($pages) ? ' class="item1"' : '').' href="'.forum_sublink($link, $forum_url['page'], 1, $args).'">1</a>';
+
+			if ($cur_page > 5)
+				$pages[] = '<span>'.$lang_common['Spacer'].'</span>';
+		}
+
+		// Don't ask me how the following works. It just does, OK? :-)
+		for ($current = ($cur_page == 5) ? $cur_page - 3 : $cur_page - 2, $stop = ($cur_page + 4 == $num_pages) ? $cur_page + 4 : $cur_page + 3; $current < $stop; ++$current)
+			if ($current < 1 || $current > $num_pages)
+				continue;
+			else if ($current != $cur_page || $link_to_all)
+				$pages[] = '<a'.(empty($pages) ? ' class="item1"' : '').' href="'.forum_sublink($link, $forum_url['page'], $current, $args).'">'.forum_number_format($current).'</a>';
+			else
+				$pages[] = '<strong'.(empty($pages) ? ' class="item1"' : '').'>'.forum_number_format($current).'</strong>';
+
+		if ($cur_page <= ($num_pages-3))
+		{
+			if ($cur_page != ($num_pages-3) && $cur_page != ($num_pages-4))
+				$pages[] = '<span>'.$lang_common['Spacer'].'</span>';
+
+			$pages[] = '<a'.(empty($pages) ? ' class="item1"' : '').' href="'.forum_sublink($link, $forum_url['page'], $num_pages, $args).'">'.forum_number_format($num_pages).'</a>';
+		}
+
+		// Add a next page link
+		if ($num_pages > 1 && !$link_to_all && $cur_page < $num_pages)
+			$pages[] = '<a class="next" href="'.forum_sublink($link, $forum_url['page'], ($cur_page + 1), $args).'">'.$lang_common['Next'].'</a>';
+	}
+
+	($hook = get_hook('fn_paginate_end')) ? eval($hook) : null;
+
+	return implode($separator, $pages);
+}
+
+
+// Определим ОС и Браузер
+function useragent_info($useragent)
+{
+	global $base_url;
+
+	$return = ($hook = get_hook('fn_fl_useragent_info_start')) ? eval($hook) : null;
+	if ($return != null)
+		return;
+
+	$ua = strtolower($useragent);
+	$ua_browser = $ua_os = '';
+
+	// Определим браузер
+	if (strpos($ua, 'arora') !== false) $browser = 'Arora';
+	else if (strpos($ua, 'avant browser') !== false) $browser = 'AvantBrowser';
+	else if (strpos($ua, 'aweb') !== false) $browser = 'AWeb';
+	else if (strpos($ua, 'camino') !== false) $browser = 'Camino';
+	else if (strpos($ua, 'chrome') !== false) $browser = 'Chrome';
+	else if (strpos($ua, 'cometbird') !== false) $browser = 'Cometbird';
+	else if (strpos($ua, 'dillo') !== false) $browser = 'Dillo';
+	else if (strpos($ua, 'elinks') !== false) $browser = 'ELinks';
+	else if (strpos($ua, 'epiphany') !== false) $browser = 'Epiphany';
+	else if (strpos($ua, 'fennec') !== false) $browser = 'Fennec';
+	else if (strpos($ua, 'firebird') !== false) $browser = 'Firebird';
+	else if (strpos($ua, 'firefox') !== false) $browser = 'Firefox';
+	else if (strpos($ua, 'flock') !== false) $browser = 'Flock';
+	else if (strpos($ua, 'galeon') !== false) $browser = 'Galeon';
+	else if (strpos($ua, 'hotjava') !== false)$browser = 'HotJava';
+	else if (strpos($ua, 'ibrowse') !== false) $ubrowser = 'IBrowse';
+	else if (strpos($ua, 'icab') !== false) $ubrowser = 'iCab';
+	else if (strpos($ua, 'iceweasel') !== false) $browser = 'Iceweasel';
+	else if (strpos($ua, 'iron') !== false) $browser = 'Iron';
+	else if (strpos($ua, 'konqueror') !== false) $browser = 'Konqueror';
+	else if (strpos($ua, 'maxthon') !== false || strpos($ua, 'myie') !== false) $browser = 'Maxthon';
+	else if (strpos($ua, 'minefield') !== false) $browser = 'Minefield';
+	else if (strpos($ua, 'msie8.0') !== false) $browser = 'MSIE8';
+	else if (strpos($ua, 'msie7.0') !== false) $browser = 'MSIE7';
+	else if (strpos($ua, 'msie') !== false) $browser = 'MSIE';
+	else if (strpos($ua, 'netscape') !== false) $browser = 'Netscape';
+	else if (strpos($ua, 'netsurf') !== false) $browser = 'NetSurf';
+	else if (strpos($ua, 'opera') !== false) $browser = 'Opera';
+	else if (strpos($ua, 'phaseout') !== false) $browser = 'PhaseOut';
+	else if (strpos($ua, 'safari') !== false) $browser = 'Safari';
+	else if (strpos($ua, 'seamonkey') !== false) $browser = 'SeaMonkey';
+	else if (strpos($ua, 'shiretoko') !== false) $browser = 'Shiretoko';
+	else if (strpos($ua, 'slimbrowser') !== false) $browser = 'SlimBrowser';
+	else if (strpos($ua, 'stainless') !== false) $browser = 'Stainless';
+	else if (strpos($ua, 'sunrise') !== false) $browser = 'Sunrise';
+	else if (strpos($ua, 'wyzo') !== false) $browser = 'Wyzo';
+	// Семейство Mozilla
+	else if (strpos($ua, 'mozilla') !== false && strpos($ua, 'rv:') !== false) $browser = 'Mozilla';
+	// Семейство WebKit
+	else if (strpos($ua, 'webkit') !== false) $browser = 'WebKit';
+
+	($hook = get_hook('fn_useragent_info_browser')) ? eval($hook) : null;
+
+	// Определим ОС
+	if (strpos($ua, 'amiga') !== false) $os = 'Amiga';
+	else if (strpos($ua, 'beos') !== false) $os = 'BeOS';
+	else if (strpos($ua, 'freebsd') !== false) $os = 'FreeBSD';
+	else if (strpos($ua, 'hp-ux') !== false) $os = 'HP-UX';
+	else if (strpos($ua, 'linux') !== false)
+	{
+		if (strpos($ua, 'arch') !== false) $os = 'Arch';
+		else if (strpos($ua, 'ark') !== false) $os = 'Ark';
+		else if (strpos($ua, 'centos') !== false || strpos($ua, 'cent os') !== false) $os = 'CentOS';
+		else if (strpos($ua, 'debian') !== false) $os = 'Debian';
+		else if (strpos($ua, 'fedora') !== false) $os = 'Fedora';
+		else if (strpos($ua, 'freespire') !== false) $os = 'Freespire';
+		else if (strpos($ua, 'gentoo') !== false) $os = 'Gentoo';
+		else if (strpos($ua, 'kanotix') !== false) $os = 'Kanotix';
+		else if (strpos($ua, 'kateos') !== false) $os = 'KateOS';
+		else if (strpos($ua, 'knoppix') !== false) $os = 'Knoppix';
+		else if (strpos($ua, 'kubuntu') !== false) $os = 'Kubuntu';
+		else if (strpos($ua, 'linspire') !== false) $os = 'Linspire';
+		else if (strpos($ua, 'mandriva') !== false || strpos($ua, 'mandrake') !== false) $os = 'Mandriva';
+		else if (strpos($ua, 'redhat') !== false) $os = 'RedHat';
+		else if (strpos($ua, 'slackware') !== false) $os = 'Slackware';
+		else if (strpos($ua, 'slax') !== false) $os = 'Slax';
+		else if (strpos($ua, 'suse') !== false) $os = 'Suse';
+		else if (strpos($ua, 'xubuntu') !== false) $os = 'Xubuntu';
+		else if (strpos($ua, 'ubuntu') !== false) $os = 'Ubuntu';
+		else if (strpos($ua, 'xandros') !== false) $os = 'Xandros';
+		else $os = 'Linux';
+
+		($hook = get_hook('fn_useragent_info_os_linux')) ? eval($hook) : null;
+	}
+	else if (strpos($ua, 'macosx') !== false || strpos($ua, 'macos') !== false || strpos($ua, 'macosx') !== false || strpos($ua, 'macintosh') !== false || strpos($ua, 'os=mac') !== false || strpos($ua, 'mac_osx') !== false) $os = 'MacOSX';
+	else if (strpos($ua, 'macppc') !== false || strpos($ua, 'mac_ppc') !== false || strpos($ua, 'cpu=ppc;') !== false && strpos($ua, 'os=mac') !== false || strpos($ua, 'macintosh; ppc') !== false || strpos($ua, 'macintosh;') !== false && strpos($ua, 'ppc') !== false || strpos($ua, 'mac_powerpc') !== false) $os = 'MacPPC';
+	else if (strpos($ua, 'netbsd') !== false) $os = 'NetBSD';
+	else if (strpos($ua, 'os/2') !== false) $os = 'OS/2';
+	else if (strpos($ua, 'avantgo') !== false) $os = 'Palm';
+	else if (strpos($ua, 'sunos') !== false || strpos($ua, 'solaris') !== false) $os = 'SunOS';
+	else if (strpos($ua, 'symbian') !== false) $os = 'SymbianOS';
+	else if (strpos($ua, 'unix') !== false) $os = 'Unix';
+	else if (strpos($ua, 'win') !== false)
+	{
+		if (strpos($ua, 'windowsnt6.1') !== false || strpos($ua, 'winnt6.1') !== false) $os = 'WindowsSeven';
+		else if (strpos($ua, 'windowsnt6.0') !== false || strpos($ua, 'winnt6.0') !== false) $os = 'WindowsVista';
+		else if (strpos($ua, 'winnt5.0') !== false || strpos($ua, 'windowsnt5.0') !== false || strpos($ua, 'winnt5.1') !== false || strpos($ua, 'windowsnt5.1') !== false || strpos($ua, 'windowsxp5.1') !== false || strpos($ua, 'winnt5.2') !== false || strpos($ua, 'windowsnt5.2') !== false || strpos($ua, 'windowsxp') !== false || strpos($ua, 'winxp') !== false || strpos($ua, 'cygwin_nt-5.1') !== false || strpos($ua, 'windows2000') !== false || strpos($ua, 'win2000') !== false) $os = 'WindowsXP';
+		else if (strpos($ua, 'windows') !== false || strpos($ua, 'win') !== false) $os = 'Windows';
+		else $os = 'Windows';
+	}
+	else if (strpos($ua, 'macintosh') !== false || strpos($ua, 'mac') !== false) $os = 'Macintosh';
+	else if (strpos($ua, 'sun') !== false) $os = 'Sun';
+	// Мобильные системы
+	else if (strpos($ua, 'smartphone') !== false || strpos($ua, 'iemobile') !== false || strpos($ua, 'j2me') !== false || strpos($ua, 'iphone') !== false || strpos($ua, 'nintendo') !== false) $os = 'Mobile';
+
+	($hook = get_hook('fn_useragent_info_os')) ? eval($hook) : null;
+
+	if (!empty($browser))
+		$ua_browser = '<img class="popup" src="'.$base_url.'/img/browser/'.forum_htmlencode(ereg_replace('[^a-z0-9_]', '', strtolower($browser))).'.png" title="Браузер - '.forum_htmlencode($browser).'" alt=""/>';
+	if (!empty($os))
+		$ua_os = '<img class="popup" src="'.$base_url.'/img/os/'.forum_htmlencode(ereg_replace('[^a-z0-9_]', '', strtolower($os))).'.png" title="ОС - '.forum_htmlencode($os).'" alt=""/>';
+
+	($hook = get_hook('fn_fl_useragent_info_end')) ? eval($hook) : null;
+
+	return $ua_browser.' '.$ua_os;
+}
+
+
+function item_size($count)
+{
+	$return = ($hook = get_hook('fn_fl_item_size_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	if ($count <= 10)
+		$size = 'p1';
+	if ($count > 10 && $count <= 50)
+		$size = 'p2';
+	if ($count > 50)
+		$size = 'p3';
+
+	($hook = get_hook('fn_fl_item_size_end')) ? eval($hook) : null;
+
+	return $size;
+}
+
+
+// Return all code blocks that hook into $hook_id
+function get_hook($hook_id)
+{
+	global $hooks;
+
+	return !defined('FORUM_DISABLE_HOOKS') && isset($hooks[$hook_id]) ? implode("\n", $hooks[$hook_id]) : false;
+}
+
+
+// Generate a hyperlink with parameters and anchor
+function forum_link($link, $args = null)
+{
+	global $forum_config, $base_url;
+
+	$return = ($hook = get_hook('fn_forum_link_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	$gen_link = $link;
+	if ($args == null)
+		$gen_link = $base_url.'/'.$link;
+	else if (!is_array($args))
+		$gen_link = $base_url.'/'.str_replace('$1', $args, $link);
+	else
+	{
+		for ($i = 0; isset($args[$i]); ++$i)
+			$gen_link = str_replace('$'.($i + 1), $args[$i], $gen_link);
+		$gen_link = $base_url.'/'.$gen_link;
+	}
+
+	($hook = get_hook('fn_forum_link_end')) ? eval($hook) : null;
+
+	return $gen_link;
+}
+
+
+// Generate a hyperlink with parameters and anchor and a subsection such as a subpage
+function forum_sublink($link, $sublink, $subarg, $args = null)
+{
+	global $forum_config, $forum_url, $base_url;
+
+	$return = ($hook = get_hook('fn_forum_sublink_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	if ($sublink == $forum_url['page'] && $subarg == 1)
+		return forum_link($link, $args);
+
+	$gen_link = $link;
+	if (!is_array($args) && $args != null)
+		$gen_link = str_replace('$1', $args, $link);
+	else
+	{
+		for ($i = 0; isset($args[$i]); ++$i)
+			$gen_link = str_replace('$'.($i + 1), $args[$i], $gen_link);
+	}
+
+	if (isset($forum_url['insertion_find']))
+		$gen_link = $base_url.'/'.str_replace($forum_url['insertion_find'], str_replace('$1', str_replace('$1', $subarg, $sublink), $forum_url['insertion_replace']), $gen_link);
+	else
+		$gen_link = $base_url.'/'.$gen_link.str_replace('$1', $subarg, $sublink);
+
+	($hook = get_hook('fn_forum_sublink_end')) ? eval($hook) : null;
+
+	return $gen_link;
+}
+
+
+// Make a string safe to use in a URL
+function sef_friendly($str)
+{
+	global $forum_config, $forum_user;
+	static $lang_url_replace, $reserved_strings;
+
+	if (!isset($lang_url_replace))
+		require FORUM_ROOT.'lang/url_replace.php';
+
+	if (!isset($reserved_strings))
+	{
+		// Bring in any reserved strings
+		if (file_exists(FORUM_ROOT.'include/url/'.$forum_config['o_sef'].'/reserved_strings.php'))
+			require FORUM_ROOT.'include/url/'.$forum_config['o_sef'].'/reserved_strings.php';
+		else
+			require FORUM_ROOT.'include/url/reserved_strings.php';
+	}
+
+	$return = ($hook = get_hook('fn_sef_friendly_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	$str = strtr($str, $lang_url_replace);
+	$str = strtolower(utf8_decode($str));
+	$str = forum_trim(preg_replace(array('/[^a-z0-9\s]/', '/[\s]+/'), array('', '-'), $str), '-');
+
+	foreach ($reserved_strings as $match => $replace)
+		if ($str == $match)
+			return $replace;
+		else if ($match != '')
+			$str = str_replace($match, $replace, $str);
+
+	return $str;
+}
+
+
+// Replace censored words in $text
+function censor_words($text)
+{
+	global $forum_db;
+	static $search_for, $replace_with;
+
+	$return = ($hook = get_hook('fn_censor_words_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	// If not already loaded in a previous call, load the cached censors
+	if (!defined('FORUM_CENSORS_LOADED'))
+	{
+		if (file_exists(FORUM_CACHE_DIR.'cache_censors.php'))
+			include FORUM_CACHE_DIR.'cache_censors.php';
+
+		if (!defined('FORUM_CENSORS_LOADED'))
+		{
+			if (!defined('FORUM_CACHE_FUNCTIONS_LOADED'))
+				require FORUM_ROOT.'include/cache.php';
+
+			generate_censors_cache();
+			require FORUM_CACHE_DIR.'cache_censors.php';
+		}
+
+		$search_for = array();
+		$replace_with = array();
+
+		foreach ($forum_censors as $censor_key => $cur_word)
+		{
+			$search_for[$censor_key] = '/(?<=^|\s)('.str_replace('\*', '[[:punct:]а-яА-ЯёЁ\w]*?', preg_quote($cur_word['search_for'], '/')).')(?=$|\s)/iu';
+			$replace_with[$censor_key] = $cur_word['replace_with'];
+
+			($hook = get_hook('fn_censor_words_setup_regex')) ? eval($hook) : null;
+		}
+	}
+
+	if (!empty($search_for))
+		$text = utf8_substr(preg_replace($search_for, $replace_with, ' '.$text.' '), 1, -1);
+
+	return $text;
+}
+
+
+// Determines the correct title for $user
+// $user must contain the elements 'username', 'title', 'posts', 'g_id' and 'g_user_title'
+function get_title($user)
+{
+	global $forum_db, $forum_config, $forum_bans, $lang_common;
+	static $ban_list, $forum_ranks;
+
+	$return = ($hook = get_hook('fn_get_title_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	// If not already built in a previous call, build an array of lowercase banned usernames
+	if (empty($ban_list))
+	{
+		$ban_list = array();
+
+		foreach ($forum_bans as $cur_ban)
+			$ban_list[] = utf8_strtolower($cur_ban['username']);
+	}
+
+	// If not already loaded in a previous call, load the cached ranks
+	if ($forum_config['o_ranks'] && !defined('FORUM_RANKS_LOADED'))
+	{
+		if (file_exists(FORUM_CACHE_DIR.'cache_ranks.php'))
+			include FORUM_CACHE_DIR.'cache_ranks.php';
+
+		if (!defined('FORUM_RANKS_LOADED'))
+		{
+			if (!defined('FORUM_CACHE_FUNCTIONS_LOADED'))
+				require FORUM_ROOT.'include/cache.php';
+
+			generate_ranks_cache();
+			require FORUM_CACHE_DIR.'cache_ranks.php';
+		}
+	}
+
+	// If the user has a custom title
+	if ($user['title'] != '')
+		$user_title = forum_htmlencode($forum_config['o_censoring'] ? censor_words($user['title']) : $user['title']);
+	// If the user is banned
+	else if (in_array(utf8_strtolower($user['username']), $ban_list))
+		$user_title = $lang_common['Banned'];
+	// If the user group has a default user title. Разрешен HTML.
+	else if ($user['g_user_title'] != '')
+		$user_title = $user['g_user_title'];
+	// If the user is a guest
+	else if ($user['g_id'] == FORUM_GUEST)
+		$user_title = $lang_common['Guest'];
+	else
+	{
+		// Are there any ranks?
+		if ($forum_config['o_ranks'] && !empty($forum_ranks))
+			foreach ($forum_ranks as $cur_rank)
+				if (intval($user['num_posts']) >= $cur_rank['min_posts'])
+					$user_title = forum_htmlencode($cur_rank['rank']);
+
+		// If the user didn't "reach" any rank (or if ranks are disabled), we assign the default
+		if (!isset($user_title))
+			$user_title = $lang_common['Member'];
+	}
+
+	($hook = get_hook('fn_get_title_end')) ? eval($hook) : null;
+
+	return $user_title;
+}
+
+
+// Возвращяет список предустанолвеных URL схем
+function get_scheme_packs()
+ {
+  	$schemes = array();
+
+	if($handle = opendir(FORUM_ROOT.'include/url'))
+	{
+		while (false !== ($dirname = readdir($handle)))
+		{
+			$dirname =  FORUM_ROOT.'include/url/'.$dirname;
+			if (is_dir($dirname) && file_exists($dirname.'/forum_urls.php'))
+				$schemes[] = basename($dirname);
+		}
+		closedir($handle);
+	}
+
+	($hook = get_hook('fn_get_scheme_packs_end')) ? eval($hook) : null;
+
+	return $schemes;
+}
+
+
+// Return a list of all styles installed
+function get_style_packs()
+{
+ 	$styles = array();
+
+	if($handle = opendir(FORUM_ROOT.'style'))
+	{
+		while (false !== ($dirname = readdir($handle)))
+		{
+			$dirname =  FORUM_ROOT.'style/'.$dirname;
+			$tempname = basename($dirname);
+			if (is_dir($dirname) && file_exists($dirname.'/'.$tempname.'.php'))
+				$styles[] = $tempname;
+		}
+		closedir($handle);
+	}
+
+ 	($hook = get_hook('fn_get_style_packs_end')) ? eval($hook) : null;
+
+	return $styles;
+}
+
+
+// Return a list of all language packs installed
+function get_language_packs()
+{
+ 	$lang = array();
+
+	if ($handle = opendir(FORUM_ROOT.'lang'))
+	{
+		while (false !== ($dirname = readdir($handle)))
+		{
+			$dirname =  FORUM_ROOT.'lang/'.$dirname;
+			if (is_dir($dirname) && file_exists($dirname.'/common.php'))
+				$lang[] = basename($dirname);
+		}
+		closedir($handle);
+	}
+
+	($hook = get_hook('fn_get_language_packs_end')) ? eval($hook) : null;
+
+	return $lang;
+}
+
+
+// Try to determine the correct remote IP-address
+function get_remote_address()
+{
+	$return = ($hook = get_hook('fn_get_remote_address_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	return $_SERVER['REMOTE_ADDR'];
+}
+
+
+function get_user_agent()
+{
+	$return = ($hook = get_hook('fn_get_user_agent_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	return !empty($_SERVER['HTTP_USER_AGENT']) ? str_replace(' ', '', $_SERVER['HTTP_USER_AGENT']) : '';
+}
+
+
+// Try to determine the current URL
+function get_current_url($max_length = 0)
+{
+	global $base_url;
+
+	$return = ($hook = get_hook('fn_get_current_url_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	$protocol = (!isset($_SERVER['HTTPS']) || strtolower($_SERVER['HTTPS']) == 'off') ? 'http://' : 'https://';
+	$port = (isset($_SERVER['SERVER_PORT']) && (($_SERVER['SERVER_PORT'] != '80' && $protocol == 'http://') || ($_SERVER['SERVER_PORT'] != '443' && $protocol == 'https://')) && strpos($_SERVER['HTTP_HOST'], ':') === false) ? ':'.$_SERVER['SERVER_PORT'] : '';
+
+	$url = urldecode($protocol.$_SERVER['HTTP_HOST'].$port.$_SERVER['REQUEST_URI']);
+
+	if (strlen($url) <= $max_length || $max_length == 0)
+		return !defined('NO_PREV_URL') ? $url : null;
+
+	// We can't find a short enough url
+	return null;
+}
+
+
+// Check current URL and redirect if required
+function confirm_current_url($url)
+{
+	if (defined('FORUM_DISABLE_URL_CONFIRM'))
+		return;
+
+	// Clean up the URL so that it should match the rules we have
+	$url = str_replace('&amp;', '&', urldecode($url));
+
+	$return = ($hook = get_hook('fn_confirm_current_url_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	$hash = strpos($url,'#');
+	if ($hash !== false)
+		$url = substr($url, 0, $hash);
+
+	$current_url = get_current_url();
+	if ($url != $current_url && $url.'?login=1' != $current_url && $url.'&login=1' != $current_url)
+	{
+		header('HTTP/1.1 301 Moved Permanently');
+		header('Location: '.$url);
+
+		global $forum_db;
+		$forum_db->end_transaction();
+
+		die;
+	}
+}
+
+
+// Имя для input
+function input_name($name)
+{
+	global $forum_user;
+
+	$return = ($hook = get_hook('fn_fl_input_name_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	return forum_hash($name, $forum_user['csrf_token']);
+}
 
 
 // Checks if a word is a valid searchable word
@@ -42,87 +1032,82 @@ function validate_search_word($word)
 	return $num_chars >= FORUM_SEARCH_MIN_WORD && $num_chars <= FORUM_SEARCH_MAX_WORD && !in_array($word, $stopwords);
 }
 
-// Converts the CDATA end sequence ]]> into ]]&gt;
-function escape_cdata($str)
+
+// Generate a random key of length $len
+function random_key($len, $readable = false, $hash = false)
 {
-	return str_replace(']]>', ']]&gt;', $str);
-}
- 
+	$key = '';
 
-// Возвращяет список предустанолвеных URL схем
-function get_scheme_packs()
- {
-  	$schemes = array();
+	$return = ($hook = get_hook('fn_random_key_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
 
-	if($handle = opendir(FORUM_ROOT.'include/url'))
+	if ($hash)
+		$key = substr(sha1(uniqid(rand(), true)), 0, $len);
+	else if ($readable)
 	{
-		while (false !== ($dirname = readdir($handle)))
-		{
-			$dirname =  FORUM_ROOT.'include/url/'.$dirname;
-			if (is_dir($dirname) && file_exists($dirname.'/forum_urls.php'))
-				$schemes[] = basename($dirname);
-		}
-		closedir($handle);
+		$chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+
+		for ($i = 0; $i < $len; ++$i)
+			$key .= substr($chars, (mt_rand() % strlen($chars)), 1);
 	}
-	
-	($hook = get_hook('fn_get_scheme_packs_end')) ? eval($hook) : null;
+	else
+		for ($i = 0; $i < $len; ++$i)
+			$key .= chr(mt_rand(33, 126));
 
-	return $schemes;
+	($hook = get_hook('fn_random_key_end')) ? eval($hook) : null;
+
+	return $key;
 }
- 
 
-// Return a list of all styles installed
-function get_style_packs()
+
+// Generates a valid CSRF token for use when submitting a form to $target_url
+// $target_url should be an absolute URL and it should be exactly the URL that the user is going to
+// Alternately, if the form token is going to be used in GET (which would mean the token is going to be
+// a part of the URL itself), $target_url may be a plain string containing information related to the URL.
+function generate_form_token($target_url)
 {
- 	$styles = array();
+	global $forum_user;
 
-	if($handle = opendir(FORUM_ROOT.'style'))
+	$return = ($hook = get_hook('fn_generate_form_token_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	return sha1(str_replace('&amp;', '&', $target_url).$forum_user['csrf_token']);
+}
+
+
+// Generates a salted, SHA-1 hash of $str
+function forum_hash($str, $salt)
+{
+	$return = ($hook = get_hook('fn_forum_hash_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	return sha1($salt.sha1($str));
+}
+
+
+// Delete every .php file in the forum's cache directory
+function forum_clear_cache()
+{
+	$return = ($hook = get_hook('fn_forum_clear_cache_start')) ? eval($hook) : null;
+	if ($return != null)
+		return;
+
+	$d = dir(FORUM_CACHE_DIR);
+	while (($entry = $d->read()) !== false)
 	{
-		while (false !== ($dirname = readdir($handle)))
-		{
-			$dirname =  FORUM_ROOT.'style/'.$dirname;
-			$tempname = basename($dirname);
-			if (is_dir($dirname) && file_exists($dirname.'/'.$tempname.'.php'))
-				$styles[] = $tempname;
-		}
-		closedir($handle);
+		if (substr($entry, strlen($entry)-4) == '.php')
+			@unlink(FORUM_CACHE_DIR.$entry);
 	}
- 
- 	($hook = get_hook('fn_get_style_packs_end')) ? eval($hook) : null;
-
-	return $styles;
-}
-
-// Return a list of all language packs installed
-function get_language_packs()
-{
- 	$lang = array();
-
-	if ($handle = opendir(FORUM_ROOT.'lang'))
-	{
-		while (false !== ($dirname = readdir($handle)))
-		{
-			$dirname =  FORUM_ROOT.'lang/'.$dirname;
-			if (is_dir($dirname) && file_exists($dirname.'/common.php'))
-				$lang[] = basename($dirname);
-		}
-		closedir($handle);
-	}
-
-	($hook = get_hook('fn_get_language_packs_end')) ? eval($hook) : null;
-
-	return $lang;
+	$d->close();
 }
 
 
-// Return all code blocks that hook into $hook_id
-function get_hook($hook_id)
-{
-	global $hooks;
-
-	return !defined('FORUM_DISABLE_HOOKS') && isset($hooks[$hook_id]) ? implode("\n", $hooks[$hook_id]) : false;
-}
-
+//
+// Главные функции форума
+//
 
 // Authenticates the provided username and password against the user database
 // $user can be either a user ID (integer) or a username (string)
@@ -142,11 +1127,11 @@ function authenticate_user($user, $password, $password_is_hash = false)
 		'JOINS'		=> array(
 			array(
 				'INNER JOIN'	=> 'groups AS g',
-				'ON'		=> 'g.g_id=u.group_id'
+				'ON'			=> 'g.g_id=u.group_id'
 			),
 			array(
-				'LEFT JOIN'	=> 'online AS o',
-				'ON'		=> 'o.user_id=u.id'
+				'LEFT JOIN'		=> 'online AS o',
+				'ON'			=> 'o.user_id=u.id'
 			)
 		)
 	);
@@ -162,6 +1147,8 @@ function authenticate_user($user, $password, $password_is_hash = false)
 		($password_is_hash && $password != $forum_user['password']) ||
 		(!$password_is_hash && forum_hash($password, $forum_user['salt']) != $forum_user['password']))
 		set_default_user();
+	else
+		$forum_user['is_guest'] = false;
 
 	($hook = get_hook('fn_authenticate_user_end')) ? eval($hook) : null;
 }
@@ -207,7 +1194,7 @@ function cookie_login(&$forum_user)
 			$security = true;
 		
 		// We now validate the cookie hash
-		if ($cookie['expire_hash'] !== sha1($forum_user['salt'].$forum_user['password'].forum_hash(intval($cookie['expiration_time']), $forum_user['salt'])) || $user_agent || $security )
+		if ($cookie['expire_hash'] !== sha1($forum_user['salt'].$forum_user['password'].forum_hash(intval($cookie['expiration_time']), $forum_user['salt'])) || $user_agent || $security)
 			set_default_user();
 
 		// If we got back the default user, the login failed
@@ -337,11 +1324,11 @@ function set_default_user()
 		'JOINS'		=> array(
 			array(
 				'INNER JOIN'	=> 'groups AS g',
-				'ON'		=> 'g.g_id=u.group_id'
+				'ON'			=> 'g.g_id=u.group_id'
 			),
 			array(
-				'LEFT JOIN'	=> 'online AS o',
-				'ON'		=> 'o.ident=\''.$forum_db->escape($remote_addr).'\''
+				'LEFT JOIN'		=> 'online AS o',
+				'ON'			=> 'o.ident=\''.$forum_db->escape($remote_addr).'\''
 			)
 		),
 		'WHERE'		=> 'u.id=1'
@@ -350,7 +1337,7 @@ function set_default_user()
 	($hook = get_hook('fn_set_default_user_qr_get_default_user')) ? eval($hook) : null;
 	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 	if (!$forum_db->num_rows($result))
-		exit('Unable to fetch guest information. The table \''.$forum_db->prefix.'users\' must contain an entry with id = 1 that represents anonymous users.');
+		die('Unable to fetch guest information. The table \''.$forum_db->prefix.'users\' must contain an entry with id = 1 that represents anonymous users.');
 
 	$forum_user = $forum_db->fetch_assoc($result);
 
@@ -411,36 +1398,6 @@ function set_default_user()
 }
 
 
-// Set a cookie.
-function forum_setcookie($name, $value, $expire)
-{
-	global $cookie_name, $cookie_path, $cookie_domain, $cookie_secure;
-
-		if ($name == $cookie_name)
-		{
-			$value = explode('|', base64_decode($value));
-			if (strlen($value[1]) == 8)
-			{
-				$value[1] = random_key(8, false, true);
-				$value[3] = random_key(8, false, true);
-			}
-			$value = base64_encode(implode('|', $value));
-		}
-
-	$return = ($hook = get_hook('fn_forum_setcookie_start')) ? eval($hook) : null;
-	if ($return != null)
-		return;
-
-	// Enable sending of a P3P header
-	@header('P3P: CP="CUR ADM"');
-
-	if (version_compare(PHP_VERSION, '5.2.0', '>='))
-		setcookie($name, $value, $expire, $cookie_path, $cookie_domain, $cookie_secure, true);
-	else
-		setcookie($name, $value, $expire, $cookie_path.'; HttpOnly', $cookie_domain, $cookie_secure);
-}
-
-
 // Check whether the connecting user is banned (and delete any expired bans while we're at it)
 function check_bans()
 {
@@ -480,6 +1437,8 @@ function check_bans()
 		}
 
 		if ($cur_ban['username'] != '' && utf8_strtolower($forum_user['username']) == utf8_strtolower($cur_ban['username']))
+			$is_banned = true;
+		if ($cur_ban['email'] != '' && $forum_user['email'] == $cur_ban['email'])
 			$is_banned = true;
 
 		if ($cur_ban['ip'] != '')
@@ -528,65 +1487,32 @@ function check_bans()
 }
 
 
-function pm_unread_messages()
+// Функция записи в БД числа пользователей
+function record($num_users, $type)
 {
-	global $forum_db, $forum_user, $forum_config, $forum_url, $lang_common, $pm_inbox_full;
+	global $forum_db, $forum_config;
 
-	$return = ($hook = get_hook('fn_pm_unread_messages_start')) ? eval($hook) : null;
+	$return = ($hook = get_hook('fn_fl_record_start')) ? eval($hook) : null;
 	if ($return != null)
 		return;
 
-	//How much delivered messages do we have?
 	$query = array(
-		'SELECT'	=> 'm.id, m.status',
-		'FROM'		=> 'pm AS m',
-		'WHERE'		=> 'm.receiver_id='.$forum_user['id'].' AND m.deleted_by_receiver=0'
+		'UPDATE'	=> 'config',
+		'SET'		=> 'conf_value='.$num_users,
+		'WHERE'		=> 'conf_name=\'c_max_'.$type.'\''
 	);
 
-	($hook = get_hook('fn_pm_unread_messages_qr')) ? eval($hook) : null;
-	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+	($hook = get_hook('fn_fl_record_qr')) ? eval($hook) : null;
+	$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
-	$new_messages = $messages_full = 0;
+	if (!defined('FORUM_CACHE_FUNCTIONS_LOADED'))
+		require FORUM_ROOT.'include/cache.php';
 
-	$messages = array();
+	generate_config_cache();
+	// Данные без кэша
+	$forum_config['c_'.$type] = $num_users;
 
-	while ($status = $forum_db->fetch_assoc($result))
-	{
-		if ($status['status'] == 'delivered' || $status['status'] == 'sent')
-		{
-			$messages[] = $status['status'];
-			++$new_messages;
-		}
-		else if ($status['status'] == 'delivered' || $status['status'] == 'read' || $status['status'] == 'sent')
-			++$messages_full;
-	}
-
-	$pm_inbox_full = ($messages_full < $forum_config['o_pm_inbox_size']) ? '' : true;
-
-	$messages = ($new_messages != 0 ? sprintf($lang_common['New link active'], $new_messages) : '');
-	$link_name = $pm_inbox_full ? $lang_common['New link full'] : $messages;
-	
-	$link = ($new_messages != 0 || $pm_inbox_full) ? '<span id="new-pm"><a href="'.forum_link($forum_url['pm'], array($forum_user['id'], 'inbox')).'"><strong>'.$link_name.'</strong></a></span>' : '';
-
-	($hook = get_hook('fn_pm_unread_messages_end')) ? eval($hook) : null;
-
-	return $link;
-}
-
-
-// Проверка IP адреса, e-mail, ника в спам-базе
-function stop_spam($type, $data)
-{
-	$return = ($hook = get_hook('fn_stop_spa_start')) ? eval($hook) : null;
-	if ($return != null)
-		return;
-
-	// Если StopForumSpam недоступен, не показывать ошибку
-	$xml = @implode('', @file('http://www.stopforumspam.com/api?'.$type.'='.urlencode($data)));
-
-	($hook = get_hook('fn_stop_spa_end')) ? eval($hook) : null;
-
-	return strpos($xml, '<appears>yes</appears>') !== false;
+	($hook = get_hook('fn_fl_record_end')) ? eval($hook) : null;
 }
 
 
@@ -603,60 +1529,80 @@ function update_users_online()
 
 	// Fetch all online list entries that are older than "o_timeout_online"
 	$query = array(
-		'SELECT'	=> 'o.user_id, o.ident, o.logged, o.prev_url',
+		'SELECT'	=> 'o.user_id, o.ident, o.logged, o.idle, o.prev_url',
 		'FROM'		=> 'online AS o',
-		'WHERE'		=> 'o.logged<'.($now-$forum_config['o_timeout_online'])
 	);
 
 	($hook = get_hook('fn_update_users_online_qr_get_old_online_users')) ? eval($hook) : null;
 	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+	$num_guests = $num_users = 0;
+
 	while ($cur_user = $forum_db->fetch_assoc($result))
 	{
-		// If the entry is a guest, delete it
-		if ($cur_user['user_id'] == '1')
+		if ($cur_user['logged'] < ($now - $forum_config['o_timeout_online']))
 		{
-			$query = array(
-				'DELETE'	=> 'online',
-				'WHERE'		=> 'ident=\''.$forum_db->escape($cur_user['ident']).'\''
-			);
-
-			($hook = get_hook('fn_update_users_online_qr_delete_online_guest_user')) ? eval($hook) : null;
-			$forum_db->query_build($query) or error(__FILE__, __LINE__);
-		}
-		else
-		{
-			// If the entry is older than "o_timeout_visit", update last_visit for the user in question, then delete him/her from the online list
-			if ($cur_user['logged'] < ($now - $forum_config['o_timeout_visit']))
+			// If the entry is a guest, delete it
+			if ($cur_user['user_id'] == '1')
 			{
 				$query = array(
-					'UPDATE'	=> 'users',
-					'SET'		=> 'last_visit='.$cur_user['logged'],
-					'WHERE'		=> 'id='.$cur_user['user_id']
-				);
-
-				($hook = get_hook('fn_update_users_online_qr_update_user_visit')) ? eval($hook) : null;
-				$forum_db->query_build($query) or error(__FILE__, __LINE__);
-
-				$query = array(
 					'DELETE'	=> 'online',
-					'WHERE'		=> 'user_id='.$cur_user['user_id']
+					'WHERE'		=> 'ident=\''.$forum_db->escape($cur_user['ident']).'\''
 				);
 
-				($hook = get_hook('fn_update_users_online_qr_delete_online_user')) ? eval($hook) : null;
+				($hook = get_hook('fn_update_users_online_qr_delete_online_guest_user')) ? eval($hook) : null;
 				$forum_db->query_build($query) or error(__FILE__, __LINE__);
 			}
 			else
 			{
-				$query = array(
-					'UPDATE'	=> 'online',
-					'SET'		=> 'idle=1',
-					'WHERE'		=> 'user_id='.$cur_user['user_id']
-				);
+				if ($cur_user['idle'] != '0')
+				{
+					$query = array(
+						'UPDATE'	=> 'users',
+						'SET'		=> 'last_visit='.$cur_user['logged'],
+						'WHERE'		=> 'id='.$cur_user['user_id']
+					);
 
-				($hook = get_hook('fn_update_users_online_qr_update_user_idle')) ? eval($hook) : null;
-				$forum_db->query_build($query) or error(__FILE__, __LINE__);
+					($hook = get_hook('fn_update_users_online_qr_update_user_visit')) ? eval($hook) : null;
+					$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+					$query = array(
+						'DELETE'	=> 'online',
+						'WHERE'		=> 'user_id='.$cur_user['user_id']
+					);
+
+					($hook = get_hook('fn_update_users_online_qr_delete_online_user')) ? eval($hook) : null;
+					$forum_db->query_build($query) or error(__FILE__, __LINE__);
+				}
+				else
+				{
+					$query = array(
+						'UPDATE'	=> 'online',
+						'SET'		=> 'idle=1',
+						'WHERE'		=> 'user_id='.$cur_user['user_id']
+					);
+
+					($hook = get_hook('fn_update_users_online_qr_update_user_idle')) ? eval($hook) : null;
+					$forum_db->query_build($query) or error(__FILE__, __LINE__);
+				}
 			}
 		}
+
+		if ($cur_user['user_id'] == '1')
+			++$num_guests;
+		else
+			++$num_users;
+	}
+
+	if ($forum_config['o_record'])
+	{
+		if ($num_users > $forum_config['c_max_users'])
+			record($num_users, 'users');
+		if ($num_guests > $forum_config['c_max_guests'])
+			record($num_guests, 'guests');
+		$max_total_users = $num_users + $num_guests;
+		if ($max_total_users > $forum_config['c_max_total_users'])
+			record($max_total_users, 'total_users');
 	}
 
 	($hook = get_hook('fn_update_users_online_end')) ? eval($hook) : null;
@@ -667,6 +1613,10 @@ function update_users_online()
 function forum_online()
 {
 	global $forum_db, $forum_user;
+
+	$return = ($hook = get_hook('fn_fl_forum_online_start')) ? eval($hook) : null;
+	if ($return != null)
+		return;
 
 	$pathinfo = pathinfo($_SERVER['PHP_SELF']);
 	$cur_page = $pathinfo['basename'];
@@ -683,7 +1633,7 @@ function forum_online()
 				'WHERE'		=> 't.id=\''.intval($_GET['pid']).'\''
 			);
 
-			($hook = get_hook('fn_current_page_qr_get')) ? eval($hook) : null;
+			($hook = get_hook('fn_fl_current_page_qr_get')) ? eval($hook) : null;
 			$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 			$tmp = $forum_db->result($result);
 			$cur_page_id = ($tmp != '') ? $tmp : '0' ;
@@ -698,55 +1648,39 @@ function forum_online()
 	else
 		$cur_page_id = 0;
 
+	($hook = get_hook('fn_fl_forum_online_pre_qr_logged')) ? eval($hook) : null;
+
 	$query = array(
 		'UPDATE'	=> 'online',
-		'SET'		=> 'current_page=\''.FORUM_PAGE.'\', current_page_id=\''.$cur_page_id.'\', current_ip=\''.get_remote_address().'\''
+		'SET'		=> 'current_page=\''.FORUM_PAGE.'\', current_page_id='.$cur_page_id.', current_ip=\''.$forum_db->escape(get_remote_address()).'\''
 	);
 
 	if ($forum_user['is_guest'])
-		$query['WHERE'] = 'ident=\''.get_remote_address().'\'';
+		$query['WHERE'] = 'ident=\''.$forum_db->escape(get_remote_address()).'\'';
 	else
 		$query['WHERE'] = 'user_id='.$forum_user['id'];
 
-	($hook = get_hook('fn_forum_online_qr_logged')) ? eval($hook) : null;
+	($hook = get_hook('fn_fl_forum_online_qr_logged')) ? eval($hook) : null;
 	$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+	($hook = get_hook('fn_fl_forum_online_end')) ? eval($hook) : null;
 }
 
 
-// Generate breadcrumb navigation
-function generate_crumbs($reverse)
+// Проверка IP адреса, e-mail, ника в спам-базе
+function stop_spam($type, $data)
 {
-	global $lang_common, $forum_url, $forum_config, $forum_page;
-
-	$return = ($hook = get_hook('fn_generate_crumbs_start')) ? eval($hook) : null;
+	$return = ($hook = get_hook('fn_fl_stop_spa_start')) ? eval($hook) : null;
 	if ($return != null)
-		return $return;
+		return;
 
-	if (empty($forum_page['crumbs']))
-		$forum_page['crumbs'][0] = forum_htmlencode($forum_config['o_board_title']).$lang_common['Title separator'].forum_htmlencode($forum_config['o_board_desc']);
+	// Если StopForumSpam недоступен, не показывать ошибку
+	$xml = @implode('', @file('http://www.stopforumspam.com/api?'.$type.'='.urlencode($data)));
 
-	$crumbs = '';
-	$num_crumbs = count($forum_page['crumbs']);
+	($hook = get_hook('fn_fl_stop_spa_end')) ? eval($hook) : null;
 
-	if ($reverse)
-	{
-		for ($i = ($num_crumbs - 1); $i >= 0; --$i)
-			$crumbs .= (is_array($forum_page['crumbs'][$i]) ? forum_htmlencode($forum_page['crumbs'][$i][0]) : forum_htmlencode($forum_page['crumbs'][$i])).((isset($forum_page['page']) && $i == ($num_crumbs - 1)) ? ' ('.$lang_common['Page'].' '.forum_number_format($forum_page['page']).')' : '').($i > 0 ? $lang_common['Title separator'] : '');
-	}
-	else
-		for ($i = 0; $i < $num_crumbs; ++$i)
-		{
-			if ($i < ($num_crumbs - 1))
-				$crumbs .= '<span class="crumb'.(($i == 0) ? ' crumbfirst' : '').'">'.(($i >= 1) ? '<span>'.$lang_common['Crumb separator'].'</span>' : '').(is_array($forum_page['crumbs'][$i]) ? '<a href="'.$forum_page['crumbs'][$i][1].'">'.forum_htmlencode($forum_page['crumbs'][$i][0]).'</a>' : forum_htmlencode($forum_page['crumbs'][$i])).'</span> ';
-			else
-				$crumbs .= '<span class="crumb crumblast'.(($i == 0) ? ' crumbfirst' : '').'">'.(($i >= 1) ? '<span>'.$lang_common['Crumb separator'].'</span>' : '').(is_array($forum_page['crumbs'][$i]) ? '<a href="'.$forum_page['crumbs'][$i][1].'">'.forum_htmlencode($forum_page['crumbs'][$i][0]).'</a>' : forum_htmlencode($forum_page['crumbs'][$i])).'</span> ';
-		}
-
-	($hook = get_hook('fn_generate_crumbs_end')) ? eval($hook) : null;
-
-	return $crumbs;
+	return strpos($xml, '<appears>yes</appears>') !== false;
 }
-
 
 // Save array of tracked topics in cookie
 function set_tracked_topics($tracked_topics)
@@ -816,20 +1750,39 @@ function get_tracked_topics()
 	return $tracked_topics;
 }
 
-// Delete every .php file in the forum's cache directory
-function forum_clear_cache()
-{
-	$return = ($hook = get_hook('fn_forum_clear_cache_start')) ? eval($hook) : null;
-	if ($return != null)
-		return;
 
-	$d = dir(FORUM_CACHE_DIR);
-	while (($entry = $d->read()) !== false)
+// Generate breadcrumb navigation
+function generate_crumbs($reverse)
+{
+	global $lang_common, $forum_url, $forum_config, $forum_page;
+
+	$return = ($hook = get_hook('fn_generate_crumbs_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	if (empty($forum_page['crumbs']))
+		$forum_page['crumbs'][0] = forum_htmlencode($forum_config['o_board_title']).$lang_common['Title separator'].forum_htmlencode($forum_config['o_board_desc']);
+
+	$crumbs = '';
+	$num_crumbs = count($forum_page['crumbs']);
+
+	if ($reverse)
 	{
-		if (substr($entry, strlen($entry)-4) == '.php')
-			@unlink(FORUM_CACHE_DIR.$entry);
+		for ($i = ($num_crumbs - 1); $i >= 0; --$i)
+			$crumbs .= (is_array($forum_page['crumbs'][$i]) ? forum_htmlencode($forum_page['crumbs'][$i][0]) : forum_htmlencode($forum_page['crumbs'][$i])).((isset($forum_page['page']) && $i == ($num_crumbs - 1)) ? ' ('.$lang_common['Page'].' '.forum_number_format($forum_page['page']).')' : '').($i > 0 ? $lang_common['Title separator'] : '');
 	}
-	$d->close();
+	else
+		for ($i = 0; $i < $num_crumbs; ++$i)
+		{
+			if ($i < ($num_crumbs - 1))
+				$crumbs .= '<span class="crumb'.(($i == 0) ? ' crumbfirst' : '').'">'.(($i >= 1) ? '<span>'.$lang_common['Crumb separator'].'</span>' : '').(is_array($forum_page['crumbs'][$i]) ? '<a href="'.$forum_page['crumbs'][$i][1].'">'.forum_htmlencode($forum_page['crumbs'][$i][0]).'</a>' : forum_htmlencode($forum_page['crumbs'][$i])).'</span> ';
+			else
+				$crumbs .= '<span class="crumb crumblast'.(($i == 0) ? ' crumbfirst' : '').'">'.(($i >= 1) ? '<span>'.$lang_common['Crumb separator'].'</span>' : '').(is_array($forum_page['crumbs'][$i]) ? '<a href="'.$forum_page['crumbs'][$i][1].'">'.forum_htmlencode($forum_page['crumbs'][$i][0]).'</a>' : forum_htmlencode($forum_page['crumbs'][$i])).'</span> ';
+		}
+
+	($hook = get_hook('fn_generate_crumbs_end')) ? eval($hook) : null;
+
+	return $crumbs;
 }
 
 
@@ -875,440 +1828,6 @@ function delete_orphans()
 	}
 
 	($hook = get_hook('fn_delete_orphans_end')) ? eval($hook) : null;
-}
-
-
-// Make a string safe to use in a URL
-function sef_friendly($str)
-{
-	global $forum_config, $forum_user;
-	static $lang_url_replace, $reserved_strings;
-
-	if (!isset($lang_url_replace))
-		require FORUM_ROOT.'lang/url_replace.php';
-	
-	if (!isset($reserved_strings))
-	{
-		// Bring in any reserved strings
-		if (file_exists(FORUM_ROOT.'include/url/'.$forum_config['o_sef'].'/reserved_strings.php'))
-			require FORUM_ROOT.'include/url/'.$forum_config['o_sef'].'/reserved_strings.php';
-		else
-			require FORUM_ROOT.'include/url/reserved_strings.php';
-	}
-
-	$return = ($hook = get_hook('fn_sef_friendly_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	$str = strtr($str, $lang_url_replace);
-	$str = strtolower(utf8_decode($str));
-	$str = forum_trim(preg_replace(array('/[^a-z0-9\s]/', '/[\s]+/'), array('', '-'), $str), '-');
-
-	foreach ($reserved_strings as $match => $replace)
-		if ($str == $match)
-			return $replace;
-
-	return $str;
-}
-
-
-// Replace censored words in $text
-function censor_words($text)
-{
-	global $forum_db;
-	static $search_for, $replace_with;
-
-	$return = ($hook = get_hook('fn_censor_words_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	// If not already loaded in a previous call, load the cached censors
-	if (!defined('FORUM_CENSORS_LOADED'))
-	{
-		if (file_exists(FORUM_CACHE_DIR.'cache_censors.php'))
-			include FORUM_CACHE_DIR.'cache_censors.php';
-
-		if (!defined('FORUM_CENSORS_LOADED'))
-		{
-			if (!defined('FORUM_CACHE_FUNCTIONS_LOADED'))
-				require FORUM_ROOT.'include/cache.php';
-
-			generate_censors_cache();
-			require FORUM_CACHE_DIR.'cache_censors.php';
-		}
-
-		$search_for = array();
-		$replace_with = array();
-
-		foreach ($forum_censors as $censor_key => $cur_word)
-		{
-			$search_for[$censor_key] = '/(?<=\W)('.str_replace('\*', '\w*?', preg_quote($cur_word['search_for'], '/')).')(?=\W)/iu';
-			$replace_with[$censor_key] = $cur_word['replace_with'];
-
-			($hook = get_hook('fn_censor_words_setup_regex')) ? eval($hook) : null;
-		}
-	}
-
-	if (!empty($search_for))
-		$text = utf8_substr(preg_replace($search_for, $replace_with, ' '.$text.' '), 1, -1);
-
-	return $text;
-}
-
-
-// Determines the correct title for $user
-// $user must contain the elements 'username', 'title', 'posts', 'g_id' and 'g_user_title'
-function get_title($user)
-{
-	global $forum_db, $forum_config, $forum_bans, $lang_common;
-	static $ban_list, $forum_ranks;
-
-	$return = ($hook = get_hook('fn_get_title_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	// If not already built in a previous call, build an array of lowercase banned usernames
-	if (empty($ban_list))
-	{
-		$ban_list = array();
-
-		foreach ($forum_bans as $cur_ban)
-			$ban_list[] = utf8_strtolower($cur_ban['username']);
-	}
-
-	// If not already loaded in a previous call, load the cached ranks
-	if ($forum_config['o_ranks'] && !defined('FORUM_RANKS_LOADED'))
-	{
-		if (file_exists(FORUM_CACHE_DIR.'cache_ranks.php'))
-			include FORUM_CACHE_DIR.'cache_ranks.php';
-
-		if (!defined('FORUM_RANKS_LOADED'))
-		{
-			if (!defined('FORUM_CACHE_FUNCTIONS_LOADED'))
-				require FORUM_ROOT.'include/cache.php';
-
-			generate_ranks_cache();
-			require FORUM_CACHE_DIR.'cache_ranks.php';
-		}
-	}
-
-	// If the user has a custom title
-	if ($user['title'] != '')
-		$user_title = forum_htmlencode($forum_config['o_censoring'] ? censor_words($user['title']) : $user['title']);
-	// If the user is banned
-	else if (in_array(utf8_strtolower($user['username']), $ban_list))
-		$user_title = $lang_common['Banned'];
-	// If the user group has a default user title
-	else if ($user['g_user_title'] != '')
-		$user_title = forum_htmlencode($user['g_user_title']);
-	// If the user is a guest
-	else if ($user['g_id'] == FORUM_GUEST)
-		$user_title = $lang_common['Guest'];
-	else
-	{
-		// Are there any ranks?
-		if ($forum_config['o_ranks'] && !empty($forum_ranks))
-			foreach ($forum_ranks as $cur_rank)
-				if (intval($user['num_posts']) >= $cur_rank['min_posts'])
-					$user_title = forum_htmlencode($cur_rank['rank']);
-
-		// If the user didn't "reach" any rank (or if ranks are disabled), we assign the default
-		if (!isset($user_title))
-			$user_title = $lang_common['Member'];
-	}
-
-	($hook = get_hook('fn_get_title_end')) ? eval($hook) : null;
-
-	return $user_title;
-}
-
-
-// Generate a string with page and item information for multipage headings
-function generate_items_info($label, $first, $total)
-{
-	global $forum_page, $lang_common;
-
-	$return = ($hook = get_hook('fn_generate_page_info_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	if ($forum_page['num_pages'] == 1)
-		$item_info =  '<span class="item-info">'.sprintf($lang_common['Item info single'], $label, forum_number_format($total)).'</span>';
-	else
-		$item_info = '<span class="item-info">'.sprintf($lang_common['Item info plural'], $label, forum_number_format($first), forum_number_format($forum_page['finish_at']), forum_number_format($total)).'</span>';
-
-	($hook = get_hook('fn_generate_page_info_end')) ? eval($hook) : null;
-
-	return $item_info;
-}
-
-
-// Generate a string with numbered links (for multipage scripts)
-function paginate($num_pages, $cur_page, $link, $separator, $args = null)
-{
-	global $forum_url, $lang_common;
-
-	$pages = array();
-	$link_to_all = false;
-
-	$return = ($hook = get_hook('fn_paginate_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	// If $cur_page == -1, we link to all pages (used in viewforum.php)
-	if ($cur_page == -1)
-	{
-		$cur_page = 1;
-		$link_to_all = true;
-	}
-
-	if ($num_pages <= 1)
-		$pages = array('<strong class="item1">1</strong>');
-	else
-	{
-		// Add a previous page link
-		if ($num_pages > 1 && $cur_page > 1)
-			$pages[] = '<span class="pevious"></span><a'.(empty($pages) ? ' class="item1"' : '').' href="'.forum_sublink($link, $forum_url['page'], ($cur_page - 1), $args).'">'.$lang_common['Previous'].'</a>';
-
-		if ($cur_page > 3)
-		{
-			$pages[] = '<a'.(empty($pages) ? ' class="item1"' : '').' href="'.forum_sublink($link, $forum_url['page'], 1, $args).'">1</a>';
-
-			if ($cur_page > 5)
-				$pages[] = '<span>'.$lang_common['Spacer'].'</span>';
-		}
-
-		// Don't ask me how the following works. It just does, OK? :-)
-		for ($current = ($cur_page == 5) ? $cur_page - 3 : $cur_page - 2, $stop = ($cur_page + 4 == $num_pages) ? $cur_page + 4 : $cur_page + 3; $current < $stop; ++$current)
-			if ($current < 1 || $current > $num_pages)
-				continue;
-			else if ($current != $cur_page || $link_to_all)
-				$pages[] = '<a'.(empty($pages) ? ' class="item1"' : '').' href="'.forum_sublink($link, $forum_url['page'], $current, $args).'">'.forum_number_format($current).'</a>';
-			else
-				$pages[] = '<strong'.(empty($pages) ? ' class="item1"' : '').'>'.forum_number_format($current).'</strong>';
-
-		if ($cur_page <= ($num_pages-3))
-		{
-			if ($cur_page != ($num_pages-3) && $cur_page != ($num_pages-4))
-				$pages[] = '<span>'.$lang_common['Spacer'].'</span>';
-
-			$pages[] = '<a'.(empty($pages) ? ' class="item1"' : '').' href="'.forum_sublink($link, $forum_url['page'], $num_pages, $args).'">'.forum_number_format($num_pages).'</a>';
-		}
-
-		// Add a next page link
-		if ($num_pages > 1 && !$link_to_all && $cur_page < $num_pages)
-			$pages[] = '<a class="next" href="'.forum_sublink($link, $forum_url['page'], ($cur_page + 1), $args).'">'.$lang_common['Next'].'</a>';
-	}
-
-	($hook = get_hook('fn_paginate_end')) ? eval($hook) : null;
-
-	return implode($separator, $pages);
-}
-
-
-// Определим ОС и Браузер
-function useragent_info($useragent)
-{
-	global $base_url;
-
-	$return = ($hook = get_hook('fn_useragent_info_start')) ? eval($hook) : null;
-	if ($return != null)
-		return;
-
-	$ua = strtolower($useragent);
-	$ua_browser = $ua_os = '';
-
-	// Определим браузер
-	if (strpos($ua, 'arora') !== false) $browser = 'Arora';
-	else if (strpos($ua, 'avant browser') !== false) $browser = 'AvantBrowser';
-	else if (strpos($ua, 'aweb') !== false) $browser = 'AWeb';
-	else if (strpos($ua, 'camino') !== false) $browser = 'Camino';
-	else if (strpos($ua, 'chrome') !== false) $browser = 'Chrome';
-	else if (strpos($ua, 'cometbird') !== false) $browser = 'Cometbird';
-	else if (strpos($ua, 'dillo') !== false) $browser = 'Dillo';
-	else if (strpos($ua, 'elinks') !== false) $browser = 'ELinks';
-	else if (strpos($ua, 'epiphany') !== false) $browser = 'Epiphany';
-	else if (strpos($ua, 'fennec') !== false) $browser = 'Fennec';
-	else if (strpos($ua, 'firebird') !== false) $browser = 'Firebird';
-	else if (strpos($ua, 'firefox') !== false) $browser = 'Firefox';
-	else if (strpos($ua, 'flock') !== false) $browser = 'Flock';
-	else if (strpos($ua, 'galeon') !== false) $browser = 'Galeon';
-	else if (strpos($ua, 'hotjava') !== false)$browser = 'HotJava';
-	else if (strpos($ua, 'ibrowse') !== false) $ubrowser = 'IBrowse';
-	else if (strpos($ua, 'icab') !== false) $ubrowser = 'iCab';
-	else if (strpos($ua, 'iceweasel') !== false) $browser = 'Iceweasel';
-	else if (strpos($ua, 'iron') !== false) $browser = 'Iron';
-	else if (strpos($ua, 'konqueror') !== false) $browser = 'Konqueror';
-	else if (strpos($ua, 'maxthon') !== false || strpos($ua, 'myie') !== false) $browser = 'Maxthon';
-	else if (strpos($ua, 'minefield') !== false) $browser = 'Minefield';
-	else if (strpos($ua, 'msie8.0') !== false) $browser = 'MSIE8';
-	else if (strpos($ua, 'msie7.0') !== false) $browser = 'MSIE7';
-	else if (strpos($ua, 'msie') !== false) $browser = 'MSIE';
-	else if (strpos($ua, 'netscape') !== false) $browser = 'Netscape';
-	else if (strpos($ua, 'netsurf') !== false) $browser = 'NetSurf';
-	else if (strpos($ua, 'opera') !== false) $browser = 'Opera';
-	else if (strpos($ua, 'phaseout') !== false) $browser = 'PhaseOut';
-	else if (strpos($ua, 'safari') !== false) $browser = 'Safari';
-	else if (strpos($ua, 'seamonkey') !== false) $browser = 'SeaMonkey';
-	else if (strpos($ua, 'shiretoko') !== false) $browser = 'Shiretoko';
-	else if (strpos($ua, 'slimbrowser') !== false) $browser = 'SlimBrowser';
-	else if (strpos($ua, 'stainless') !== false) $browser = 'Stainless';
-	else if (strpos($ua, 'sunrise') !== false) $browser = 'Sunrise';
-	else if (strpos($ua, 'wyzo') !== false) $browser = 'Wyzo';
-	// Семейство Mozilla
-	else if (strpos($ua, 'mozilla') !== false && strpos($ua, 'rv:') !== false) $browser = 'Mozilla';
-	// Семейство WebKit
-	else if (strpos($ua, 'webkit') !== false) $browser = 'WebKit';
-
-	($hook = get_hook('fn_useragent_info_browser')) ? eval($hook) : null;
-
-	// Определим ОС
-	if (strpos($ua, 'amiga') !== false) $os = 'Amiga';
-	else if (strpos($ua, 'beos') !== false) $os = 'BeOS';
-	else if (strpos($ua, 'freebsd') !== false) $os = 'FreeBSD';
-	else if (strpos($ua, 'hp-ux') !== false) $os = 'HP-UX';
-	else if (strpos($ua, 'linux') !== false)
-	{
-		if (strpos($ua, 'arch') !== false) $os = 'Arch';
-		else if (strpos($ua, 'ark') !== false) $os = 'Ark';
-		else if (strpos($ua, 'centos') !== false || strpos($ua, 'cent os') !== false) $os = 'CentOS';
-		else if (strpos($ua, 'debian') !== false) $os = 'Debian';
-		else if (strpos($ua, 'fedora') !== false) $os = 'Fedora';
-		else if (strpos($ua, 'freespire') !== false) $os = 'Freespire';
-		else if (strpos($ua, 'gentoo') !== false) $os = 'Gentoo';
-		else if (strpos($ua, 'kanotix') !== false) $os = 'Kanotix';
-		else if (strpos($ua, 'kateos') !== false) $os = 'KateOS';
-		else if (strpos($ua, 'knoppix') !== false) $os = 'Knoppix';
-		else if (strpos($ua, 'kubuntu') !== false) $os = 'Kubuntu';
-		else if (strpos($ua, 'linspire') !== false) $os = 'Linspire';
-		else if (strpos($ua, 'mandriva') !== false || strpos($ua, 'mandrake') !== false) $os = 'Mandriva';
-		else if (strpos($ua, 'redhat') !== false) $os = 'RedHat';
-		else if (strpos($ua, 'slackware') !== false) $os = 'Slackware';
-		else if (strpos($ua, 'slax') !== false) $os = 'Slax';
-		else if (strpos($ua, 'suse') !== false) $os = 'Suse';
-		else if (strpos($ua, 'xubuntu') !== false) $os = 'Xubuntu';
-		else if (strpos($ua, 'ubuntu') !== false) $os = 'Ubuntu';
-		else if (strpos($ua, 'xandros') !== false) $os = 'Xandros';
-		else $os = 'Linux';
-
-		($hook = get_hook('fn_useragent_info_os_linux')) ? eval($hook) : null;
-	}
-	else if (strpos($ua, 'macosx') !== false || strpos($ua, 'macos') !== false || strpos($ua, 'macosx') !== false || strpos($ua, 'macintosh') !== false || strpos($ua, 'os=mac') !== false || strpos($ua, 'mac_osx') !== false) $os = 'MacOSX';
-	else if (strpos($ua, 'macppc') !== false || strpos($ua, 'mac_ppc') !== false || strpos($ua, 'cpu=ppc;') !== false && strpos($ua, 'os=mac') !== false || strpos($ua, 'macintosh; ppc') !== false || strpos($ua, 'macintosh;') !== false && strpos($ua, 'ppc') !== false || strpos($ua, 'mac_powerpc') !== false) $os = 'MacPPC';
-	else if (strpos($ua, 'netbsd') !== false) $os = 'NetBSD';
-	else if (strpos($ua, 'os/2') !== false) $os = 'OS/2';
-	else if (strpos($ua, 'avantgo') !== false) $os = 'Palm';
-	else if (strpos($ua, 'sunos') !== false || strpos($ua, 'solaris') !== false) $os = 'SunOS';
-	else if (strpos($ua, 'symbian') !== false) $os = 'SymbianOS';
-	else if (strpos($ua, 'unix') !== false) $os = 'Unix';
-	else if (strpos($ua, 'win') !== false)
-	{	
-		if (strpos($ua, 'windowsnt6.1') !== false || strpos($ua, 'winnt6.1') !== false) $os = 'WindowsSeven';
-		else if (strpos($ua, 'windowsnt6.0') !== false || strpos($ua, 'winnt6.0') !== false) $os = 'WindowsVista';
-		else if (strpos($ua, 'winnt5.0') !== false || strpos($ua, 'windowsnt5.0') !== false || strpos($ua, 'winnt5.1') !== false || strpos($ua, 'windowsnt5.1') !== false || strpos($ua, 'windowsxp5.1') !== false || strpos($ua, 'winnt5.2') !== false || strpos($ua, 'windowsnt5.2') !== false || strpos($ua, 'windowsxp') !== false || strpos($ua, 'winxp') !== false || strpos($ua, 'cygwin_nt-5.1') !== false || strpos($ua, 'windows2000') !== false || strpos($ua, 'win2000') !== false) $os = 'WindowsXP';
-		else if (strpos($ua, 'windows') !== false || strpos($ua, 'win') !== false) $os = 'Windows';
-		else $os = 'Windows';
-	}
-	else if (strpos($ua, 'macintosh') !== false || strpos($ua, 'mac') !== false) $os = 'Macintosh';
-	else if (strpos($ua, 'sun') !== false) $os = 'Sun';
-	// Мобильные системы
-	else if (strpos($ua, 'smartphone') !== false || strpos($ua, 'iemobile') !== false || strpos($ua, 'j2me') !== false || strpos($ua, 'iphone') !== false || strpos($ua, 'nintendo') !== false) $os = 'Mobile';
-
-	($hook = get_hook('fn_useragent_info_os')) ? eval($hook) : null;
-
-	if (!empty($browser))
-		$ua_browser = '<img class="popup" src="'.$base_url.'/img/browser/'.forum_htmlencode(ereg_replace('[^a-z0-9_]', '', strtolower($browser))).'.png" title="Браузер - '.forum_htmlencode($browser).'" alt=""/>';
-	if (!empty($os))
-		$ua_os = '<img class="popup" src="'.$base_url.'/img/os/'.forum_htmlencode(ereg_replace('[^a-z0-9_]', '', strtolower($os))).'.png" title="ОС - '.forum_htmlencode($os).'" alt=""/>';
-
-	($hook = get_hook('fn_useragent_info_end')) ? eval($hook) : null;
-
-	return $ua_browser.' '.$ua_os;
-}
-
-
-function item_size($count)
-{
-	$return = ($hook = get_hook('fn_item_size_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	if ($count <= 10)
-		$size = 'p1';
-	if ($count > 10 && $count <= 50)
-		$size = 'p2';
-	if ($count > 50)
-		$size = 'p3';
-
-	($hook = get_hook('fn_item_size_end')) ? eval($hook) : null;
-
-	return $size;
-}
-
-// Clean version string from trailing '.0's
-function clean_version($version)
-{
-	return preg_replace('/(\.0)+(?!\.)|(\.0+$)/', '$2', $version);
-}
-
-
-// Checks if a string is in all uppercase
-function is_all_uppercase($string)
-{
-	return utf8_strtoupper($string) == $string && utf8_strtolower($string) != $string;
-}
-
-
-// Display a message
-function message($message, $link = '', $heading = '')
-{
-	global $forum_db, $forum_url, $lang_common, $forum_config, $base_url, $forum_start, $tpl_main, $forum_user, $forum_page, $forum_updates, $db_type;
-
-	$return = ($hook = get_hook('fn_message_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	if (defined('FORUM_HEADER'))
-		ob_end_clean();
-
-	if ($heading == '')
-		$heading = $lang_common['Forum message'];
-
-	// Remove any page settings
-	unset($forum_page);
-
-	// Setup breadcrumbs
-	$forum_page['crumbs'] = array(
-		array($forum_config['o_board_title'], forum_link($forum_url['index'])),
-		$heading
-	);
-
-	($hook = get_hook('fn_message_pre_header_load')) ? eval($hook) : null;
-
-	if (!defined('FORUM_PAGE'))
-		define('FORUM_PAGE', 'message');
-
-	require FORUM_ROOT.'header.php';
-
-	// START SUBST - <!-- forum_main -->
-	ob_start();
-
-	($hook = get_hook('fn_message_output_start')) ? eval($hook) : null;
-
-?>
-	<div class="main-content main-message">
-		<p><?php echo $message.($link ? ' <span>'.$link.'</span>' : '') ?></p>
-	</div>
-<?php
-
-	($hook = get_hook('fn_message_output_end')) ? eval($hook) : null;
-
-	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', "\t".$tpl_temp, $tpl_main);
-	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
-
-	require FORUM_ROOT.'footer.php';
 }
 
 
@@ -1370,12 +1889,6 @@ function csrf_confirm_form()
 				$forum_page['hidden_fields'][$field_key] = '<input type="hidden" name="'.forum_htmlencode($field_key).'" value="'.forum_htmlencode($field_val).'" />';
 		}
 
-	$forum_page['info'] = array(
-		'submit'	=> '<li><span>'.$lang_common['CSRF token mismatch 2'].'</span></li>',
-		'cancel'	=> '<li><span>'.$lang_common['CSRF token mismatch 3'].'</span></li>'
-	);
-
-
 	define('FORUM_PAGE', 'dialogue');
 	require FORUM_ROOT.'header.php';
 
@@ -1393,9 +1906,6 @@ function csrf_confirm_form()
 	<div class="main-content main-frm">
 		<div class="ct-box error-box">
 			<h2 class="warn hn"><?php echo $lang_common['CSRF token mismatch'] ?></h2>
-			<ul class="error-list">
-				<?php echo implode("\n\t\t\t\t", $forum_page['info'])."\n" ?>
-			</ul>
 		</div>
 		<form class="frm-form" method="post" accept-charset="utf-8" action="<?php echo $forum_page['form_action'] ?>">
 			<div class="hidden">
@@ -1421,456 +1931,56 @@ function csrf_confirm_form()
 }
 
 
-// Generate a hyperlink with parameters and anchor
-function forum_link($link, $args = null)
+// Display a message
+function message($message, $link = '', $heading = '')
 {
-	global $forum_config, $base_url;
+	global $forum_db, $forum_url, $lang_common, $forum_config, $base_url, $forum_start, $tpl_main, $forum_user, $forum_page, $forum_updates, $db_type;
 
-	$return = ($hook = get_hook('fn_forum_link_start')) ? eval($hook) : null;
+	$return = ($hook = get_hook('fn_message_start')) ? eval($hook) : null;
 	if ($return != null)
 		return $return;
 
-	$gen_link = $link;
-	if ($args == null)
-		$gen_link = $base_url.'/'.$link;
-	else if (!is_array($args))
-		$gen_link = $base_url.'/'.str_replace('$1', $args, $link);
-	else
-	{
-		for ($i = 0; isset($args[$i]); ++$i)
-			$gen_link = str_replace('$'.($i + 1), $args[$i], $gen_link);
-		$gen_link = $base_url.'/'.$gen_link;
-	}
+	if (defined('FORUM_HEADER'))
+		ob_end_clean();
 
-	($hook = get_hook('fn_forum_link_end')) ? eval($hook) : null;
+	if ($heading == '')
+		$heading = $lang_common['Forum message'];
 
-	return $gen_link;
-}
+	// Remove any page settings
+	unset($forum_page);
 
+	// Setup breadcrumbs
+	$forum_page['crumbs'] = array(
+		array($forum_config['o_board_title'], forum_link($forum_url['index'])),
+		$heading
+	);
 
-// Generate a hyperlink with parameters and anchor and a subsection such as a subpage
-function forum_sublink($link, $sublink, $subarg, $args = null)
-{
-	global $forum_config, $forum_url, $base_url;
+	($hook = get_hook('fn_message_pre_header_load')) ? eval($hook) : null;
 
-	$return = ($hook = get_hook('fn_forum_sublink_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-	
-	if ($sublink == $forum_url['page'] && $subarg == 1)
-		return forum_link($link, $args);
+	if (!defined('FORUM_PAGE'))
+		define('FORUM_PAGE', 'message');
 
-	$gen_link = $link;
-	if (!is_array($args) && $args != null)
-		$gen_link = str_replace('$1', $args, $link);
-	else
-	{
-		for ($i = 0; isset($args[$i]); ++$i)
-			$gen_link = str_replace('$'.($i + 1), $args[$i], $gen_link);
-	}
+	require FORUM_ROOT.'header.php';
 
-	if (isset($forum_url['insertion_find']))
-		$gen_link = $base_url.'/'.str_replace($forum_url['insertion_find'], str_replace('$1', str_replace('$1', $subarg, $sublink), $forum_url['insertion_replace']), $gen_link);
-	else
-		$gen_link = $base_url.'/'.$gen_link.str_replace('$1', $subarg, $sublink);
+	// START SUBST - <!-- forum_main -->
+	ob_start();
 
-	($hook = get_hook('fn_forum_sublink_end')) ? eval($hook) : null;
+	($hook = get_hook('fn_message_output_start')) ? eval($hook) : null;
 
-	return $gen_link;
-}
+?>
+	<div class="main-content main-message">
+		<p><?php echo $message.($link ? ' <span>'.$link.'</span>' : '') ?></p>
+	</div>
+<?php
 
+	($hook = get_hook('fn_message_output_end')) ? eval($hook) : null;
 
-// Функция склонения числительных в русском языке
-function declination($number, $words)
-{
-	$return = ($hook = get_hook('fn_declination_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
+	$tpl_temp = forum_trim(ob_get_contents());
+	$tpl_main = str_replace('<!-- forum_main -->', "\t".$tpl_temp, $tpl_main);
+	ob_end_clean();
+	// END SUBST - <!-- forum_main -->
 
-	$cases = array(2, 0, 1, 1, 1, 2);
-
-	($hook = get_hook('fn_declination_end')) ? eval($hook) : null;
-	
-	return $words[($number % 100 > 4 && $number % 100 < 20) ? 2 : $cases[min($number % 10, 5)]];
-}
-
-
-// Format a time string according to $date_format, $time_format, and timezones
-// $type: 0 = date/time, 1 = date, 2 = time
-function format_time($timestamp, $type = 0, $date_format = null, $time_format = null, $no_text = false)
-{
-	global $forum_config, $lang_common, $forum_user, $forum_time_formats, $forum_date_formats;
-
-	$return = ($hook = get_hook('fn_format_time_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	if ($timestamp == '')
-		return ($no_text ? '' : $lang_common['Never']);
-
-	if ($date_format == null)
-		$date_format = $forum_date_formats[$forum_user['date_format']];
-
-	if ($time_format == null)
-		$time_format = $forum_time_formats[$forum_user['time_format']];
-
-	$diff = ($forum_user['timezone'] + $forum_user['dst']) * 3600;
-	$timestamp += $diff;
-	$now = time();
-
-	$formatted_time = '';
-
-	if ($type == 0 || $type == 1)
-	{
-		$formatted_time = gmdate($date_format, $timestamp);
-
-		if (!$no_text)
-		{
-			$base = gmdate('Y-m-d', $timestamp);
-			$today = gmdate('Y-m-d', $now + $diff);
-			$yesterday = gmdate('Y-m-d', $now + $diff - 86400);
-
-			if ($base == $today)
-				$formatted_time = $lang_common['Today'];
-			else if ($base == $yesterday)
-				$formatted_time = $lang_common['Yesterday'];
-		}
-	}
-
-	if ($type == 0)
-		$formatted_time .= ' ';
-
-	if ($type == 0 || $type == 2)
-		$formatted_time .= gmdate($time_format, $timestamp);
-
-	return $formatted_time;
-}
-
-//function flazy_format_time($timestamp, $date_only = false)
-// $type: 0 = назад, 1 = после, 2 = ''
-function flazy_format_time($timestamp, $type = 0, $date_only = false, $no_text = false)
-{
-	global $forum_config, $lang_common, $forum_user;
-
-	$return = ($hook = get_hook('fn_flazy_format_time_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	if ($timestamp == '')
-		return ($no_text ? '' : $lang_common['Never']);
-
-	if ($type == 0)
-		$way = $lang_common['Back'];
-	if ($type == 1)
-		$way = $lang_common['After'];
-	if ($type == 2)
-		$way = '';
-
-	if (!$date_only)
-	{
-		$diff = time() - $timestamp;
-		$rest = ($diff % 3600);
-		$restdays = ($diff % 86400);
-		$restweeks = ($diff % 604800);
-		$weeks = ($diff - $restweeks) / 604800;
-		$days = ($diff - $restdays) / 86400;
-		$hours = ($diff - $rest) / 3600;
-		$seconds = ($rest % 60);
-		$minutes = ($rest - $seconds) / 60;
-
-		//Недели
-		if ($weeks > 105)
-			return 'несколько лет '.$way;
-		else if ($weeks > 53)
-			return 'больше года '.$way;
-		else if ($weeks > 1)
-			return $weeks.' '.declination($weeks, array('неделю', 'недели', 'недель')).' '.$way;
-		//Дни
-		else if ($days > 1) 
-			return $days.' '.declination($days, array('день', 'дня', 'дней')).' '.$way;
-		//Часы
-		else if($hours > 1)
-			return $hours.' '.declination($hours, array('час', 'часа', 'часов')).' '.$way;
-		//Минуты > 60
-		else if ($hours == 1)
-			return '1 час, '.$minutes.' '.declination($minutes, array('минуту', 'минуты', 'минут')).' '.$way;
-		// Минут
-		else if ($minutes > 0 && $minutes != 1)
-			return $minutes.' '.declination($minutes, array('минуту', 'минуты', 'минут')).' '.$way;
-		// Минута-секунды
-		else if ($minutes == 1)
-			return $minutes.' '.declination($minutes, array('минуту', 'минуты', 'минут')).' '.$seconds.' '.declination($seconds, array('секунду', 'секунды', 'секунд')).' '.$way;
-		// Секунд
-		else if ($minutes == 0)
-			return $seconds.' '.declination($seconds, array('секунду', 'секунды', 'секунд')).' '.$way;
-	}
-	else
-	{
-		$diff = ($forum_user['timezone'] - $forum_config['o_default_timezone']) * 3600;
-		$timestamp += $diff;
-		$now = time();
-
-		$date = date($forum_config['o_date_format'], $timestamp);
-		$today = date($forum_config['o_date_format'], $now + $diff);
-		$yesterday = date($forum_config['o_date_format'], $now + $diff - 86400);
-		return $date;
-	}
-}
-
-
-// Создать "Меню", которое появляется в верхней части каждой страницы
-function generate_navlinks()
-{
-	global $forum_config, $lang_common, $forum_url, $forum_url_admin, $forum_user;
-
-	$return = ($hook = get_hook('fn_generate_navlinks_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	// Index should always be displayed
-	$links['index'] = '<li id="navindex" class="nav'.((FORUM_PAGE == 'index') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['index']).'"><span>'.$lang_common['Index'].'</span></a></li>';
-
-	if ($forum_user['g_read_board'] && $forum_user['g_view_users'])
-		$links['userlist'] = '<li id="navuserlist" class="nav'.((FORUM_PAGE == 'userlist') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['users']).'"><span>'.$lang_common['User list'].'</span></a></li>';
-
-	if ($forum_config['o_rules'] && (!$forum_user['is_guest'] || $forum_user['g_read_board'] || $forum_config['o_regs_allow']))
-		$links['rules'] = '<li id="navrules" class="nav'.((FORUM_PAGE == 'rules') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['rules']).'"><span>'.$lang_common['Rules'].'</span></a></li>';
-
-	if ($forum_user['is_guest'])
-	{
-		if ($forum_user['g_read_board'] && $forum_user['g_search'])
-			$links['search'] = '<li id="navsearch" class="nav'.((FORUM_PAGE == 'search') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['search']).'"><span>'.$lang_common['Search'].'</span></a></li>';
-
-		$links['register'] = '<li id="navregister" class="nav'.((FORUM_PAGE == 'register') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['register']).'"><span>'.$lang_common['Register'].'</span></a></li>';
-		$links['login'] = '<li id="navlogin" class="nav'.((FORUM_PAGE == 'login') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['login']).'"><span>'.$lang_common['Login'].'</span></a></li>';
-	}
-	else
-	{
-		if (!$forum_user['is_admmod'])
-		{
-			if ($forum_user['g_read_board'] && $forum_user['g_search'])
-				$links['search'] = '<li id="navsearch" class="nav'.((FORUM_PAGE == 'search') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['search']).'"><span>'.$lang_common['Search'].'</span></a></li>';
-
-			$links['profile'] = '<li id="navprofile" class="nav'.((substr(FORUM_PAGE, 0, 7) == 'profile') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['user'], $forum_user['id']).'"><span>'.$lang_common['Profile'].'</span></a></li>';
-
-			if ($forum_config['o_pm_show_global_link'])
-			{
-				$links['pm'] = '<li id="navpm" class="nav'.((FORUM_PAGE == 'profile-pm') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['pm'], array($forum_user['id'], 'inbox')).'"><span>'.$lang_common['Private messages'].'</span></a></li>';
-			}
-
-			$links['logout'] = '<li id="navlogout" class="nav"><a href="'.forum_link($forum_url['logout'], array($forum_user['id'], generate_form_token('logout'.$forum_user['id']))).'"><span>'.$lang_common['Logout'].'</span></a></li>';
-
-		}
-		else
-		{
-			$links['search'] = '<li id="navsearch" class="nav'.((FORUM_PAGE == 'search') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['search']).'"><span>'.$lang_common['Search'].'</span></a></li>';
-
-			$links['profile'] = '<li id="navprofile" class="nav'.((substr(FORUM_PAGE, 0, 7) == 'profile') ? ' isactive' : '').'"><a href="'.forum_link($forum_url['user'], $forum_user['id']).'"><span>'.$lang_common['Profile'].'</span></a></li>';
-
-			$links['logout'] = '<li id="navlogout" class="nav"><a href="'.forum_link($forum_url['logout'], array($forum_user['id'], generate_form_token('logout'.$forum_user['id']))).'"><span>'.$lang_common['Logout'].'</span></a></li>';
-			$links['admin'] = '<li id="navadmin" class="nav'.((substr(FORUM_PAGE, 0, 5) == 'admin') ? ' isactive' : '').'"><a href="'.forum_link('admin/admin.php').'"><span>'.$lang_common['Admin'].'</span></a></li>';
-		}
-	}
-
-	// Are there any additional navlinks we should insert into the array before imploding it?
-	if ($forum_config['o_additional_navlinks'] != '' && preg_match_all('#([0-9]+)\s*=\s*(.*?)\n#s', $forum_config['o_additional_navlinks']."\n", $extra_links))
-	{
-		// Insert any additional links into the $links array (at the correct index)
-		$num_links = count($extra_links[1]);
-		for ($i = 0; $i < $num_links; ++$i)
-			array_insert($links, (int)$extra_links[1][$i], '<li id="navextra'.($i + 1).'">'.$extra_links[2][$i].'</li>');
-	}
-
-
-	($hook = get_hook('fn_generate_navlinks_end')) ? eval($hook) : null;
-
-	return implode("\n\t\t", $links);
-}
-
-
-// A wrapper for PHP's number_format function
-function forum_number_format($number, $decimals = 0)
-{
-	global $lang_common;
-
-	$return = ($hook = get_hook('fn_forum_number_format_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	return number_format($number, $decimals, $lang_common['lang_decimal_point'], $lang_common['lang_thousands_sep']);
-}
-
-
-// Generate a random key of length $len
-function random_key($len, $readable = false, $hash = false)
-{
-	$key = '';
-
-	$return = ($hook = get_hook('fn_random_key_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	if ($hash)
-		$key = substr(sha1(uniqid(rand(), true)), 0, $len);
-	else if ($readable)
-	{
-		$chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-
-		for ($i = 0; $i < $len; ++$i)
-			$key .= substr($chars, (mt_rand() % strlen($chars)), 1);
-	}
-	else
-		for ($i = 0; $i < $len; ++$i)
-			$key .= chr(mt_rand(33, 126));
-
-	($hook = get_hook('fn_random_key_end')) ? eval($hook) : null;
-
-	return $key;
-}
-
-
-// Generates a valid CSRF token for use when submitting a form to $target_url
-// $target_url should be an absolute URL and it should be exactly the URL that the user is going to
-// Alternately, if the form token is going to be used in GET (which would mean the token is going to be
-// a part of the URL itself), $target_url may be a plain string containing information related to the URL.
-function generate_form_token($target_url)
-{
-	global $forum_user;
-
-	$return = ($hook = get_hook('fn_generate_form_token_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	return sha1(str_replace('&amp;', '&', $target_url).$forum_user['csrf_token']);
-}
-
-
-// Generates a salted, SHA-1 hash of $str
-function forum_hash($str, $salt)
-{
-	$return = ($hook = get_hook('fn_forum_hash_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	return sha1($salt.sha1($str));
-}
-
-
-// Try to determine the correct remote IP-address
-function get_remote_address()
-{
-	$return = ($hook = get_hook('fn_get_remote_address_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	return $_SERVER['REMOTE_ADDR'];
-}
-
-
-// Имя для input
-function input_name($name)
-{
-	$return = ($hook = get_hook('fn_input_name_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	return sha1(get_remote_address().$name.$_SERVER['SERVER_ADDR']);
-}
-
-
-// Try to determine the current URL
-function get_current_url($max_length = 0)
-{
-	global $base_url;
-
-	$return = ($hook = get_hook('fn_get_current_url_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	$protocol = (!isset($_SERVER['HTTPS']) || strtolower($_SERVER['HTTPS']) == 'off') ? 'http://' : 'https://';
-	$port = (isset($_SERVER['SERVER_PORT']) && (($_SERVER['SERVER_PORT'] != '80' && $protocol == 'http://') || ($_SERVER['SERVER_PORT'] != '443' && $protocol == 'https://')) && strpos($_SERVER['HTTP_HOST'], ':') === false) ? ':'.$_SERVER['SERVER_PORT'] : '';
-
-	$url = urldecode($protocol.$_SERVER['HTTP_HOST'].$port.$_SERVER['REQUEST_URI']);
-
-	if (strlen($url) <= $max_length || $max_length == 0)
-		return !defined('NO_PREV_URL') ? $url : null;
-
-	// We can't find a short enough url
-	return null;
-}
-
-
-// Check current URL and redirect if required
-function confirm_current_url($url)
-{
-	if (defined('FORUM_DISABLE_URL_CONFIRM'))
-		return;
-
-	// Clean up the URL so that it should match the rules we have
-	$url = str_replace('&amp;', '&', urldecode($url));
-	
-	$return = ($hook = get_hook('fn_confirm_current_url_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	$hash = strpos($url,'#');
-	if ($hash !== false)
-		$url = substr($url, 0, $hash);
-
-	$current_url = get_current_url();
-	if ($url != $current_url && $url.'?login=1' != $current_url && $url.'&login=1' != $current_url)
-	{
-		header('HTTP/1.1 301 Moved Permanently'); 
-		header('Location: '.$url);
-	}
-}
-
-
-// Кодирует содержимое $str, чтобы они были безопасны для вывода на страницу
-function forum_htmlencode($str)
-{
-	$return = ($hook = get_hook('fn_forum_htmlencode_start')) ? eval($hook) : null;
-	if ($return != null)
-		return $return;
-
-	return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
-}
-
-
-// Convert \r\n and \r to \n
-function forum_linebreaks($str)
-{
-	return str_replace(array("\r\n", "\r"), "\n", $str);
-}
-
-
-// Trim whitespace including non-breaking space
-function forum_trim($str, $charlist = " \t\n\r\x0b\xc2\xa0")
-{
-	return utf8_trim($str, $charlist);
-}
-
-
-// Inserts $element into $input at $offset
-// $offset can be either a numerical offset to insert at (eg: 0 inserts at the beginning of the array)
-// or a string, which is the key that the new element should be inserted before
-// $key is optional: it's used when inserting a new key/value pair into an associative array
-function array_insert(&$input, $offset, $element, $key = null)
-{
-	if ($key == null)
-		$key = $offset;
-
-	// Determine the proper offset if we're using a string
-	if (!is_int($offset))
-		$offset = array_search($offset, array_keys($input), true);
-
-	// Out of bounds checks
-	if ($offset > count($input))
-		$offset = count($input);
-	else if ($offset < 0)
-		$offset = 0;
-
-	$input = array_merge(array_slice($input, 0, $offset), array($key => $element), array_slice($input, $offset));
+	require FORUM_ROOT.'footer.php';
 }
 
 
@@ -1924,9 +2034,6 @@ function redirect($destination_url, $message)
 	$forum_head['favicon'] = '<link rel="shortcut icon" type="image/x-icon" href="'.$base_url.'/favicon.ico" />';
 
 	ob_start();
-
-	if(empty($style_url))
-		$style_url = $base_url.'/style/gzip.php?style='.$base_url;
 
 	// Include stylesheets
 	require FORUM_ROOT.'style/'.$forum_user['style'].'/'.$forum_user['style'].'.php';
@@ -1998,7 +2105,7 @@ function redirect($destination_url, $message)
 	// Close the db connection (and free up any result data)
 	$forum_db->close();
 
-	exit($tpl_redir);
+	die($tpl_redir);
 }
 
 
@@ -2111,107 +2218,5 @@ a {
 	if (isset($GLOBALS['forum_db']))
 		$GLOBALS['forum_db']->close();
 
-	exit;
-}
-
-
-// Fix the REQUEST_URI if we can, since both IIS6 and IIS7 break it
-function forum_fix_request_uri()
-{
-	global $forum_config;
-	
-	if (!isset($_SERVER['REQUEST_URI']) || (isset($_SERVER['QUERY_STRING']) && !empty($_SERVER['QUERY_STRING']) && strpos($_SERVER['REQUEST_URI'], '?') === false))
-	{
-		// Workaround for a bug in IIS7
-		if (isset($_SERVER['HTTP_X_ORIGINAL_URL']))
-			$_SERVER['REQUEST_URI'] = $_SERVER['HTTP_X_ORIGINAL_URL'];
-		
-		// IIS6 also doesn't set REQUEST_URI, If we are using the default SEF URL scheme then we can work around it
-		else if (!isset($forum_config) || $forum_config['o_sef'] == 'Default')
-		{
-			$requested_page = str_replace(array('%26', '%3D', '%2F', '%3F'), array('&', '=', '/', '?'), rawurlencode($_SERVER['PHP_SELF']));
-			$_SERVER['REQUEST_URI'] = $requested_page.(isset($_SERVER['QUERY_STRING']) && !empty($_SERVER['QUERY_STRING']) ? '?'.$_SERVER['QUERY_STRING'] : '');
-		}
-		
-		// Otherwise I am not aware of a work around...
-		else
-			error('На веб-сервере, который вы используете, не правильно настроина переменная REQUEST_URI. Это обычно означает, что вы используете IIS6, или неисправленный IIS7. Пожалуйста, либо отключить SEF URL, либо обновите IIS7 и установите любые доступные патчи или попробуйте другой веб-сервер.');
-	}
-}
-
-
-// Unset any variables instantiated as a result of register_globals being enabled
-function forum_unregister_globals()
-{
-	$register_globals = @ini_get('register_globals');
-	if ($register_globals === "" || $register_globals === "0" || strtolower($register_globals) === "off")
-		return;
-
-	// Prevent script.php?GLOBALS[foo]=bar
-	if (isset($_REQUEST['GLOBALS']) || isset($_FILES['GLOBALS']))
-		exit('Нам кока-колу, два гамбургера и... большу картошку');
-
-	// Variables that shouldn't be unset
-	$no_unset = array('GLOBALS', '_GET', '_POST', '_COOKIE', '_REQUEST', '_SERVER', '_ENV', '_FILES');
-
-	// Remove elements in $GLOBALS that are present in any of the superglobals
-	$input = array_merge($_GET, $_POST, $_COOKIE, $_SERVER, $_ENV, $_FILES, isset($_SESSION) && is_array($_SESSION) ? $_SESSION : array());
-	foreach ($input as $k => $v)
-		if (!in_array($k, $no_unset) && isset($GLOBALS[$k]))
-		{
-			unset($GLOBALS[$k]);
-			unset($GLOBALS[$k]); // Double unset to circumvent the zend_hash_del_key_or_index hole in PHP <4.4.3 and <5.1.4
-		}
-}
-
-
-// Removes any "bad" characters (characters which mess with the display of a page, are invisible, etc) from user input
-function forum_remove_bad_characters()
-{
-	global $bad_utf8_chars;
-
-	$bad_utf8_chars = array("\0", "\xc2\xad", "\xcc\xb7", "\xcc\xb8", "\xe1\x85\x9F", "\xe1\x85\xA0", "\xe2\x80\x80", "\xe2\x80\x81", "\xe2\x80\x82", "\xe2\x80\x83", "\xe2\x80\x84", "\xe2\x80\x85", "\xe2\x80\x86", "\xe2\x80\x87", "\xe2\x80\x88", "\xe2\x80\x89", "\xe2\x80\x8a", "\xe2\x80\x8b", "\xe2\x80\x8e", "\xe2\x80\x8f", "\xe2\x80\xaa", "\xe2\x80\xab", "\xe2\x80\xac", "\xe2\x80\xad", "\xe2\x80\xae", "\xe2\x80\xaf", "\xe2\x81\x9f", "\xe3\x80\x80", "\xe3\x85\xa4", "\xef\xbb\xbf", "\xef\xbe\xa0", "\xef\xbf\xb9", "\xef\xbf\xba", "\xef\xbf\xbb", "\xE2\x80\x8D");
-
-	($hook = get_hook('fn_remove_bad_characters_start')) ? eval($hook) : null;
-
-	function _forum_remove_bad_characters($array)
-	{
-		global $bad_utf8_chars;
-		return is_array($array) ? array_map('_forum_remove_bad_characters', $array) : str_replace($bad_utf8_chars, '', $array);
-	}
-
-	$_GET = _forum_remove_bad_characters($_GET);
-	$_POST = _forum_remove_bad_characters($_POST);
-	$_COOKIE = _forum_remove_bad_characters($_COOKIE);
-	$_REQUEST = _forum_remove_bad_characters($_REQUEST);
-}
-
-
-// DEBUG FUNCTIONS BELOW
-
-// Extract part of a template file
-function extract_part($whole, $start, $end)
-{
-   $start_pos = stripos($whole, $start) + strlen($start);
-
-   $end_pos = stripos($whole, $end, $start_pos + 1);
-
-   return substr($whole, $start_pos, $end_pos - $start_pos);
-}
-
-// Dump contents of variable(s)
-function dump()
-{
-	echo '<pre>';
-
-	$num_args = func_num_args();
-
-	for ($i = 0; $i < $num_args; ++$i)
-	{
-		print_r(func_get_arg($i));
-		echo "\n\n";
-	}
-
-	echo '</pre>';
-	exit;
+	die;
 }

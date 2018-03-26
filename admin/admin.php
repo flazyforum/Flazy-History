@@ -5,7 +5,7 @@
  * Даёт обзор некоторых статистических данных для администраторов и модераторов.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -25,6 +25,21 @@ if (!$forum_user['is_admmod'])
 require FORUM_ROOT.'lang/'.$forum_user['language'].'/admin_common.php';
 require FORUM_ROOT.'lang/'.$forum_user['language'].'/admin_index.php';
 
+$action = isset($_GET['action']) ? $_GET['action'] : null;
+if ($action == 'branch')
+{
+	$query = array(
+		'INSERT'	=> 'conf_name, conf_value',
+		'INTO'		=> 'config',
+		'VALUES'	=> '\'o_forum_branch\', \'0.6\''
+	);
+	$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+	// Empty the PHP cache
+	forum_clear_cache();
+
+	redirect(forum_link('admin/admin.php'), $lang_admin_common['Redirect']);
+}
 
 // Show phpinfo() output
 if (isset($_GET['action']) && $_GET['action'] == 'phpinfo' && $forum_user['g_id'] == FORUM_ADMIN)
@@ -36,15 +51,47 @@ if (isset($_GET['action']) && $_GET['action'] == 'phpinfo' && $forum_user['g_id'
 		message($lang_admin_index['phpinfo disabled']);
 
 	phpinfo();
-	exit;
+	die;
 }
 
 
 // Generate check for updates text block
 if ($forum_user['g_id'] == FORUM_ADMIN)
 {
+	if ($forum_config['o_maintenance'])
+		$forum_page['alert']['maintenance'] = '<p id="maint-alert" class="warn">'.sprintf($lang_admin_index['Maintenance alert'], forum_link('admin/settings.php?section=maintenance')).'</p>';
+
 	if ($forum_config['o_check_for_updates'])
+	{
+		if ($forum_updates['fail'])
+			$forum_page['alert']['update_fail'] = '<p><strong>'.$lang_admin_index['Updates'].'</strong> '.$lang_admin_index['Updates failed'].'</p>';
+		else if (isset($forum_updates['version']) && isset($forum_updates['hotfix']))
+			$forum_page['alert']['update_version_hotfix'] = '<p><strong>'.$lang_admin_index['Updates'].'</strong> '.sprintf($lang_admin_index['Updates version n hf'], $forum_updates['version'], forum_link('admin/extensions.php?section=hotfixes')).'</p>';
+		else if (strpos($forum_config['o_cur_version'], 'dev') !== false)
+			$forum_page['alert']['dev_version'] = '<p>'.$lang_admin_index['Dev version'].'</p>';
+		else if (isset($forum_updates['version']))
+		{
+			if (isset($forum_config['o_forum_branch']))
+				$forum_page['alert']['update_version'] = '<p><strong>'.$lang_admin_index['Updates'].'</strong> '.sprintf($lang_admin_index['Updates version'], $forum_updates['version']).'</p>';
+			else
+				$forum_page['alert']['update_version'] = '<p><strong>'.$lang_admin_index['Updates'].'</strong> '.sprintf($lang_admin_index['Updates version 2'], $forum_updates['version'], forum_link('admin/admin.php?action=branch')).'</p>';
+		}
+		else if (isset($forum_updates['hotfix']))
+			$forum_page['alert']['update_hotfix'] = '<p><strong>'.$lang_admin_index['Updates'].'</strong> '.sprintf($lang_admin_index['Updates hf'], forum_link('admin/extensions.php?section=hotfixes')).'</p>';
+
+
+		// Warn the admin that their version of the database is newer than the version supported by the code
+		if ($forum_config['o_database_revision'] > FORUM_DB_REVISION)
+			$forum_page['alert']['newer_database'] = '<p><strong>'.$lang_admin_index['Database mismatch'].'</strong> '.$lang_admin_index['Database mismatch alert'].'</p>';
+
+		// Warn the admin that the engines used in the database don't correspond with the chosen DB layer
+		if (($db_type == 'mysql_innodb' || $db_type == 'mysqli_innodb') && $forum_config['o_database_engine'] != 'InnoDB')
+			$forum_page['alert']['update_fail'] = '<p><strong>'.$lang_admin_index['Storage mismatch'].'</strong> '.sprintf($lang_admin_index['Storage mismatch alert'], 'MyISAM', 'InnoDB', forum_link('misc.php?admin_action=change_engine')).'</p>';
+		else if (($db_type == 'mysql' || $db_type == 'mysqli') && $forum_config['o_database_engine'] != 'MyISAM')
+			$forum_page['alert']['update_fail'] = '<p><strong>'.$lang_admin_index['Database mismatch'].'</strong> '.sprintf($lang_admin_index['Storage mismatch alert'], 'InnoDB', 'MyISAM', forum_link('misc.php?admin_action=change_engine')).'</p>';
+
 		$updates = $lang_admin_index['Check for updates enabled'];
+	}
 	else
 	{
 		// Get a list of installed hotfix extensions
@@ -163,11 +210,11 @@ ob_start();
 		<h2 class="hn"><span><?php echo $lang_admin_index['Information head'] ?></span></h2>
 	</div>
 	<div class="main-content main-frm">
-<?php if (!empty($alert_items)): ?>
+<?php if (!empty($forum_page['alert'])): ?>
 		<div id="admin-alerts" class="ct-set warn-set">
 			<div class="ct-box warn-box">
 				<h3 class="ct-legend hn warn"><span><?php echo $lang_admin_index['Alerts'] ?></span></h3>
-				<?php echo implode(' ', $alert_items)."\n" ?>
+				<?php echo implode(' ', $forum_page['alert'])."\n" ?>
 			</div>
 		</div>
 <?php endif; ?>
@@ -178,7 +225,7 @@ ob_start();
 					<h3 class="ct-legend hn"><span><?php echo $lang_admin_index['Flazy version'] ?></span></h3>
 					<ul class="data-list">
 						<li><span>Flazy <?php echo $forum_config['o_cur_version'] ?></span></li>
-						<li><span>&copy; Copyright 2008-2009 <a href="http://flazy.ru/">Flazy.ru</a>, based on code <a href="http://punbb.informer.com/">PunBB</a> and partially <a href="http://fluxbb.org/">FluxBB</a></span></li>
+						<li><span><?php echo $lang_admin_index['Copyright message'] ?></span></li>
 <?php if (isset($updates)): ?>
 						<li><span><?php echo $updates ?></span></li>
 <?php endif; ?>

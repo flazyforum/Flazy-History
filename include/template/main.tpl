@@ -43,7 +43,7 @@
 <!-- forum_main -->
 <!-- forum_main_options -->
 <!-- forum_main_pagepost_end -->
-<!-- forum_main_online -->
+<!-- forum_main_extra -->
 <!-- forum_crumbs_end -->
 <!-- forum_qpost -->
 
@@ -54,7 +54,7 @@
 <div id="brd-about" class="gen-content">
 	<!-- forum_about -->
 </div>
-<!-- forum_google_analytics -->
+<!-- forum_ga -->
 <!-- forum_debug -->
 
 </div>

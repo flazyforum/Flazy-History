@@ -4,15 +4,16 @@
  *
  * Этот скрипт содержит все функции используемые для создания кэш-файлов.
  *
- * @copyright Copyright (C) 2008-2009 Flazy.ru, based on code copyright (C) 2002-2009 PunBB.org
- * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
+ * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
+ * @modified Copyright (C) 2008 Flazy.ru
+ * @license http://www.gnu.org/licenses/gpl.html GPL версии 2 или выше
  * @package Flazy
  */
 
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
 // Создать кеш quickjump
 function generate_quickjump_cache($group_id = false)
@@ -50,7 +51,7 @@ function generate_quickjump_cache($group_id = false)
 		if (!$fh)
 			error('Невозможно записать файл быстрого перехода в кэш каталог. Пожалуйста, убедитесь, что PHP имеет доступ на запись в папку \'cache\'.', __FILE__, __LINE__);
 
-		$output = '<?php'."\n\n".'if (!defined(\'FORUM\')) exit;'."\n".'define(\'FORUM_QJ_LOADED\', 1);'."\n".'$forum_id = isset($forum_id) ? $forum_id : 0;'."\n\n".'?>';
+		$output = '<?php'."\n\n".'if (!defined(\'FORUM\')) die;'."\n".'define(\'FORUM_QJ_LOADED\', 1);'."\n".'$forum_id = isset($forum_id) ? $forum_id : 0;'."\n\n".'?>';
 		$output .= '<form id="qjump" method="get" accept-charset="utf-8" action="'.$base_url.'/viewforum.php">'."\n\t".'<div class="frm-fld frm-select">'."\n\t\t".'<label for="qjump-select"><span><?php echo $lang_common[\'Jump to\'] ?>'.'</span></label><br />'."\n\t\t".'<span class="frm-input"><select id="qjump-select" name="id">'."\n";
 
 		// Get the list of categories and forums from the DB
@@ -105,7 +106,7 @@ function generate_quickjump_cache($group_id = false)
 		$output .= "\n".'</script>'."\n";
 
 		if ($forum_count < 2)
-			$output = '<?php'."\n\n".'if (!defined(\'FORUM\')) exit;'."\n".'define(\'FORUM_QJ_LOADED\', 1);';
+			$output = '<?php'."\n\n".'if (!defined(\'FORUM\')) die;'."\n".'define(\'FORUM_QJ_LOADED\', 1);';
 
 		fwrite($fh, $output);
 

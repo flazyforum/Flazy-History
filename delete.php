@@ -5,7 +5,7 @@
  * Удаляет указанное сообщение (и если необходимо, то и всю тему).
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -33,20 +33,20 @@ confirm_current_url(forum_link($forum_url['delete'], $id));
 
 // Fetch some info about the post, the topic and the forum
 $query = array(
-	'SELECT'	=> 'f.id AS fid, f.forum_name, f.moderators, f.redirect_url, fp.post_replies, fp.post_topics, t.id AS tid, t.subject, t.poll, t.first_post_id, t.closed, p.poster, p.poster_id, p.message, p.hide_smilies, p.posted',
+	'SELECT'	=> 'f.id AS fid, f.forum_name, f.moderators, f.redirect_url, fp.post_replies, fp.post_topics, t.id AS tid, t.subject, t.question, t.first_post_id, t.closed, p.poster, p.poster_id, p.message, p.hide_smilies, p.posted',
 	'FROM'		=> 'posts AS p',
 	'JOINS'		=> array(
 		array(
 			'INNER JOIN'	=> 'topics AS t',
-			'ON'		=> 't.id=p.topic_id'
+			'ON'			=> 't.id=p.topic_id'
 		),
 		array(
 			'INNER JOIN'	=> 'forums AS f',
-			'ON'		=> 'f.id=t.forum_id'
+			'ON'			=> 'f.id=t.forum_id'
 		),
 		array(
-			'LEFT JOIN'	=> 'forum_perms AS fp',
-			'ON'		=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
+			'LEFT JOIN'		=> 'forum_perms AS fp',
+			'ON'			=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
 		)
 	),
 	'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1) AND p.id='.$id
@@ -96,7 +96,7 @@ else if (isset($_POST['delete']))
 		if (!defined('FORUM_FUNCTIONS_DELETE_TOPIC'))
 			require FORUM_ROOT.'include/functions/delete_topic.php';
 
-		delete_topic($cur_post['tid'], $cur_post['fid'], $cur_post['poll']);
+		delete_topic($cur_post['tid'], $cur_post['fid'], $cur_post['question']);
 
 		($hook = get_hook('dl_topic_deleted_pre_redirect')) ? eval($hook) : null;
 
@@ -127,7 +127,7 @@ $forum_page['group_count'] = $forum_page['item_count'] = $forum_page['fld_count'
 $forum_page['form_action'] = forum_link($forum_url['delete'], $id);
 
 $forum_page['hidden_fields'] = array(
-	'form_sent'	=> '<input type="hidden" name="form_sent" value="1" />',
+	'form_sent'		=> '<input type="hidden" name="form_sent" value="1" />',
 	'csrf_token'	=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
 );
 

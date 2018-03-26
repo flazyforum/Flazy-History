@@ -3,7 +3,7 @@
  * Используется в большинстве страниц форума.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,11 +11,7 @@
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
-
-// Рекорд одновременно прибывания на форуме
-if (!defined('FORUM_FUNCTIONS_RECORD'))
-	require FORUM_ROOT.'include/functions/record.php';
+	die;
 
 // START SUBST - <!-- forum_about -->
 ob_start();
@@ -57,25 +53,17 @@ ob_end_clean();
 ($hook = get_hook('ft_about_end')) ? eval($hook) : null;
 
 
-// START SUBST - <!-- forum_google_analytics -->
+// START SUBST - <!-- forum_ga -->
 if (!empty($forum_config['o_google_analytics']))
 {
-	if ($forum_config['o_google_analytics_type'] == 'old')
-		$tpl_temp = '
-<script src="http://www.google-analytics.com/urchin.js" type="text/javascript"></script>
-<script type="text/javascript">_uacct = "{ID}";urchinTracker();</script>';
-	else if ($forum_config['o_google_analytics_type'] == 'new')
-		$tpl_temp = '
-<script type="text/javascript">var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");document.write(unescape("%3Cscript src=\'" + gaJsHost + "google-analytics.com/ga.js\' type=\'text/javascript\'%3E%3C/script%3E"));</script>
-<script type="text/javascript">var pageTracker = _gat._getTracker("{ID}");pageTracker._trackPageview();</script>';
+	$tpl_temp = '<script type="text/javascript">var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");document.write(unescape("%3Cscript src=\'" + gaJsHost + "google-analytics.com/ga.js\' type=\'text/javascript\'%3E%3C/script%3E"));</script><script type="text/javascript">var pageTracker = _gat._getTracker("{ID}");pageTracker._trackPageview();</script>';
 
 	$tpl_temp = str_replace('{ID}', $forum_config['o_google_analytics'], $tpl_temp);
-	$tpl_main = str_replace('<!-- forum_google_analytics -->', $tpl_temp, $tpl_main);
-
+	$tpl_main = str_replace('<!-- forum_ga -->', $tpl_temp, $tpl_main);
 }
-// END SUBST - <!-- forum_google_analytics -->
+// END SUBST - <!-- forum_ga -->
 
-($hook = get_hook('ft_google_analytics_end')) ? eval($hook) : null;
+($hook = get_hook('ft_fl_google_analytics_end')) ? eval($hook) : null;
 
 // START SUBST - <!-- forum_debug -->
 if (defined('FORUM_DEBUG') || defined('FORUM_SHOW_QUERIES'))
@@ -129,4 +117,4 @@ $forum_db->end_transaction();
 $forum_db->close();
 
 // Spit out the page
-exit($tpl_main);
+die($tpl_main);

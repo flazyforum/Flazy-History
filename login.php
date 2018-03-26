@@ -3,7 +3,7 @@
  * Вход\выход, возможность смены пароля
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -39,8 +39,6 @@ if (!$action && isset($_POST['form_sent']))
 
 	if (is_valid_email($form_username))
 	{
-		$lang_login['Wrong user/pass'] = $lang_login['Wrong e-mail/password'];
-
 		$query = array(
 			'SELECT'	=> 'username',
 			'FROM'		=> 'users',
@@ -54,7 +52,6 @@ if (!$action && isset($_POST['form_sent']))
 
 	$form_password = forum_trim($_POST['req_password']);
 	$save_pass = isset($_POST['save_pass']);
-
 
 	($hook = get_hook('li_login_form_submitted')) ? eval($hook) : null;
 
@@ -120,6 +117,12 @@ if (!$action && isset($_POST['form_sent']))
 
 			($hook = get_hook('li_login_qr_update_user_group')) ? eval($hook) : null;
 			$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+			// Regenerate cache
+			if (!defined('FORUM_CACHE_STAT_USER_LOADED'))
+			require FORUM_ROOT.'include/cache/stat_user.php';
+
+			generate_stat_user_cache();
 		}
 
 		// Remove this user's guest entry from the online list
@@ -136,31 +139,30 @@ if (!$action && isset($_POST['form_sent']))
 		{
 			$security_enabled = preg_match('/^([0-9]{1,3})\.([0-9]{1,3})$/', $security_ip) ? true : false;
 			if ($security_enabled)
-				$ip = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', get_remote_address(), $ip_part) ? $ip_part[1].'.'.$ip_part[2] : '0';
+				$ip = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $ip, $ip_part) ? $ip_part[1].'.'.$ip_part[2] : '0';
 		}
 
-		$cur_user_agent = !empty($_SERVER['HTTP_USER_AGENT']) ? str_replace(' ', '', $_SERVER['HTTP_USER_AGENT']) : '';
-
+		$cur_user_agent = get_user_agent();
 		if ($user_agent != $cur_user_agent)
 		{
 			$query = array(
 				'UPDATE'	=> 'users',
-				'SET'		=> 'user_agent=\''.$cur_user_agent.'\'',
+				'SET'		=> 'user_agent=\''.$forum_db->escape($cur_user_agent).'\'',
 				'WHERE'		=> 'id='.$user_id
 			);
 
-			($hook = get_hook('li_login_qr_update_user_agent')) ? eval($hook) : null;
+			($hook = get_hook('li_fl_login_qr_update_user_agent')) ? eval($hook) : null;
 			$forum_db->query_build($query) or error(__FILE__, __LINE__);
 		}
 		if ($security_ip != $ip)
 		{
 			$query = array(
 				'UPDATE'	=> 'users',
-				'SET' 		=> 'registration_ip=\''.$ip.'\', security_ip=\''.$ip.'\'',
+				'SET' 		=> 'security_ip=\''.$forum_db->escape($ip).'\'',
 				'WHERE'		=> 'id='.$user_id
 			);
 
-			($hook = get_hook('li_login_qr_update_user_ip')) ? eval($hook) : null;
+			($hook = get_hook('li_fl_login_qr_update_user_ip')) ? eval($hook) : null;
 			$forum_db->query_build($query) or error(__FILE__, __LINE__);
 		}
 
@@ -179,7 +181,7 @@ else if ($action == 'out')
 	if ($forum_user['is_guest'] || !isset($_GET['id']) || $_GET['id'] != $forum_user['id'])
 	{
 		header('Location: '.forum_link($forum_url['index']));
-		exit;
+		die;
 	}
 	
 	// Check for use of incorrect URLs
@@ -418,7 +420,7 @@ $forum_page['group_count'] = $forum_page['item_count'] = $forum_page['fld_count'
 $forum_page['form_action'] = forum_link($forum_url['login']);
 
 $forum_page['hidden_fields'] = array(
-	'form_sent'		=> '<input type="hidden" name="form_sent" value="1" />',
+	'form_sent'			=> '<input type="hidden" name="form_sent" value="1" />',
 	'redirect_url'		=> '<input type="hidden" name="redirect_url" value="'.forum_htmlencode($forum_user['prev_url']).'" />',
 	'csrf_token'		=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
 );

@@ -3,7 +3,7 @@
  * Различные функции форума для пользователей (например: отображение правил, отправление электронных сообщений через форум и т.д.).
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -460,6 +460,10 @@ else if (isset($_GET['report']))
 		($hook = get_hook('mi_report_qr_update_last_email_sent')) ? eval($hook) : null;
 		$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
+		if (!defined('FORUM_CACHE_FUNCTIONS_LOADED'))
+			require FORUM_ROOT.'include/cache/report.php';
+		generate_report_cache();
+
 		($hook = get_hook('mi_report_pre_redirect')) ? eval($hook) : null;
 
 		redirect(forum_link($forum_url['post'], $post_id), $lang_misc['Report redirect']);
@@ -624,7 +628,7 @@ else if (isset($_GET['unsubscribe']))
 		'JOINS'		=> array(
 			array(
 				'INNER JOIN'	=> 'subscriptions AS s',
-				'ON'		=> 's.user_id='.$forum_user['id'].' AND s.topic_id=t.id'
+				'ON'			=> 's.user_id='.$forum_user['id'].' AND s.topic_id=t.id'
 			)
 		),
 		'WHERE'		=> 't.id='.$topic_id
@@ -663,10 +667,10 @@ else if (isset($_GET['admin_action']) && $_GET['admin_action'] == 'change_engine
 	else if ($db_type == 'mysql' || $db_type == 'mysqli')
 		$to = 'MyISAM';
 	else
-		message($lang_misc['Engine conversion not supported']);
+		message($lang_misc['Conversion not supported']);
 
 	if ($from == $to)
-		message($lang_misc['Engine already converted']);
+		message($lang_misc['Already converted']);
 
 	if (isset($_POST['perform_engine_conversion_comply']))
 	{
@@ -692,7 +696,7 @@ else if (isset($_GET['admin_action']) && $_GET['admin_action'] == 'change_engine
 
 		generate_config_cache();
 
-		redirect(forum_link('admin/admin.php'), sprintf($lang_misc['Database engine conversion successful'], $from, $to));
+		redirect(forum_link('admin/admin.php'), sprintf($lang_misc['Conversion successful'], $from, $to));
 	}
 
 	// Setup form
@@ -723,7 +727,7 @@ else if (isset($_GET['admin_action']) && $_GET['admin_action'] == 'change_engine
 			<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 				<div class="sf-box checkbox">
 					<span class="fld-input"><input type="checkbox" id="fld<?php echo ++$forum_page['fld_count'] ?>" name="perform_engine_conversion" value="1" checked="checked" /></span>
-					<label for="fld<?php echo $forum_page['fld_count'] ?>"><span><?php echo $lang_misc['Perform engine conversion'] ?></span> <?php printf($lang_misc['Perform engine conversion label'], $from, $to) ?></label>
+					<label for="fld<?php echo $forum_page['fld_count'] ?>"><span><?php echo $lang_misc['Perform conversion'] ?></span> <?php printf($lang_misc['Perform conversion label'], $from, $to) ?></label>
 				</div>
 			</div>
 		</fieldset>

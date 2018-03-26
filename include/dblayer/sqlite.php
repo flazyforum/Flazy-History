@@ -3,7 +3,7 @@
  * A database layer class that relies on the SQLite PHP extension.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,7 +11,7 @@
 
 // Make sure we have built in support for SQLite
 if (!function_exists('sqlite_open'))
-	exit('Эта PHP среда не имеет встроенной поддержки SQLite. Она необходима, если вы хотите использовать базу данных SQLite для работы этого форума. Изучите PHP документацию для получения дополнительной информации.');
+	die('Эта PHP среда не имеет встроенной поддержки SQLite. Она необходима, если вы хотите использовать базу данных SQLite для работы этого форума. Изучите PHP документацию для получения дополнительной информации.');
 
 
 class DBLayer
@@ -92,7 +92,7 @@ class DBLayer
 	function query($sql, $unbuffered = false)
 	{
 		if (strlen($sql) > 140000)
-			exit('Безумно большой запрос. Прервано.');
+			die('Безумно большой запрос. Прервано.');
 
 		if (defined('FORUM_SHOW_QUERIES'))
 			$q_start = get_microtime();

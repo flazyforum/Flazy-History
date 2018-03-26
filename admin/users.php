@@ -5,7 +5,7 @@
  * Allows administrators or moderators to search the existing users based on various criteria.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -737,7 +737,11 @@ else if (isset($_POST['change_group']) || isset($_POST['change_group_comply']) |
 		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 		if ($move_to_group != FORUM_ADMIN && $group_is_mod == '0')
+		{
+			if (!defined('FORUM_FUNCTIONS_CLEAN_FORUM_MODERATORS'))
+				require FORUM_ROOT.'include/functions/clean_forum_moderators.php';
 			clean_forum_moderators();
+		}
 
 		($hook = get_hook('aus_change_group_pre_redirect')) ? eval($hook) : null;
 
@@ -1127,12 +1131,12 @@ ob_start();
 			<div class="hidden">
 				<input type="hidden" name="csrf_token" value="<?php echo generate_form_token(forum_link('admin/users.php').'?action=find_user') ?>" />
 			</div>
-			<div class="content-head">
-				<h3 class="hn"><span><?php echo $lang_admin_users['User search head'] ?></span></h3>
-			</div>
 <?php ($hook = get_hook('aus_search_form_pre_user_details_fieldset')) ? eval($hook) : null; ?>
 			<fieldset class="frm-group group<?php echo ++$forum_page['group_count'] ?>">
 				<legend class="group-legend"><strong><?php echo $lang_admin_users['Searches personal legend'] ?></strong></legend>
+				<div class="ct-box set<?php echo ++$forum_page['item_count'] ?>">
+					<p><?php echo $lang_admin_users['User search head'] ?></p>
+				</div>
 <?php ($hook = get_hook('aus_search_form_pre_username')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
@@ -1154,7 +1158,7 @@ ob_start();
 						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[realname]" size="30" maxlength="40" class="inputbox" /></span>
 					</div>
 				</div>
-<?php ($hook = get_hook('aus_search_form_pre_sex')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('aus_fl_search_form_pre_sex')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 
 					<div class="sf-box text">
@@ -1162,7 +1166,7 @@ ob_start();
 						<span class="fld-input"><select id="fld<?php echo ++$forum_page['fld_count'] ?>" name="form[sex]">
 							<option value="1"><?php echo $lang_admin_users['Male'] ?></option>
 							<option value="2"><?php echo $lang_admin_users['Female'] ?></option>
-							<option value="" selected="selected"><?php echo $lang_admin_users['Do not show'] ?></option>
+							<option value="" selected="selected"><?php echo $lang_admin_users['Do not matter'] ?></option>
 						</select></span>
 
 					</div>
@@ -1188,7 +1192,7 @@ ob_start();
 						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[admin_note]" size="30" maxlength="30" class="inputbox" /></span>
 					</div>
 				</div>
-<?php ($hook = get_hook('aus_search_form_pre_user_agent')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('aus_fl_search_form_pre_user_agent')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_users['User agent label'] ?></span></label><br />
@@ -1251,14 +1255,14 @@ ob_start();
 						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[yahoo]" size="20" maxlength="20" class="inputbox" /></span>
 					</div>
 				</div>
-<?php ($hook = get_hook('aus_search_form_pre_skype')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('aus_fl_search_form_pre_skype')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_users['Skype label'] ?></span></label><br />
 						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[skype]" size="20" maxlength="20" class="inputbox" /></span>
 					</div>
 				</div>
-<?php ($hook = get_hook('aus_search_form_pre_magent')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('aus_fl_search_form_pre_magent')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_users['Magent label'] ?></span></label><br />
@@ -1324,12 +1328,12 @@ ob_start();
 $forum_page['group_count'] = $forum_page['item_count'] = 0;
 
 ?>
-			<div class="content-head">
-				<h3 class="hn"><span><?php echo $lang_admin_users['User results head'] ?></span></h3>
-			</div>
 <?php ($hook = get_hook('aus_search_form_pre_results_fieldset')) ? eval($hook) : null; ?>
 			<fieldset class="frm-group group<?php echo ++$forum_page['group_count'] ?>">
 				<legend class="group-legend"><strong><?php echo $lang_admin_users['User results legend'] ?></strong></legend>
+				<div class="ct-box set<?php echo ++$forum_page['item_count'] ?>">
+					<p><?php echo $lang_admin_users['User results head'] ?></p>
+				</div>
 <?php ($hook = get_hook('aus_search_form_pre_sort_by')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box select">

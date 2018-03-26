@@ -5,7 +5,7 @@
  * Этот скрипт содержит все функции используемые для создания кэш-файлов.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -13,7 +13,7 @@
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
 // Создать кеш config
 function generate_config_cache()
@@ -43,7 +43,6 @@ function generate_config_cache()
 		error('Невозможно записать файл конфигурации в кэш каталог. Пожалуйста, убедитесь, что PHP имеет доступ на запись в папку \'cache\'.', __FILE__, __LINE__);
 
 	fwrite($fh, '<?php'."\n\n".'define(\'FORUM_CONFIG_LOADED\', 1);'."\n\n".'$forum_config = '.var_export($output, true).';'."\n\n".'?>');
-
 	fclose($fh);
 }
 
@@ -82,7 +81,6 @@ function generate_bans_cache()
 		error('Невозможно записать файл заблокированых в кэш каталог. Пожалуйста, убедитесь, что PHP имеет доступ на запись в папку \'cache\'.', __FILE__, __LINE__);
 
 	fwrite($fh, '<?php'."\n\n".'define(\'FORUM_BANS_LOADED\', 1);'."\n\n".'$forum_bans = '.var_export($output, true).';'."\n\n".'?>');
-
 	fclose($fh);
 }
 
@@ -115,7 +113,6 @@ function generate_ranks_cache()
 		error('Невозможно записать файл рангов в кэш каталог. Пожалуйста, убедитесь, что PHP имеет доступ на запись в папку \'cache\'.', __FILE__, __LINE__);
 
 	fwrite($fh, '<?php'."\n\n".'define(\'FORUM_RANKS_LOADED\', 1);'."\n\n".'$forum_ranks = '.var_export($output, true).';'."\n\n".'?>');
-
 	fclose($fh);
 }
 
@@ -148,7 +145,6 @@ function generate_censors_cache()
 		error('Невозможно записать файл цензуры в кэш каталог. Пожалуйста, убедитесь, что PHP имеет доступ на запись в папку \'cache\'.', __FILE__, __LINE__);
 
 	fwrite($fh, '<?php'."\n\n".'define(\'FORUM_CENSORS_LOADED\', 1);'."\n\n".'$forum_censors = '.var_export($output, true).';'."\n\n".'?>');
-
 	fclose($fh);
 }
 
@@ -181,7 +177,7 @@ function generate_hooks_cache()
 	$output = array();
 	while ($cur_hook = $forum_db->fetch_assoc($result))
 	{
-		$load_ext_info = '$ext_info_stack[] = array('."\n".
+		$load_ext_info = '$GLOBALS[\'ext_info_stack\'][] = array('."\n".
 			'\'id\'				=> \''.$cur_hook['extension_id'].'\','."\n".
 			'\'path\'			=> FORUM_ROOT.\'extensions/'.$cur_hook['extension_id'].'\','."\n".
 			'\'url\'			=> $GLOBALS[\'base_url\'].\'/extensions/'.$cur_hook['extension_id'].'\','."\n".
@@ -200,8 +196,8 @@ function generate_hooks_cache()
 				'\'url\'			=> $GLOBALS[\'base_url\'].\'/extensions/'.$cur_dependency.'\'),'."\n";
 		}
 
-		$load_ext_info .= ')'."\n".');'."\n".'$ext_info = $ext_info_stack[count($ext_info_stack) - 1];';
-		$unload_ext_info = 'array_pop($ext_info_stack);'."\n".'$ext_info = empty($ext_info_stack) ? array() : $ext_info_stack[count($ext_info_stack) - 1];';
+		$load_ext_info .= ')'."\n".');'."\n".'$ext_info = $GLOBALS[\'ext_info_stack\'][count($GLOBALS[\'ext_info_stack\']) - 1];';
+		$unload_ext_info = 'array_pop($GLOBALS[\'ext_info_stack\']);'."\n".'$ext_info = empty($GLOBALS[\'ext_info_stack\']) ? array() : $GLOBALS[\'ext_info_stack\'][count($GLOBALS[\'ext_info_stack\']) - 1];';
 
 		$output[$cur_hook['id']][] = $load_ext_info."\n\n".$cur_hook['code']."\n\n".$unload_ext_info."\n";
 	}
@@ -212,7 +208,6 @@ function generate_hooks_cache()
 		error('Невозможно записать файл расширений в кэш каталог. Пожалуйста, убедитесь, что PHP имеет доступ на запись в папку \'cache\'.', __FILE__, __LINE__);
 
 	fwrite($fh, '<?php'."\n\n".'define(\'FORUM_HOOKS_LOADED\', 1);'."\n\n".'$hooks = '.var_export($output, true).';'."\n\n".'?>');
-
 	fclose($fh);
 }
 
@@ -268,7 +263,6 @@ function generate_updates_cache()
 		error('Невозможно записать файл обновлений в кэш каталог. Пожалуйста, убедитесь, что PHP имеет доступ на запись в папку \'cache\'.', __FILE__, __LINE__);
 
 	fwrite($fh, '<?php'."\n\n".'if (!defined(\'FORUM_UPDATES_LOADED\')) define(\'FORUM_UPDATES_LOADED\', 1);'."\n\n".'$forum_updates = '.var_export($output, true).';'."\n\n".'?>');
-
 	fclose($fh);
 }
 
@@ -277,7 +271,7 @@ function generate_repository_cache()
 {
 	global $forum_db, $forum_config;
 
-	$return = ($hook = get_hook('ch_fn_generate_repository_cache_start')) ? eval($hook) : null;
+	$return = ($hook = get_hook('ch_fl_fn_generate_repository_cache_start')) ? eval($hook) : null;
 	if ($return != null)
 		return;
 
@@ -288,7 +282,7 @@ function generate_repository_cache()
 		'WHERE'		=> 'e.id LIKE \'repository_%\''
 	);
 
-	($hook = get_hook('ch_fn_generate_updates_cache_qr_get_hotfixes')) ? eval($hook) : null;
+	($hook = get_hook('ch_fl_fn_generate_updates_cache_qr_get_hotfixes')) ? eval($hook) : null;
 	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 	$num_repository = $forum_db->num_rows($result);
 
@@ -315,7 +309,7 @@ function generate_repository_cache()
 	else	// If the update check failed, set the fail flag
 		$output = array('cached' => time(), 'fail' => true);
 
-	($hook = get_hook('ch_fn_generate_repository_cache_write')) ? eval($hook) : null;
+	($hook = get_hook('ch_fl_fn_generate_repository_cache_write')) ? eval($hook) : null;
 
 	// Output repository status as PHP code
 	$fh = @fopen(FORUM_CACHE_DIR.'cache_repository.php', 'wb');
@@ -323,7 +317,6 @@ function generate_repository_cache()
 		error('Невозможно записать файл репозитория в кэш каталог. Пожалуйста, убедитесь, что PHP имеет доступ на запись в папку \'cache\'.', __FILE__, __LINE__);
 
 	fwrite($fh, '<?php'."\n\n".'if (!defined(\'FORUM_REPOSITIRY_LOADED\')) define(\'FORUM_REPOSITIRY_LOADED\', 1);'."\n\n".'$forum_repository = '.var_export($output, true).';'."\n\n".'?>');
-
 	fclose($fh);
 }
 

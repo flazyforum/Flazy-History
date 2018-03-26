@@ -3,7 +3,7 @@
  * Удалить тему и все сообщения в ней.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,7 +11,7 @@
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
 // Удалить тему и все сообщения в ней
 function delete_topic($topic_id, $forum_id, $poll)
@@ -44,7 +44,7 @@ function delete_topic($topic_id, $forum_id, $poll)
 	($hook = get_hook('fn_delete_topic_qr_delete_topic')) ? eval($hook) : null;
 	$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
-	if ($poll)
+	if ($poll != '')
 	{
 		$query = array(
 			'DELETE'	=> 'voting',
@@ -52,14 +52,6 @@ function delete_topic($topic_id, $forum_id, $poll)
 		);
 
 		($hook = get_hook('fn_delete_topic_qr_delete_voting')) ? eval($hook) : null;
-		$forum_db->query_build($query) or error(__FILE__, __LINE__);
-
-		$query = array(
-			'DELETE'	=> 'questions',
-			'WHERE'		=> 'topic_id='.$topic_id
-		);
-
-		($hook = get_hook('fn_delete_topic_qr_delete_questions')) ? eval($hook) : null;
 		$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 		$query = array(

@@ -3,7 +3,7 @@
  * Показывает сообщение когда форум находится в режиме техобслуживания.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,7 +11,7 @@
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
 // Покажим сообщение
 function maintenance_message()
@@ -58,9 +58,6 @@ function maintenance_message()
 <title><?php echo $lang_common['Maintenance mode'].$lang_common['Title separator'].forum_htmlencode($forum_config['o_board_title']) ?></title>
 <link rel="shortcut icon" type="image/x-icon" href="<?php echo $base_url ?>'/favicon.ico" />
 <?php
-
-	if(empty($style_url))
-		$style_url = $base_url;
 
 	require FORUM_ROOT.'style/'.$forum_user['style'].'/'.$forum_user['style'].'.php';
 
@@ -134,7 +131,7 @@ function maintenance_message()
 	// Close the db connection (and free up any result data)
 	$forum_db->close();
 
-	exit($tpl_main);
+	die($tpl_main);
 }
 
 define('FORUM_FUNCTIONS_MAINTENANCE', 1);

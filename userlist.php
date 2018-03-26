@@ -3,7 +3,7 @@
  * Показывает список всех зарегистрированых участников и позволяет искать среди них нужных.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL версии 2 или выше
  * @package Flazy
  */
@@ -30,7 +30,6 @@ $forum_page['show_group'] = (!isset($_GET['show_group']) || intval($_GET['show_g
 $forum_page['sort_by'] = (!isset($_GET['sort_by']) || $_GET['sort_by'] != 'username' && $_GET['sort_by'] != 'registered' && ($_GET['sort_by'] != 'num_posts' || !$forum_page['show_post_count'])) ? 'username' : $_GET['sort_by'];
 $forum_page['sort_dir'] = (!isset($_GET['sort_dir']) || strtoupper($_GET['sort_dir']) != 'ASC' && strtoupper($_GET['sort_dir']) != 'DESC') ? 'ASC' : strtoupper($_GET['sort_dir']);
 
-
 $forum_page['page'] = (!isset($_GET['p']) || !is_numeric($_GET['p']) || $_GET['p'] <= 1) ? 1 : intval($_GET['p']);
 
 // Check for use of incorrect URLs
@@ -49,33 +48,43 @@ if ($forum_user['g_search_users'] && $forum_page['username'] != '')
 if ($forum_page['show_group'] > -1)
 	$where_sql[] = 'u.group_id='.$forum_page['show_group'];
 
+// Load cached
+if (file_exists(FORUM_CACHE_DIR.'cache_stat_user.php'))
+	include FORUM_CACHE_DIR.'cache_stat_user.php';
+else
+{
+	if (!defined('FORUM_CACHE_STAT_USER_LOADED'))
+		require FORUM_ROOT.'include/cache/stat_user.php';
 
-// Fetch user count
-$query = array(
-	'SELECT'	=> 'COUNT(u.id)',
-	'FROM'		=> 'users AS u',
-	'WHERE'		=> 'u.id>1 AND u.group_id!='.FORUM_UNVERIFIED
-);
+	generate_stat_user_cache();
+	require FORUM_CACHE_DIR.'cache_stat_user.php';
+}
 
 if (!empty($where_sql))
-	$query['WHERE'] .= ' AND '.implode(' AND ', $where_sql);
+{
+	$query = array(
+		'SELECT'	=> 'COUNT(u.id)',
+		'FROM'		=> 'users AS u',
+		'WHERE'		=> 'u.id > 1 AND u.group_id != '.FORUM_UNVERIFIED.' AND '.implode(' AND ', $where_sql)
+	);
 
-($hook = get_hook('ul_qr_get_user_count')) ? eval($hook) : null;
-$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-$forum_page['num_users'] = $forum_db->result($result);
+	($hook = get_hook('ul_qr_get_user_count')) ? eval($hook) : null;
+	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+	$forum_stat_user['total_users'] = $forum_db->result($result);
+}
 
 // Determine the user offset (based on $_GET['p'])
-$forum_page['num_pages'] = ceil($forum_page['num_users'] / 50);
+$forum_page['num_pages'] = ceil($forum_stat_user['total_users'] / 50);
 $forum_page['page'] = (!isset($_GET['p']) || !is_numeric($_GET['p']) || $_GET['p'] <= 1 || $_GET['p'] > $forum_page['num_pages']) ? 1 : $_GET['p'];
 $forum_page['start_from'] = 50 * ($forum_page['page'] - 1);
-$forum_page['finish_at'] = min(($forum_page['start_from'] + 50), ($forum_page['num_users']));
+$forum_page['finish_at'] = min(($forum_page['start_from'] + 50), ($forum_stat_user['total_users']));
 
 $forum_page['users_searched'] = (($forum_user['g_search_users'] && $forum_page['username'] != '') || $forum_page['show_group'] > -1);
 
-if ($forum_page['num_users'] > 0)
-	$forum_page['items_info'] = generate_items_info( (($forum_page['users_searched']) ? $lang_ul['Users found'] : $lang_ul['Users']), ($forum_page['start_from'] + 1), $forum_page['num_users']);
+if ($forum_stat_user['total_users'] > 0)
+	$forum_page['items_info'] = generate_items_info( (($forum_page['users_searched']) ? $lang_ul['Users found'] : $lang_ul['Users']), ($forum_page['start_from'] + 1), $forum_stat_user['total_users']);
 else
-	$forum_page['items_info'] = $lang_ul['No users found'];
+	$forum_page['items_info'] = $lang_ul['Users'];
 
 // Generate paging links
 $forum_page['page_post']['paging'] = '<p class="paging"><span class="pages">'.$lang_common['Pages'].'</span> '.paginate($forum_page['num_pages'], $forum_page['page'], $forum_url['users_browse'], $lang_common['Paging separator'], array($forum_page['show_group'], $forum_page['sort_by'], $forum_page['sort_dir'], ($forum_page['username'] != '') ? urlencode($forum_page['username']) : '-')).'</p>';
@@ -283,11 +292,13 @@ if ($forum_db->num_rows($result))
 	{
 		($hook = get_hook('ul_results_row_pre_data')) ? eval($hook) : null;
 
+		$forum_page['reputation'] = ($user_data['rep_plus'] == 0 && $user_data['rep_minus'] == 0) ? 0 : '+'.forum_number_format($user_data['rep_plus']).' \ -'.forum_number_format($user_data['rep_minus']);
+
 		$forum_page['table_row'] = array();
 		$forum_page['table_row']['username'] = '<td class="tc'.count($forum_page['table_row']).'"><a href="'.forum_link($forum_url['user'], $user_data['id']).'">'.forum_htmlencode($user_data['username']).'</a></td>';
 		$forum_page['table_row']['title'] = '<td class="tc'.count($forum_page['table_row']).'">'.get_title($user_data).'</td>';
 		if ($forum_config['o_rep_enabled'] && $forum_user['g_rep_enable'] && $forum_user['rep_enable'])
-			$forum_page['table_row']['reputation'] = '<td class="tc'.count($forum_page['table_row']).'">'.forum_number_format($user_data['rep_plus'] -  $user_data['rep_minus']).'</td>';
+			$forum_page['table_row']['reputation'] = '<td class="tc'.count($forum_page['table_row']).'">'.$forum_page['reputation'].'</td>';
 		if ($forum_page['show_post_count'])
 			$forum_page['table_row']['posts'] = '<td class="tc'.count($forum_page['table_row']).'">'.forum_number_format($user_data['num_posts']).'</td>';
 		$forum_page['table_row']['registered'] = '<td class="tc'.count($forum_page['table_row']).'">'.format_time($user_data['registered'], 1).'</td>';
@@ -309,10 +320,23 @@ if ($forum_db->num_rows($result))
 				</tbody>
 			</table>
 		</div>
-	</div>
 <?php
 
 }
+else
+{
+
+?>
+		<div class="ct-box">
+			<p><strong><?php echo $lang_ul['No users found'] ?></strong></p>
+		</div>
+<?php
+
+}
+
+?>
+	</div>
+<?php
 
 ($hook = get_hook('ul_end')) ? eval($hook) : null;
 

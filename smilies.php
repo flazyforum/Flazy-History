@@ -3,7 +3,7 @@
  * Показывает список смайлов.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL версии 2 или выше
  * @package Flazy
  */
@@ -20,7 +20,7 @@ if (!defined('FORUM_ROOT'))
 	define('FORUM_ROOT', './');
 require FORUM_ROOT.'include/common.php';
 
-($hook = get_hook('sml_start')) ? eval($hook) : null;
+($hook = get_hook('sml_fl_start')) ? eval($hook) : null;
 
 if (!$forum_user['g_read_board'])
 	message($lang_common['No view']);
@@ -44,10 +44,10 @@ $style_url = $base_url.'/style/gzip.php?style='.$base_url;
 // Include stylesheets
 require FORUM_ROOT.'style/'.$forum_user['style'].'/'.$forum_user['style'].'.php';
 
-($hook = get_hook('sml_pre_loader')) ? eval($hook) : null;
+($hook = get_hook('sml_fl_pre_loader')) ? eval($hook) : null;
 
 ?>
-<script type="text/javascript" src="<?php echo $base_url ?>/include/js/bb.smilies.js"></script>
+<script type="text/javascript" src="<?php echo $base_url ?>/js/bb.smilies.js"></script>
 </head>
 <body>
 
@@ -64,7 +64,7 @@ require FORUM_ROOT.'style/'.$forum_user['style'].'/'.$forum_user['style'].'.php'
 		<div class="txt-box" style="padding: 0.25em 0 0.25em 1em;">
 <?php
 
-($hook = get_hook('sml_pre_load_smilies')) ? eval($hook) : null;
+($hook = get_hook('sml_fl_pre_load_smilies')) ? eval($hook) : null;
 
 // Все смайлики
 require FORUM_ROOT.'include/smilies.php';
@@ -77,7 +77,7 @@ foreach ($smiley_groups as $smiley_img => $smiley_texts)
 {
 
 ?>
-			<a href="javascript:insert_text('<?php echo $smiley_texts[0] ?>', '');"><img src="<?php echo $base_url ?>/img/smilies/<?php echo $smiley_img ?>" alt="<?php echo $smiley_texts[0] ?>"  title="<?php echo $smiley_texts[0] ?>"/></a>
+			<a href="javascript:insert_text('<?php echo $smiley_texts['0'] ?>', '');"><img src="<?php echo $base_url ?>/img/smilies/<?php echo $smiley_img ?>" alt="<?php echo $smiley_texts['0'] ?>"  title="<?php echo $smiley_texts['0'] ?>"/></a>
 <?php
 
 }
@@ -88,6 +88,6 @@ foreach ($smiley_groups as $smiley_img => $smiley_texts)
 	</div>
 </div>
 </div>
-<?php ($hook = get_hook('sml_end')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('sml_fl_end')) ? eval($hook) : null; ?>
 </body>
 </html>

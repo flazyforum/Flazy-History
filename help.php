@@ -3,7 +3,7 @@
  * FAQ форума.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL версии 2 или выше
  * @package Flazy
  */
@@ -33,18 +33,8 @@ $forum_page['crumbs'] = array(
 	$lang_help['Help']
 );
 
-$forum_js->addFile($base_url.'/include/js/jquery.js');
+$forum_js->addFile($js['jquery']);
 $forum_js->addCode('$(document).ready( function() {
-	$(\'.spoiler-head\').toggle(
-		function() {
-		$(this).children().text(\''.$lang_common['Hide spoiler'].'\');
-			$(this).next().show("slow");
-		},
-		function() {
-			$(this).children().text(\''.$lang_common['Show spoiler'].'\');
-			$(this).next().hide("slow");
-		}
-	);
 	$(\'.hide-head\').toggle(
 		function() {
 		$(this).children().text(\''.$lang_common['Hidden text'].'\');
@@ -123,11 +113,9 @@ if (!$section || $section == 'bbcode')
 				<samp><a href="http://en.wikipedia.org/wiki/Zelenograd" class="wiki_link" onclick="window.open(this.href); return false"><?php echo $lang_help['Simple example en'] ?></a></samp>
 			</div>
 			<div class="entry-content">
-				<code>[spoiler]<?php echo $lang_help['Simple text'] ?>[/spoiler]</code> <span><?php echo $lang_help['produces'] ?></span>
-				<div class="spoiler-wrap"><span class="spoiler-head"><span><?php echo $lang_common['Show spoiler'] ?></span></span><span class="spoiler-text"><?php echo $lang_help['Simple text'] ?></span></div>
-			</div>
-			<div class="entry-content">
 				<code>[hide]<?php echo $lang_help['Simple text'] ?>[/hide]</code> <span><?php echo $lang_help['produces'] ?></span>
+				<div class="hide-wrap"><span class="hide-head"><span><?php echo $lang_common['Hidden show text'] ?></span></span><span class="hide-text"><?php echo $lang_help['Simple text'] ?></span></div>
+				<code>[hide=0]<?php echo $lang_help['Simple text'] ?>[/hide]</code> <span><?php echo $lang_help['produces'] ?></span>
 				<div class="hide-wrap"><span class="hide-head"><span><?php echo $lang_common['Hidden show text'] ?></span></span><span class="hide-text"><?php echo $lang_help['Simple text'] ?></span></div>
 				<code>[hide=10]<?php echo $lang_help['Simple text'] ?>[/hide]</code> <span><?php echo $lang_help['produces'] ?></span>
 				<div class="hide-wrap"><span class="hide-head"><span><?php echo $lang_common['Hidden show text'] ?></span></span><span class="hide-text"><?php echo $lang_help['Simple text'] ?></span></div>

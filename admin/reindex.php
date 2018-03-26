@@ -5,7 +5,7 @@
  * Allows administrators to rebuild the index used to search the posts and topics.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -163,7 +163,7 @@ body {
 	$forum_db->end_transaction();
 	$forum_db->close();
 
-	exit('<script type="text/javascript">window.location="'.forum_link('admin/reindex.php').$query_str.'"</script><br />'.$lang_admin_reindex['Javascript redirect'].' <a href="'.forum_link('admin/reindex.php').$query_str.'">'.$lang_admin_reindex['Click to continue'].'</a>.');
+	die('<script type="text/javascript">window.location="'.forum_link('admin/reindex.php').$query_str.'"</script><br />'.$lang_admin_reindex['Javascript redirect'].' <a href="'.forum_link('admin/reindex.php').$query_str.'">'.$lang_admin_reindex['Click to continue'].'</a>.');
 }
 
 

@@ -3,7 +3,7 @@
  * Просмотр репутации участников.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -13,7 +13,7 @@ if (!defined('FORUM_ROOT'))
 	define('FORUM_ROOT', './');
 require FORUM_ROOT.'include/common.php';
 
-($hook = get_hook('rp_start')) ? eval($hook) : null;
+($hook = get_hook('rp_fl_start')) ? eval($hook) : null;
 
 // Load the reputation.php language file
 require FORUM_ROOT.'lang/'.$forum_user['language'].'/reputation.php';
@@ -27,30 +27,37 @@ if (!$forum_user['rep_enable_adm'])
 if (!$forum_user['rep_enable'])
 	message($lang_reputation['Your disabled']);
 
-$id = isset($_GET['id']) ? intval($_GET['id']) : null;
-$pid = isset($_GET['pid']) ? intval($_GET['pid']) : null;
-$method = isset($_GET['method']) ? intval($_GET['method']) : null;
+$id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+$pid = isset($_GET['pid']) ? intval($_GET['pid']) : 0;
+$method = isset($_GET['method']) ? intval($_GET['method']) : 0;
 $section = isset($_GET['section']) ? $_GET['section'] : null;
 
-if (isset($_POST['delete_rep_id']))
+($hook = get_hook('rp_fl_rep_info')) ? eval($hook) : null;
+
+if (isset($_POST['form_sent']))
 {
-	($hook = get_hook('vp_form_delete_rep_id')) ? eval($hook) : null;
+	($hook = get_hook('rp_fl_form_reputation')) ? eval($hook) : null;
 
 	// Check for use of incorrect URLs
 	confirm_current_url(forum_link($forum_url['reputation'], $id));
 
-	if ($forum_user['is_admmod'])
+	if (isset($_POST['delete']))
 	{
-		if ($id <  2)
+		if (!$forum_user['is_admmod'])
+			message($lang_common['No permission']);
+
+		($hook = get_hook('rp_fl_form_delete')) ? eval($hook) : null;
+
+		if ($id < 2)
 			message($lang_common['Bad request']);
 
 		// Delete reputation
 		$query = array(
 			'DELETE'	=> 'reputation',
-			'WHERE'		=> 'id IN('.implode(',', array_values($_POST['delete_rep_id'])).')'
+			'WHERE'		=> 'id IN('.implode(',', array_values($_POST['delete'])).')'
 		);
 
-		($hook = get_hook('rp_delete_reputation_qr_get')) ? eval($hook) : null;
+		($hook = get_hook('rp_fl_delete_reputation_qr_get')) ? eval($hook) : null;
 		$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 		$query = array(
@@ -60,15 +67,15 @@ if (isset($_POST['delete_rep_id']))
 			'GROUP BY'	=> 'rp.user_id'
 		);
 
-		($hook = get_hook('rp_sum_plus_minus_qr_get')) ? eval($hook) : null;
+		($hook = get_hook('rp_fl_sum_plus_minus_qr_get')) ? eval($hook) : null;
 		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-			
+
 		if (!$forum_db->num_rows($result))
 		{
 			$rep['plus'] = 0;
 			$rep['minus'] = 0;
 		}
-		else 
+		else
 			$rep = $forum_db->fetch_assoc($result);
 
 		$query = array(
@@ -78,15 +85,15 @@ if (isset($_POST['delete_rep_id']))
 			'GROUP BY'	=> 'rp.from_user_id'
 		);
 
-		($hook = get_hook('rp_sum_plus_minus_qr_get')) ? eval($hook) : null;
+		($hook = get_hook('rp_fl_sum_plus_minus_qr_get')) ? eval($hook) : null;
 		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-			
+
 		if (!$forum_db->num_rows($result))
 		{
 			$pos['plus'] = 0;
 			$pos['minus'] = 0;
 		}
-		else 
+		else
 			$pos = $forum_db->fetch_assoc($result);
 
 		$query = array(
@@ -95,132 +102,132 @@ if (isset($_POST['delete_rep_id']))
 			'WHERE'		=> 'id='.$id
 		);
 
-		($hook = get_hook('rp_update_delete_rep_qr_get')) ? eval($hook) : null;
+		($hook = get_hook('rp_fl_update_delete_rep_qr_get')) ? eval($hook) : null;
 		$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
-		($hook = get_hook('vp_form_delete_rep_id_pre_redirect')) ? eval($hook) : null;
+		($hook = get_hook('rp_fl_form_delete_rep_id_pre_redirect')) ? eval($hook) : null;
 
 		redirect(forum_link($forum_url[($section == 'positive' ? 'positive' : 'reputation')], $id), $lang_reputation['Deleted redirect']);
 	}
 	else
-		message($lang_common['No permission']);
-}
-
-if (isset($_POST['reputation']))
-{
-	($hook = get_hook('vp_form_reputation')) ? eval($hook) : null;
-
-	// Check for use of incorrect URLs
-	confirm_current_url(forum_link($forum_url['reputation'], $id));
-	
-	if ($forum_user['is_guest'])
-		message($lang_common['No permission']);
-	$pid = isset($_POST['pid']) ? intval($_POST['pid']) : message($lang_common['Bad request']);
-	$poster = isset($_POST['poster']) ? $_POST['poster'] : message($lang_common['Bad request']);
-	$method = isset($_POST['method']) ? intval($_POST['method']) : message($lang_common['Bad request']);
-	if ($method != 2 && $method != 1)
-		message($lang_common['Bad request']);
-
-	$query = array(
-		'SELECT'	=> 'p.poster, p.poster_id, p.posted, p.id, p.topic_id, t.subject, u.rep_enable, rp.time',
-		'FROM'		=> 'posts AS p',
-		'JOINS'		=> array(
-			array(
-				'INNER JOIN'	=> 'topics AS t',
-				'ON'		=> 'p.topic_id=t.id'
-			),
-			array(
-				'LEFT JOIN'	=> 'users AS u',
-				'ON'		=> 'p.poster_id=u.id'
-			),
-			array(
-				'LEFT JOIN'	=> 'reputation AS rp',
-				'ON'		=> 'rp.from_user_id='.$forum_user['id'] .' AND rp.user_id=u.id'
-			)
-		),
-		'WHERE'		=> 'p.id='.$pid.' AND p.poster=\''.$poster.'\'',
-		'ORDER BY'	=> 'rp.time DESC',
-		'LIMIT'		=> '0, 1'
-	);
-
-	($hook = get_hook('rp_reputation_qr_get')) ? eval($hook) : null;
-	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-
-	if (!$forum_db->num_rows($result))
-		message($lang_common['Bad request']);
-
-	$cur_rep = $forum_db->fetch_assoc($result);
-
-	//Check last reputation point given timestamp
-	if ($cur_rep['time'])
 	{
-		if($forum_config['o_rep_timeout'] * 60 > (time() - $cur_rep['time']))
-  			message(sprintf($lang_reputation['Timeout'], $forum_config['o_rep_timeout']));
-	}
+
+		if ($forum_user['is_guest'])
+			message($lang_common['No permission']);
+
+		$pid = isset($_POST['pid']) ? intval($_POST['pid']) : message($lang_common['Bad request']);
+		$poster_id = isset($_POST['poster_id']) ? intval($_POST['poster_id']) : message($lang_common['Bad request']);
+		$method = isset($_POST['method']) ? intval($_POST['method']) : message($lang_common['Bad request']);
+		if ($method != 2 && $method != 1)
+			message($lang_common['Bad request']);
+
+		($hook = get_hook('rp_fl_form_reputation_pre_qr')) ? eval($hook) : null;
+
+		$query = array(
+			'SELECT'	=> 'p.poster_id, p.id, p.topic_id, t.subject, u.rep_enable, rp.time',
+			'FROM'		=> 'posts AS p',
+			'JOINS'		=> array(
+				array(
+					'INNER JOIN'	=> 'topics AS t',
+					'ON'			=> 'p.topic_id=t.id'
+				),
+				array(
+					'LEFT JOIN'		=> 'users AS u',
+					'ON'			=> 'p.poster_id=u.id'
+				),
+				array(
+					'LEFT JOIN'		=> 'reputation AS rp',
+					'ON'			=> 'rp.from_user_id='.$forum_user['id'] .' AND rp.user_id=u.id'
+				)
+			),
+			'WHERE'		=> 'p.id='.$pid.' AND p.poster_id='.$poster_id,
+			'ORDER BY'	=> 'rp.time DESC',
+			'LIMIT'		=> '0, 1'
+		);
+
+		($hook = get_hook('rp_fl_reputation_qr_get')) ? eval($hook) : null;
+		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+		if (!$forum_db->num_rows($result))
+			message($lang_common['Bad request']);
+
+		$cur_rep = $forum_db->fetch_assoc($result);
+
+		//Check last reputation point given timestamp
+		if ($cur_rep['time'])
+		{
+			if($forum_config['o_rep_timeout'] * 60 > (time() - $cur_rep['time']))
+				message(sprintf($lang_reputation['Timeout'], $forum_config['o_rep_timeout']));
+		}
 	
-	if ($cur_rep['rep_enable'] != 1)
-		message($lang_reputation['User Disable']);
-	// Prevent people from voting for themselves via URL hacking.
-	if ($forum_user['id'] == $cur_rep['poster_id'])
+		if ($cur_rep['rep_enable'] != 1)
+			message($lang_reputation['User Disable']);
+
+		// Prevent people from voting for themselves via URL hacking.
+		if ($forum_user['id'] == $cur_rep['poster_id'])
     		message($lang_reputation['Silly user']);
-	if ((($forum_user['g_rep_minus_min'] > $forum_user['num_posts']) && $method = 2) || (($forum_user['g_rep_plus_min'] > $forum_user['num_posts']) && $method = 1))
-		message($lang_reputation['Small Number of post']);
+
+		if ((($forum_user['g_rep_minus_min'] > $forum_user['num_posts']) && $method = 2) || (($forum_user['g_rep_plus_min'] > $forum_user['num_posts']) && $method = 1))
+			message($lang_reputation['Small Number of post']);
 	
-	// Clean up message from POST
-	$message = forum_linebreaks(forum_trim($_POST['req_message']));
+		// Clean up message from POST
+		$message = forum_linebreaks(forum_trim($_POST['req_message']));
 
-	// Check message
-	if ($message == '')
-		message($lang_reputation['No message']);
-	else if (utf8_strlen($message) > 400)
-		message($lang_reputation['Too long message']);
-	else if (!$forum_config['p_message_all_caps'] && is_all_uppercase($message) && !$forum_page['is_admmod'])
-		$message = utf8_ucwords(utf8_strtolower($message));
+		// Check message
+		if ($message == '')
+			message($lang_reputation['No message']);
+		else if (utf8_strlen($message) > 400)
+			message($lang_reputation['Too long message']);
+		else if (!$forum_config['p_message_all_caps'] && is_all_uppercase($message) && !$forum_page['is_admmod'])
+			$message = utf8_ucwords(utf8_strtolower($message));
 
-	// Validate BBCode syntax
-	if ($forum_config['p_message_bbcode'] || $forum_config['o_make_links'])
-	{
-		if (!defined('FORUM_PARSER_LOADED'))
-			require FORUM_ROOT.'include/parser.php';
+		// Validate BBCode syntax
+		if ($forum_config['p_message_bbcode'] || $forum_config['o_make_links'])
+		{
+			if (!defined('FORUM_PARSER_LOADED'))
+				require FORUM_ROOT.'include/parser.php';
 
-		$message = preparse_bbcode($message, $errors);
+			$message = preparse_bbcode($message, $errors);
+		}
+	
+		if (isset($errors))
+			message($errors[0]);
+
+		$rep_column = ($method == 1) ? 'rep_plus' : 'rep_minus';
+		$pos_column = ($method == 1) ? 'pos_plus' : 'pos_minus';
+
+		//Add voice
+		$query = array(
+			'INSERT'	=> 'user_id, from_user_id, time, post_id, reason, topics_id, '.$rep_column,
+			'INTO'		=> 'reputation',
+			'VALUES'	=> $cur_rep['poster_id'].', '.$forum_user['id'].', '.mktime().', '.$cur_rep['id'].', \''.$forum_db->escape($message).'\', '.$cur_rep['topic_id'].', 1'
+		);
+
+		($hook = get_hook('rp_fl_insert_rep_column_qr_get')) ? eval($hook) : null;
+		$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+		$query = array(
+			'UPDATE'	=> 'users',
+			'SET'		=> $rep_column.'='.$rep_column.'+1',
+			'WHERE'		=> 'id='.$cur_rep['poster_id']
+		);
+
+		($hook = get_hook('rp_fl_update_rep_column_qr_get')) ? eval($hook) : null;
+		$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+		$query = array(
+			'UPDATE'	=> 'users',
+			'SET'		=> $pos_column.'='.$pos_column.'+1',
+			'WHERE'		=> 'id='.$forum_user['id']
+		);
+
+		($hook = get_hook('rp_fl_update_pos_column_qr_get')) ? eval($hook) : null;
+		$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+		($hook = get_hook('rp_fl_update_rep_pre_redirect')) ? eval($hook) : null;
+	
+		redirect(forum_link($forum_url['post'], $pid) , $lang_reputation['Redirect Message']);
 	}
-	
-	if (isset($errors))
-		message($errors[0]);
-
-	$rep_column = ($method == 1) ? 'rep_plus' : 'rep_minus';
-	$pos_column = ($method == 1) ? 'pos_plus' : 'pos_minus';
-
-	//Add voice
-	$query = array(
-		'INSERT'	=> 'user_id, from_user_id, time, post_id, reason, topics_id, '.$rep_column,
-		'INTO'		=> 'reputation',
-		'VALUES'	=> $cur_rep['poster_id'].', '.$forum_user['id'].', '.mktime().', '.$cur_rep['id'].', \''.$forum_db->escape($message).'\', '.$cur_rep['topic_id'].', 1'
-	);
-
-	($hook = get_hook('rp_insert_rep_column_qr_get')) ? eval($hook) : null;
-	$forum_db->query_build($query) or error(__FILE__, __LINE__);
-
-	$query = array(
-		'UPDATE'	=> 'users',
-		'SET'		=> $rep_column.'='.$rep_column.'+1',
-		'WHERE'		=> 'id='.$cur_rep['poster_id']
-	);
-
-	($hook = get_hook('rp_update_rep_column_qr_get')) ? eval($hook) : null;
-	$forum_db->query_build($query) or error(__FILE__, __LINE__);
-
-	$query = array(
-		'UPDATE'	=> 'users',
-		'SET'		=> $pos_column.'='.$pos_column.'+1',
-		'WHERE'		=> 'id='.$forum_user['id']
-	);
-
-	($hook = get_hook('rp_update_pos_column_qr_get')) ? eval($hook) : null;
-	$forum_db->query_build($query) or error(__FILE__, __LINE__);
-	
-	redirect(forum_link($forum_url['post'], $pid) , $lang_reputation['Redirect Message']);
 }
 
 
@@ -240,7 +247,7 @@ if ($id && !$method)
 	else
 		$query['SELECT'] .= ', u.rep_plus, u.rep_minus';
 
-	($hook = get_hook('rp_current_page_qr_get')) ? eval($hook) : null;
+	($hook = get_hook('rp_fl_current_page_qr_get')) ? eval($hook) : null;
 	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 	if (!$forum_db->num_rows($result))
@@ -258,12 +265,9 @@ if ($id && !$method)
 		'FROM'		=> 'reputation AS rp'
 	);
 
-	if ($section == 'positive')
-		$query['WHERE'] = 'rp.from_user_id='.$id;
-	else
-		$query['WHERE'] = 'rp.user_id='.$id;
+	$query['WHERE'] = 'rp.'.($section == 'positive' ? 'from_user_id' : 'user_id').'='.$id;
 
-	($hook = get_hook('rp_count_used_id_qr_get')) ? eval($hook) : null;
+	($hook = get_hook('rp_fl_count_used_id_qr_get')) ? eval($hook) : null;
 	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 	list($num_rows) = $forum_db->fetch_row($result);
@@ -295,8 +299,7 @@ if ($id && !$method)
 		array(sprintf($lang_reputation[($section == 'positive' ? 'Positive' : 'Reputation').' user'], forum_htmlencode($user_rep['username'])), forum_link($forum_url['reputation'] , $id))
 	);
 
-
-	($hook = get_hook('vp_pre_reputation')) ? eval($hook) : null;
+	($hook = get_hook('rp_fl_pre_reputation')) ? eval($hook) : null;
 
 	define('FORUM_PAGE', ($section == 'positive' ? 'positive' : 'reputation'));
 	require FORUM_ROOT.'header.php';
@@ -323,7 +326,7 @@ if ($id && !$method)
 			'JOINS'		=> array(
 				array(
 					'INNER JOIN'	=> 'topics AS t',
-					'ON'		=> 't.id=rp.topics_id'
+					'ON'			=> 't.id=rp.topics_id'
 				)
 			),
 			'WHERE'		=> 'u0.id='.$id,
@@ -335,26 +338,26 @@ if ($id && !$method)
 		{
 			$query['JOINS'][] = array(
 				'INNER JOIN'	=> 'users AS u0',
-				'ON'		=> 'rp.from_user_id=u0.id'
+				'ON'			=> 'rp.from_user_id=u0.id'
 			);
 			$query['JOINS'][] = array(
 				'INNER JOIN'	=> 'users AS u1',
-				'ON'		=> 'rp.user_id=u1.id'
+				'ON'			=> 'rp.user_id=u1.id'
 			);
 		}
 		else
 		{
 			$query['JOINS'][] = array(
 				'INNER JOIN'	=> 'users AS u0',
-				'ON'		=> 'rp.user_id=u0.id'
+				'ON'			=> 'rp.user_id=u0.id'
 			);
 			$query['JOINS'][] = array(
 				'INNER JOIN'	=> 'users AS u1',
-				'ON'		=> 'rp.from_user_id=u1.id'
+				'ON'			=> 'rp.from_user_id=u1.id'
 			);
 		}
 
-		($hook = get_hook ('rp_reputation_list_qr_get')) ? eval($hook) : null;
+		($hook = get_hook ('rp_fl_reputation_list_qr_get')) ? eval($hook) : null;
 		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);	
 
 		if ($forum_user['is_admmod'])
@@ -365,7 +368,7 @@ if ($id && !$method)
 
 			$forum_page['hidden_fields'] = array(
 				'form_sent'		=> '<input type="hidden" name="form_sent" value="1" />',
-				'csrf_token'		=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
+				'csrf_token'	=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
 			);
 
 ?>
@@ -388,7 +391,8 @@ if ($id && !$method)
 				<th class="tc3" style="width:6%; text-align:center;"><?php echo $lang_reputation['Estimation'] ?></th>
 				<th class="tc4" style="width:20%"><?php echo $lang_reputation['Date'] ?></th>
 <?php if ($forum_user['is_admmod']): ?>
-				<th class="tc3" style="width:4%"><?php echo $lang_reputation['Delete'] ?></th><?php endif; ?>
+				<th class="tc3" style="width:4%"><?php echo $lang_reputation['Delete'] ?></th>
+<?php endif; ?>
 			</thead>
 			<tbody>
 <?php
@@ -408,7 +412,7 @@ if ($id && !$method)
 			$rep_page['time'] = '<td class="tc3">'.format_time($cur_rep['time']).'</td>';
 
 			if ($forum_user['is_admmod'])
-				$rep_page['delete_rep'] = '<td class="tc4" style="text-align:center;"><input type="checkbox" name="delete_rep_id[]" value="'.$cur_rep['id'].'" /></td>';
+				$rep_page['delete_rep'] = '<td class="tc4" style="text-align:center;"><input type="checkbox" name="delete[]" value="'.$cur_rep['id'].'" /></td>';
 			$num++;
 	
 ?>
@@ -430,7 +434,7 @@ if ($id && !$method)
 
 ?>
 		<div class="frm-buttons">
-			<span class="submit"><input type="submit" name="del_rep" value="<?php echo $lang_common['Delete']; ?>" onclick="return confirm('<?php echo $lang_reputation['Are you sure']; ?>')" /></span>
+			<span class="submit"><input type="submit" name="submit" value="<?php echo $lang_common['Delete']; ?>" onclick="return confirm('<?php echo $lang_reputation['Are you sure']; ?>')" /></span>
 		</div>
 <?php
 
@@ -481,7 +485,7 @@ else
 		message($lang_common['Bad request']);
 
 	$query = array(
-		'SELECT'	=> 'rp.time, u.username',
+		'SELECT'	=> 'rp.time, u.id, u.username',
 		'FROM'		=> 'users AS u',
 		'JOINS'		=> array(
 			array(
@@ -494,7 +498,7 @@ else
 		'LIMIT'		=> '0, 1'
 	);
 
-	($hook = get_hook('rp_reputation_add_vote_qr_get')) ? eval($hook) : null;
+	($hook = get_hook('rp_fl_reputation_add_vote_qr_get')) ? eval($hook) : null;
 	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 	if (!$forum_db->num_rows($result))
@@ -515,17 +519,17 @@ else
 	if ((($forum_user['g_rep_minus_min'] > $forum_user['num_posts']) && ($method = 2) ) || (($forum_user['g_rep_plus_min'] >  $forum_user['num_posts']) && ($method = 1)))
 		message($lang_reputation['Small Number of post']);
 
-	$poster = forum_htmlencode($cur_rep['username']);
+	$poster_id = forum_htmlencode($cur_rep['id']);
 
 	$forum_page['group_count'] = $forum_page['item_count'] = $forum_page['fld_count'] = 0;
 	$forum_page['form_action'] = forum_link($forum_url['reputation'], $id);
 	$forum_page['form_attributes'] = array();
 
 	$forum_page['hidden_fields'] = array(
-		'form_sent'	=> '<input type="hidden" name="form_sent" value="1" />',
-		'pid'		=> '<input type="hidden" name="pid" value="'.$pid.'" />',
-		'poster'	=> '<input type="hidden" name="poster" value="'.$poster.'" />',
-		'method'	=> '<input type="hidden" name="method" value="'.$method.'" />',
+		'form_sent'		=> '<input type="hidden" name="form_sent" value="1" />',
+		'pid'			=> '<input type="hidden" name="pid" value="'.$pid.'" />',
+		'poster_id'		=> '<input type="hidden" name="poster_id" value="'.$poster_id.'" />',
+		'method'		=> '<input type="hidden" name="method" value="'.$method.'" />',
 		'csrf_token'	=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
 	);
 
@@ -533,10 +537,10 @@ else
 	$forum_page['crumbs'] = array(
 		array($forum_config['o_board_title'], forum_link($forum_url['index'])),
 		array(sprintf($lang_reputation['Reputation user'], forum_htmlencode($cur_rep['username'])), forum_link($forum_url['reputation'] , $id)),
-		$method == 1 ? $lang_reputation['Plus'] : $lang_reputation['Minus']
+		$method == '1' ? $lang_reputation['Plus'] : $lang_reputation['Minus']
 	);
 
-	($hook = get_hook('vp_pre_add_reputation')) ? eval($hook) : null;
+	($hook = get_hook('rp_fl_pre_add_reputation')) ? eval($hook) : null;
 
 	define('FORUM_PAGE', 'reputation-vote');
 	require FORUM_ROOT.'header.php';
@@ -578,21 +582,21 @@ else
 			</div>
 		<fieldset class="frm-group group<?php echo ++$forum_page['group_count'] ?>">
 			<legend class="group-legend"><strong>Оформите свое сообщение</strong></legend>
-<?php ($hook = get_hook('vp_new_rep_username')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('rp_fl_new_rep_username')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo $forum_page['fld_count'] ?>"><span><?php echo $lang_reputation['Form your name'] ?></span></label><br />
 						<span class="fld-input"><?php echo forum_htmlencode($forum_user['username']) ?></span>
 					</div>
 				</div>
-<?php ($hook = get_hook('vp_new_rep_poster')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('rp_fl_new_rep_poster')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo $forum_page['fld_count'] ?>"><span><?php echo $lang_reputation['Form to name'] ?></span></label><br />
-						<span class="fld-input"><?php echo forum_htmlencode($poster) ?></span>
+						<span class="fld-input"><?php echo forum_htmlencode($cur_rep['username']) ?></span>
 					</div>
 				</div>
-<?php ($hook = get_hook('vp_new_rep_message')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('rp_fl_new_rep_message')) ? eval($hook) : null; ?>
 			<div class="txt-set set<?php echo ++$forum_page['item_count'] ?>">
 				<div class="txt-box textarea required">
 					<label for="fld<?php echo $forum_page['fld_count'] ?>"><span><?php echo $lang_reputation['Form reason'] ?></span></label>
@@ -600,15 +604,15 @@ else
 				</div>
 			</div>
 		</fieldset>
-<?php ($hook = get_hook('vp_new_rep_buttons')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('rp_fl_fl_new_rep_buttons')) ? eval($hook) : null; ?>
 			<div class="frm-buttons">
-				<span class="submit"><input type="submit" name="reputation" value="<?php echo $lang_common['Submit'] ?>" /></span>
+				<span class="submit"><input type="submit" name="submit" value="<?php echo $lang_common['Submit'] ?>" /></span>
 			</div>
 		</form>
 	</div>
 <?php
 
-	($hook = get_hook('rp_end')) ? eval($hook) : null;
+	($hook = get_hook('rp_fl_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
 	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);

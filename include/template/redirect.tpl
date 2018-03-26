@@ -12,6 +12,7 @@
 
 <!-- forum_redir_main -->
 
+<!-- forum_ga -->
 <!-- forum_debug -->
 
 </div>

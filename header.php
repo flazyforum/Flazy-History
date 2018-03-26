@@ -3,7 +3,7 @@
  * Этот скрипт заголовка форума используется в большинстве страниц.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,7 +11,7 @@
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
 // Send no-cache headers
 header('Expires: Thu, 21 Jul 1977 07:30:00 GMT'); // When yours truly first set eyes on this world! :)
@@ -85,6 +85,8 @@ else
 if (strpos(FORUM_PAGE, 'profile') === 0)
 	$forum_head['microid'] = '<meta name="microid" content="mailto+http:sha1:'.sha1(sha1('mailto:'.$user['email']).sha1(forum_link($forum_url['user'], $id))).'" />';
 
+$forum_head['compatible'] = '<meta http-equiv="X-UA-Compatible" content="IE=8"/>';
+
 $forum_head['title'] = '<title>'.generate_crumbs(true).'</title>';
 $forum_head['favicon'] = '<link rel="shortcut icon" type="image/x-icon" href="'.$base_url.'/favicon.ico" />';
 
@@ -120,14 +122,10 @@ $forum_head['author'] = '<link rel="author" href="'.forum_link($forum_url['users
 
 ob_start();
 
-if(empty($style_url))
-	$style_url = $base_url.'/style/gzip.php?style='.$base_url;
-
 // Include stylesheets
 if (defined('FORUM_PRINT'))
-	echo '<link rel="stylesheet" type="text/css" media="print,screen" href="'.$style_url.'/style/print.css" />';
+	echo '<link rel="stylesheet" type="text/css" media="print,screen" href="'.$base_url.'/style/print.css" />';
 else
-	
 	require FORUM_ROOT.'style/'.$forum_user['style'].'/'.$forum_user['style'].'.php';
 
 
@@ -139,7 +137,7 @@ foreach (explode("\n", $head_temp) as $style_temp)
 
 ob_end_clean();
 
-$forum_head['commonjs'] = '<script type="text/javascript" src="'.$base_url.'/include/js/common.js"></script>';;
+$forum_head['commonjs'] = '<script type="text/javascript" src="'.$base_url.'/js/common.js"></script>';;
 
 ($hook = get_hook('hd_head')) ? eval($hook) : null;
 
@@ -220,11 +218,57 @@ if ($forum_user['g_read_board'] && $forum_user['g_search'])
 
 	$visit_links['recent'] = '<span id="visit-recent"'.(empty($visit_links) ? ' class="item1"' : '').'><a href="'.forum_link($forum_url['search_recent']).'" title="'.$lang_common['Active topics title'].'">'.$lang_common['Active topics'].'</a></span>';
 	$visit_links['unanswered'] = '<span id="visit-unanswered"'.(empty($visit_links) ? ' class="item1"' : '').'><a href="'.forum_link($forum_url['search_unanswered']).'" title="'.$lang_common['Unanswered topics title'].'">'.$lang_common['Unanswered topics'].'</a></span>';
+	if (!$forum_user['is_guest'])
+		$visit_links['posts'] = '<span id="visit-recent"'.(empty($visit_links) ? ' class="item1"' : '').'><a href="'.forum_link($forum_url['search_user_posts'], $forum_user['id']).'" title="'.$lang_common['My posts title'].'">'.$lang_common['My posts'].'</a></span>';
 }
 
-if (!$forum_user['is_guest'] && $forum_config['o_pm_show_new_count'])
-	$visit_links['pm_new_messages'] = pm_unread_messages();
+$pm_full = ($forum_user['pm_inbox'] < $forum_config['o_pm_inbox_size']) ? false : true;
+if ($forum_user['pm_new'] && $forum_config['o_pm_show_new_count'] || $pm_full)
+{
+	$pm_link = $pm_full ? $lang_common['PM full'] : sprintf($lang_common['PM new'], $forum_user['pm_new']);
+	$visit_links['pm_new'] = '<span id="new-pm"><a href="'.forum_link($forum_url['pm'], 'inbox').'"><strong>'.$pm_link.'</strong></a></span>';
 
+	if (!$forum_config['o_pm_inbox_size'])
+	{
+		$query = array(
+			'UPDATE'	=> 'pm',
+			'SET'		=> 'status=\'delivered\'',
+			'WHERE'		=> 'receiver_id='.$forum_user['id'].' AND status=\'sent\'',
+		);
+
+		($hook = get_hook('hd_fl_qr_update_deliver_messages')) ? eval($hook) : null;
+		$forum_db->query_build($query) or error(__FILE__, __LINE__);
+	}
+	else if ($forum_user['pm_inbox'] <= $forum_config['o_pm_inbox_size'])
+	{
+		$query = array(
+			'SELECT'	=> 'm.id',
+			'FROM'		=> 'pm AS m',
+			'WHERE'		=> 'm.receiver_id='.$forum_user['id'].' AND m.status=\'sent\'',
+			'ORDER BY'	=> 'm.edited',
+			'LIMIT'		=> ($forum_config['o_pm_inbox_size']-$forum_user['pm_inbox'])
+		);
+
+		($hook = get_hook('hd_fl_qr_get_deliver_messages_qr')) ? eval($hook) : null;
+		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+		if ($forum_db->num_rows($result))
+		{
+			$ids = '';
+			while ($row = $forum_db->fetch_assoc($result))
+				$ids .= $row['id'].', ';
+
+			$query = array(
+				'UPDATE'	=> 'pm',
+				'SET'		=> 'status=\'delivered\'',
+				'WHERE'		=> 'id IN ('.substr($ids, 0, -2).')',
+			);
+
+			($hook = get_hook('hd_fl_qr_update_deliver_messages_in')) ? eval($hook) : null;
+			$forum_db->query_build($query) or error(__FILE__, __LINE__);
+		}
+	}
+}
 
 $visit_elements['<!-- forum_visit -->'] = (!empty($visit_links)) ? '<p id="visit-links" class="options">'.implode(' ', $visit_links).'</p>' : '';
 
@@ -242,16 +286,18 @@ $admod_links = array();
 // We only need to run this query for mods/admins if there will actually be reports to look at
 if ($forum_user['is_admmod'] && $forum_config['o_report_method'] != 1)
 {
-	$query = array(
-		'SELECT'	=> 'COUNT(r.id)',
-		'FROM'		=> 'reports AS r',
-		'WHERE'		=> 'r.zapped IS NULL',
-	);
+	// Load cached
+	if (file_exists(FORUM_CACHE_DIR.'cache_report.php'))
+		include FORUM_CACHE_DIR.'cache_report.php';
+	else
+	{
+		if (!defined('FORUM_CACHE_REPORT_LOADED'))
+			require FORUM_ROOT.'include/cache/report.php';
+		generate_report_cache();
+		require FORUM_CACHE_DIR.'cache_report.php';
+	}
 
-	($hook = get_hook('hd_qr_get_unread_reports_count')) ? eval($hook) : null;
-	$result_header = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-
-	if ($forum_db->result($result_header))
+	if ($forum_report['report'])
 		$admod_links['reports'] = '<span id="reports"><a href="'.forum_link('admin/reports.php').'"><strong>'.$lang_common['New reports'].'</strong></a></span>';
 }
 
@@ -261,29 +307,22 @@ if ($forum_user['g_id'] == FORUM_ADMIN)
 
 	// Warn the admin that maintenance mode is enabled
 	if ($forum_config['o_maintenance'])
-		$alert_items['maintenance'] = '<p id="maint-alert" class="warn">'.sprintf($lang_common['Maintenance alert'], forum_link('admin/settings.php?section=maintenance')).'</p>';
+		$alert_items = true;
 
 	if ($forum_config['o_check_for_updates'])
 	{
-		if ($forum_updates['fail'])
-			$alert_items['update_fail'] = '<p><strong>'.$lang_common['Updates'].'</strong> '.$lang_common['Updates failed'].'</p>';
-		else if (isset($forum_updates['version']) && isset($forum_updates['hotfix']))
-			$alert_items['update_version_hotfix'] = '<p><strong>'.$lang_common['Updates'].'</strong> '.sprintf($lang_common['Updates version n hf'], $forum_updates['version'], forum_link('admin/extensions.php?section=hotfixes')).'</p>';
-		else if (isset($forum_updates['version']))
-			$alert_items['update_version'] = '<p><strong>'.$lang_common['Updates'].'</strong> '.sprintf($lang_common['Updates version'], $forum_updates['version']).'</p>';
-		else if (isset($forum_updates['hotfix']))
-			$alert_items['update_hotfix'] = '<p><strong>'.$lang_common['Updates'].'</strong> '.sprintf($lang_common['Updates hf'], forum_link('admin/extensions.php?section=hotfixes')).'</p>';;
+		if ($forum_updates['fail'] ||
+			isset($forum_updates['version']) && isset($forum_updates['hotfix']) ||
+			strpos($forum_config['o_cur_version'], 'dev') !== false ||
+			!isset($forum_config['o_forum_branch']) && isset($forum_updates['version']) ||
+			isset($forum_updates['hotfix']))
+			$alert_items = true;
 	}
 
-	// Warn the admin that their version of the database is newer than the version supported by the code
-	if ($forum_config['o_database_revision'] > FORUM_DB_REVISION)
-		$alert_items['newer_database'] = '<p><strong>'.$lang_common['Database mismatch'].'</strong> '.$lang_common['Database mismatch alert'].'</p>';
-
-	// Warn the admin that the engines used in the database don't correspond with the chosen DB layer
-	if (($db_type == 'mysql_innodb' || $db_type == 'mysqli_innodb') && $forum_config['o_database_engine'] != 'InnoDB')
-			$alert_items['update_fail'] = '<p><strong>'.$lang_common['Database engine mismatch'].'</strong> '.sprintf($lang_common['Database engine mismatch alert'], 'MyISAM', 'InnoDB', forum_link('misc.php?admin_action=change_engine')).'</p>';
-	else if (($db_type == 'mysql' || $db_type == 'mysqli') && $forum_config['o_database_engine'] != 'MyISAM')
-			$alert_items['update_fail'] = '<p><strong>'.$lang_common['Database engine mismatch'].'</strong> '.sprintf($lang_common['Database engine mismatch alert'], 'InnoDB', 'MyISAM', forum_link('misc.php?admin_action=change_engine')).'</p>';
+	if ($forum_config['o_database_revision'] > FORUM_DB_REVISION ||
+		($db_type == 'mysql_innodb' || $db_type == 'mysqli_innodb') && $forum_config['o_database_engine'] != 'InnoDB' ||
+		($db_type == 'mysql' || $db_type == 'mysqli') && $forum_config['o_database_engine'] != 'MyISAM')
+		$alert_items = true;
 
 	if (!empty($alert_items))
 		$admod_links['alert'] = '<span id="alert"><a href="'.forum_link('admin/admin.php').'"><strong>'.$lang_common['New alerts'].'</strong></a></span>';
@@ -327,6 +366,9 @@ if (substr(FORUM_PAGE, 0, 5) == 'admin' && FORUM_PAGE_TYPE != 'paged')
 
 // Main section options bar
 $main_elements['<!-- forum_main_options -->'] = (!empty($forum_page['main_options'])) ? '<div class="main-options gen-content">'."\n\t\t".'<h2 class="hn"><span>'.$forum_page['main_options_head'].'</span></h2>'."\n\t\t".'<p class="options">'.implode(' ', $forum_page['main_options']).'</p>'."\n\t".'</div>' : '';
+
+// Section users online in forum\topic
+$main_elements['<!-- forum_main_extra -->'] = (!empty($forum_page['main_extra'])) ? '<div id="brd-online-box" class="main-pagepost gen-content">'."\n\t".implode("\n\t", $forum_page['main_extra'])."\n".'</div>' : '';
 
 ($hook = get_hook('hd_main_elements')) ? eval($hook) : null;
 

@@ -13,6 +13,8 @@
 
 <!-- forum_main -->
 
+<!-- forum_ga -->
+
 </div>
 </div>
 

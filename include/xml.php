@@ -3,7 +3,7 @@
  * Функции использемые в работе с XML (с расширениями\исправлениями).
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,7 +11,7 @@
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
 // Parse XML data into an array
 function xml_to_array($raw_xml)
@@ -160,7 +160,8 @@ function validate_manifest($xml_array, $folder_name)
 			$errors[] = $lang_admin_ext['extension/author error'];
 		if (!isset($ext['minversion']) || $ext['minversion'] == '')
 			$errors[] = $lang_admin_ext['extension/minversion error'];
-		if (isset($ext['minversion']) && version_compare(clean_version($forum_config['o_cur_version']), clean_version($ext['minversion']), '<'))
+		//if (isset($ext['minversion']) && version_compare(clean_version($forum_config['o_cur_version']), clean_version($ext['minversion']), '<'))
+		if (isset($ext['minversion']) && version_compare('1.3', clean_version($ext['minversion']), '<'))
 			$errors[] = sprintf($lang_admin_ext['extension/minversion error2'], $ext['minversion']);
 		if (!isset($ext['maxtestedon']) || $ext['maxtestedon'] == '')
 			$errors[] = $lang_admin_ext['extension/maxtestedon error'];

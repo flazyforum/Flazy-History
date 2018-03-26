@@ -3,7 +3,7 @@
  * Списки тем в указанном форуме.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -33,7 +33,7 @@ $query = array(
 	'FROM'		=> 'forums AS f',
 	'JOINS'		=> array(
 		array(
-			'INNER JOIN'		=> 'categories AS c',
+			'INNER JOIN'	=> 'categories AS c',
 			'ON'			=> 'c.id=f.cat_id'
 		),
 		array(
@@ -43,7 +43,6 @@ $query = array(
 	),
 	'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1) AND f.id='.$id
 );
-
 
 ($hook = get_hook('vf_qr_get_forum_info')) ? eval($hook) : null;
 $result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
@@ -60,7 +59,7 @@ if ($cur_forum['redirect_url'] != '')
 	($hook = get_hook('vf_redirect_forum_pre_redirect')) ? eval($hook) : null;
 
 	header('Location: '.$cur_forum['redirect_url']);
-	exit;
+	die;
 }
 
 // Determine the topic offset (based on $_GET['p'])
@@ -99,25 +98,28 @@ if ($forum_page['page'] > 1)
 }
 
 $query = array(
-	'SELECT'	=> 't.id, t.poster, t.subject, t.description, t.poll, t.posted, t.first_post_id, t.last_post, t.last_post_id, t.last_poster, t.num_views, t.num_replies, t.closed, t.sticky, t.moved_to, q.question, u0.id AS user_id, u1.id AS user_id_post',
+	'SELECT'		=> 't.id',
+	'FROM'			=> 'topics AS t',
+	'WHERE'			=> 't.forum_id='.$id,
+	'ORDER BY'		=> 't.sticky DESC, '.(($cur_forum['sort_by'] == '1') ? 't.posted' : 't.last_post').' DESC',
+	'LIMIT'			=> $forum_page['start_from'].','.$forum_user['disp_topics']
+);
+
+($hook = get_hook('vf_qr_get_id_topics')) ? eval($hook) : null;
+$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+$topics_id = array();
+while ($row = $forum_db->fetch_row($result))
+	$topics_id[] = $row[0];
+
+if (empty($topics_id))
+		$topics_id[0] = 0;
+
+($hook = get_hook('vf_qr_pre_get_topics')) ? eval($hook) : null;
+
+$query = array(
+	'SELECT'	=> 't.id, t.poster_id, t.poster, t.subject, t.description, t.question, t.posted, t.first_post_id, t.last_post, t.last_post_id, t.last_poster, t.last_poster_id, t.num_views, t.num_replies, t.closed, t.sticky, t.moved_to',
 	'FROM'		=> 'topics AS t',
-	'JOINS'		=> array(
-		array(
-			'LEFT JOIN'		=> 'questions AS q',
-			'ON'			=> 't.id=q.topic_id'
-		),
-		array(
-			'INNER JOIN'		=> 'users AS u0',
-			'ON'			=> 't.poster=u0.username'
-		),
-		array(
-			'INNER JOIN'		=> 'users AS u1',
-			'ON'			=> 't.last_poster=u1.username'
-		)
-	),
-	'WHERE'		=> 't.forum_id='.$id,
-	'ORDER BY'	=> 't.sticky DESC, '.(($cur_forum['sort_by']) ? ($cur_forum['sort_by'] == '1' ? 't.posted DESC' : 't.subject ASC') : 't.last_post DESC'),
-	'LIMIT'		=> $forum_page['start_from'].', '.$forum_user['disp_topics']
+	'WHERE'     => 't.id IN ('.implode(',', $topics_id).')',
 );
 
 // With "has posted" indication
@@ -135,6 +137,17 @@ if (!$forum_user['is_guest'] && $forum_config['o_show_dot'])
 
 ($hook = get_hook('vf_qr_get_topics')) ? eval($hook) : null;
 $result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+$topics_info = array();
+
+while ($cur_topic = $forum_db->fetch_assoc($result))
+{
+	$tmp_index = array_search($cur_topic['id'], $topics_id);
+	$topics_info[$tmp_index] = $cur_topic;
+}
+
+ksort($topics_info);
+unset($topics_id);
+
 
 // Generate paging/posting links
 $forum_page['page_post']['paging'] = '<p class="paging"><span class="pages">'.$lang_common['Pages'].'</span> '.paginate($forum_page['num_pages'], $forum_page['page'], $forum_url['forum'], $lang_common['Paging separator'], array($id, sef_friendly($cur_forum['forum_name']))).'</p>';
@@ -149,8 +162,8 @@ else
 // Setup main options
 $forum_page['main_options_head'] = $lang_forum['Forum options'];
 $forum_page['main_options'] = array(
-	'feed_rss'	=> '<span class="feed'.(empty($forum_page['main_options']) ? ' item1' : '').'"><a class="feed-rss" href="'.forum_link($forum_url['feed_forum'], array('rss', $id, $cur_forum['sort_by'] == '1' ? 'posted' : 'last_post')).'">'.$lang_forum['RSS forum feed'].'</a></span>',
-	'feed_atom'	=> '<span class="feed'.(empty($forum_page['main_options']) ? ' item1' : '').'"><a class="feed-atom" href="'.forum_link($forum_url['feed_forum'], array('atom', $id, $cur_forum['sort_by'] == '1' ? 'posted' : 'last_post')).'">'.$lang_forum['ATOM forum feed'].'</a></span>'
+	'rss'	=> '<span class="feed'.(empty($forum_page['main_options']) ? ' item1' : '').'"><a class="feed-rss" href="'.forum_link($forum_url['feed_forum'], array('rss', $id, $cur_forum['sort_by'] == '1' ? 'posted' : 'last_post')).'">'.$lang_forum['RSS forum feed'].'</a></span>',
+	'atom'	=> '<span class="feed'.(empty($forum_page['main_options']) ? ' item1' : '').'"><a class="feed-atom" href="'.forum_link($forum_url['feed_forum'], array('atom', $id, $cur_forum['sort_by'] == '1' ? 'posted' : 'last_post')).'">'.$lang_forum['ATOM forum feed'].'</a></span>'
 );
 
 if (!$forum_user['is_guest'] && $forum_db->num_rows($result))
@@ -159,6 +172,14 @@ if (!$forum_user['is_guest'] && $forum_db->num_rows($result))
 
 	if ($forum_page['is_admmod'])
 		$forum_page['main_options']['moderate'] = '<span'.(empty($forum_page['main_options']) ? ' class="item1"' : '').'><a class="mod-option-moderate" href="'.forum_sublink($forum_url['moderate_forum'], $forum_url['page'], $forum_page['page'], $id).'">'.$lang_forum['Moderate forum'].'</a></span>';
+}
+
+if ($forum_config['o_users_online'] && $forum_config['o_online_ft'])
+{
+ 	if (!defined('FORUM_FUNCTIONS_ONLINE_FT'))
+ 		require FORUM_ROOT.'include/functions/online_user.php';
+
+ 	$forum_page['main_extra']['online'] = '<p class="user-online"><span class="pages">'.$lang_forum['Users online'].'</span> '.online_user($id, 'viewforum').'</p>';
 }
 
 // Setup breadcrumbs
@@ -178,9 +199,8 @@ if ($forum_page['num_pages'] > 1)
 
 define('FORUM_ALLOW_INDEX', 1);
 
-$forum_js->addFile($base_url.'/include/js/jquery.js');
-$forum_js->addFile($base_url.'/include/js/jquery.tooltip.js');
-$forum_js->addCode('$(function() {	
+$forum_js->addFile(array($js['jquery'], $js['tooltip']));
+$forum_js->addCode('$(function() {
 		$(\'.item-subject a\').tooltip({ track: true, delay: 0, showURL: false, showBody: " - ", fade: 250 });
 		$(\'#block\').click($.tooltip.block);
 	});');
@@ -203,7 +223,7 @@ $forum_page['item_header']['info']['lastpost'] = '<strong class="info-lastpost">
 ($hook = get_hook('vf_main_output_start')) ? eval($hook) : null;
 
 // If there are topics in this forum
-if ($forum_db->num_rows($result))
+if (count($topics_info) > 0)
 {
 
 ?>
@@ -220,7 +240,8 @@ if ($forum_db->num_rows($result))
 
 	$forum_page['item_count'] = 0;
 
-	while ($cur_topic = $forum_db->fetch_assoc($result))
+	//while ($cur_topic = $forum_db->fetch_assoc($result))
+	foreach ($topics_info as $cur_topic)
 	{
 		($hook = get_hook('vf_topic_loop_start')) ? eval($hook) : null;
 
@@ -236,7 +257,7 @@ if ($forum_db->num_rows($result))
 			$cur_topic['question'] = censor_words($cur_topic['question']);
 		}
 
-		$forum_page['item_subject']['starter'] = '<span class="item-starter">'.sprintf($lang_forum['Topic starter'], '<cite><a href="'.forum_link($forum_url['user'],$cur_topic['user_id']).'">'.forum_htmlencode($cur_topic['poster']).'</a></cite>').'</span>';
+		$forum_page['item_subject']['starter'] = '<span class="item-starter">'.sprintf($lang_forum['Topic starter'], '<cite><a href="'.forum_link($forum_url['user'],$cur_topic['poster_id']).'">'.forum_htmlencode($cur_topic['poster']).'</a></cite>').'</span>';
 
 		if ($cur_topic['moved_to'] != null)
 		{
@@ -279,7 +300,7 @@ if ($forum_db->num_rows($result))
 				$forum_page['item_title_status']['closed'] = '<em class="closed">'.$lang_forum['Closed'].'</em>';
 				$forum_page['item_status']['closed'] = 'closed';
 			}
-			else if ($cur_topic['poll'])
+			else if ($cur_topic['question'] != '')
 			{
 				$forum_page['item_title_status']['poll'] = '<em class="poll">'.$lang_forum['Poll'].'</em>';
 				$forum_page['item_status']['poll'] = 'poll';
@@ -290,7 +311,7 @@ if ($forum_db->num_rows($result))
 				$forum_page['img_topic']['sticky'] = '<span class="subject-right sticky-img"></span>';
 			if ($cur_topic['closed'])
 				$forum_page['img_topic']['closed'] = '<span class="subject-right closed-img"></span>';
-			if ($cur_topic['poll'])
+			if ($cur_topic['question'] != '')
 				$forum_page['img_topic']['poll'] = '<span class="subject-right poll-img"></span>';
 
 			($hook = get_hook('vf_topic_loop_normal_topic_pre_item_title_status_merge')) ? eval($hook) : null;
@@ -300,9 +321,9 @@ if ($forum_db->num_rows($result))
 
 			$topic_desc = array();
 			if ($cur_topic['description'] != '')
-				$topic_desc['description'] = ' - '.forum_htmlencode(forum_htmlencode($cur_topic['description']));
+				$topic_desc['description'] = $lang_common['Title separator'].forum_htmlencode(forum_htmlencode($cur_topic['description']));
 			if ($cur_topic['question'] != '')
-				$topic_desc['question'] = ' - '.forum_htmlencode(forum_htmlencode($cur_topic['question']));
+				$topic_desc['question'] = $lang_common['Title separator'].forum_htmlencode(forum_htmlencode($cur_topic['question']));
 
 			$forum_page['item_title']['link'] = '<strong><a href="'.forum_link($forum_url['topic'], array($cur_topic['id'], sef_friendly($cur_topic['subject']))).'"'.(!empty($topic_desc) ? ' title="'.$lang_forum['Description'].implode('', $topic_desc).'"' : '').'>'.forum_htmlencode($cur_topic['subject']).'</a></strong>';
 
@@ -340,7 +361,7 @@ if ($forum_db->num_rows($result))
 			if ($forum_config['o_topic_views'])
 				$forum_page['item_body']['info']['views'] = '<li class="info-views"><strong class="'.item_size($cur_topic['num_views']).'">'.forum_number_format($cur_topic['num_views']).'</strong> <span class="label">'.(($cur_topic['num_views'] == 1) ? $lang_forum['view'] : $lang_forum['views']).'</span></li>';
 
-			$forum_page['item_body']['info']['lastpost'] = '<li class="info-lastpost"><span class="label">'.$lang_forum['Last post'].'</span> <strong><a href="'.forum_link($forum_url['post'], $cur_topic['last_post_id']).'">'.format_time($cur_topic['last_post']).'</a></strong> <cite>'.sprintf($lang_forum['by poster'], ($cur_topic['user_id_post'] > 1 ? '<a href="'.forum_link($forum_url['user'], $cur_topic['user_id_post']).'">'. forum_htmlencode($cur_topic['last_poster']).'</a>': forum_htmlencode($cur_topic['last_poster']))).'</cite></li>';
+			$forum_page['item_body']['info']['lastpost'] = '<li class="info-lastpost"><span class="label">'.$lang_forum['Last post'].'</span> <strong><a href="'.forum_link($forum_url['post'], $cur_topic['last_post_id']).'">'.format_time($cur_topic['last_post']).'</a></strong> <cite>'.sprintf($lang_forum['by poster'], ($cur_topic['last_post_id'] > 1 ? '<a href="'.forum_link($forum_url['user'], $cur_topic['last_post_id']).'">'. forum_htmlencode($cur_topic['last_poster']).'</a>': forum_htmlencode($cur_topic['last_poster']))).'</cite></li>';
 		}
 
 		($hook = get_hook('vf_row_pre_item_status_merge')) ? eval($hook) : null;
@@ -376,7 +397,6 @@ else
 	$forum_page['item_body']['subject']['title'] = '<h3 class="hn">'.$lang_forum['No topics'].'</h3>';
 	$forum_page['item_body']['subject']['desc'] = '<p>'.sprintf($lang_forum['First topic'], forum_link($forum_url['new_topic'], $id)).'</p>';
 
-
 	($hook = get_hook('vf_no_results_row_pre_display')) ? eval($hook) : null;
 
 ?>
@@ -393,27 +413,6 @@ else
 	</div>
 <?php
 
-}
-
-if ($forum_config['o_online_ft'])
-{
-	if (!defined('FORUM_FUNCTIONS_ONLINE_FT'))
-		require FORUM_ROOT.'include/functions/online_user.php';
-
-	$forum_page['online'] = '<p class="user-on"><span class="pages">'.$lang_forum['Users on'].'</span> '.online_user($id, 'viewforum').'</p>';
-
-	// START SUBST - <!-- forum_main_online -->
-	ob_start();
-?>
-<div id="brd-online-box" class="main-pagepost gen-content">
-	<?php echo $forum_page['online']."\n" ?>
-</div>
-
-<?php
-	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main_online -->', $tpl_temp, $tpl_main);
-	ob_end_clean();
-	// END SUBST - <!-- forum_main_online -->
 }
 
 ($hook = get_hook('vf_end')) ? eval($hook) : null;

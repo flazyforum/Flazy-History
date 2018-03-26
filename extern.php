@@ -2,17 +2,17 @@
 /**
  * Скрипт для внешнего обьединения данных с форума.
  *
- * Позволяет экспортировать содержание форума в формата (ie: RSS, Atom, XML, HTML).
+ * Позволяет экспортировать содержание форума в формата (пр: RSS, Atom, XML, HTML).
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
 
 /***********************************************************************
 
-  INSTRUCTIONS
+  ИНСТРУКЦИЯ
 
   This script is used to include information about your board from
   pages outside the forums and to syndicate news about recent
@@ -30,28 +30,30 @@
   display posts) and type (output as HTML or RSS). The only
   mandatory variable is action. Possible/default values are:
 
-    action: feed - show most recent topics/posts (HTML or RSS)
-            online - show users online (HTML)
-            online_full - as above, but includes a full list (HTML)
-            stats - show board statistics (HTML)
+    action: feed - показать последние темы/сообщения (HTML или RSS/Atom)
+            online - показать участников присутствующих на форуме (HTML)
+            online_full - тоже что и выше, но включает в себя полный
+            список участников (HTML)
+            stats - показать статистику форума (HTML)
 
-    type:   rss - output as RSS 2.0
-            atom - output as Atom 1.0
-            xml - output as XML
-            html - output as HTML (<li>'s)
+    type:   rss - результат в RSS 2.0
+            atom - результат в Atom 1.0
+            xml - результат в XML
+            html - результат в HTML (<li>'s)
 
-    fid:    One or more forum ID's (comma-separated). If ignored,
-            topics from all readable forums will be pulled.
+    fid:    Один или несколько ID форумов (через запятую) которые
+            следует показать.
 
-    nfid:   One or more forum ID's (comma-separated) that are to be
-            excluded. E.g. the ID of a a test forum.
+    nfid:   Один или несколько ID форумов (через запятую), которые должны
+            быть исключены. Например ID тестового форума.
 
-    tid:    A topic ID from which to show posts. If a tid is supplied,
-            fid and nfid are ignored.
+    tid:    ID темы из которой следует показывать сообщения. Если
+            поставлен tid, fit и nfid игнорируются.
 
-    lengt:  The length at which topic subjects will be truncated (for HTML output).
+    lengt:  Значение определяющие длину после которой название тема будет
+            урезана (для вывода HTML, по умолчанию равно 30)
 
-    show:   Any integer value between 1 and 50. The default is 15.
+    show:   Любое целое число от 1 до 50. По умолчанию равно 15.
 
 /***********************************************************************/
 
@@ -71,7 +73,7 @@ if ($forum_user['is_guest'] && isset($_SERVER['PHP_AUTH_USER']))
 if (!$forum_user['g_read_board'])
 {
 	http_authenticate_user();
-	exit($lang_common['No view']);
+	die($lang_common['No view']);
 }
 
 $action = isset($_GET['action']) ? $_GET['action'] : 'feed';
@@ -116,10 +118,11 @@ function output_rss($feed)
 
 	foreach ($feed['items'] as $item)
 	{
+//($forum_config['o_externbox'] && !defined('FORUM_DISABLE_HTML') ? $forum_config['o_externbox_message'] : '')
 		echo "\t\t".'<item>'."\n";
 		echo "\t\t\t".'<title><![CDATA['.escape_cdata($item['title']).']]></title>'."\n";
 		echo "\t\t\t".'<link>'.$item['link'].'</link>'."\n";
-		echo "\t\t\t".'<description><![CDATA['.escape_cdata($item['description']).']]></description>'."\n";
+		echo "\t\t\t".'<description><![CDATA['.escape_cdata($item['description'].($forum_config['o_externbox'] && !defined('FORUM_DISABLE_HTML') ? $forum_config['o_externbox_message'] : '')).']]></description>'."\n";
 		echo "\t\t\t".'<author><![CDATA['.(isset($item['author']['email']) ? forum_htmlencode(escape_cdata($item['author']['email'])) : 'example@example.com').' ('.forum_htmlencode(escape_cdata($item['author']['name'])).')]]></author>'."\n";
 		echo "\t\t\t".'<pubDate>'.gmdate('r', $item['pubdate']).'</pubDate>'."\n";
 		echo "\t\t\t".'<guid>'.$item['link'].'</guid>'."\n";
@@ -168,7 +171,7 @@ function output_atom($feed)
 		echo "\t\t".'<entry>'."\n";
 		echo "\t\t\t".'<title type="html"><![CDATA['.forum_htmlencode(escape_cdata($item['title'])).']]></title>'."\n";
 		echo "\t\t\t".'<link rel="alternate" href="'.$item['link'].'"/>'."\n";
-		echo "\t\t\t".'<'.$content_tag.' type="html"><![CDATA['.escape_cdata($item['description']).']]></'.$content_tag.'>'."\n";
+		echo "\t\t\t".'<'.$content_tag.' type="html"><![CDATA['.escape_cdata($item['description'].($forum_config['o_externbox'] && !defined('FORUM_DISABLE_HTML') ? $forum_config['o_externbox_message'] : '')).']]></'.$content_tag.'>'."\n";
 		echo "\t\t\t".'<author>'."\n";
 		echo "\t\t\t\t".'<name><![CDATA['.forum_htmlencode(escape_cdata($item['author']['name'])).']]></name>'."\n";
 
@@ -289,7 +292,7 @@ if ($action == 'feed')
 					'ON'			=> '(fp.forum_id=t.forum_id AND fp.group_id='.$forum_user['g_id'].')'
 				)
 			),
-			'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1) AND t.moved_to IS NULL and t.id='.$tid
+			'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1) AND t.moved_to IS NULL AND t.id='.$tid
 		);
 
 		($hook = get_hook('ex_qr_get_topic_data')) ? eval($hook) : null;
@@ -298,7 +301,7 @@ if ($action == 'feed')
 		{
 			http_authenticate_user();
 			header('Content-type: text/html; charset=utf-8');
-			exit($lang_common['Bad request']);
+			die($lang_common['Bad request']);
 		}
 
 		$cur_topic = $forum_db->fetch_assoc($result);
@@ -321,29 +324,50 @@ if ($action == 'feed')
 		$feed = array(
 			'title' 		=>	$forum_config['o_board_title'].$lang_common['Title separator'].$subj,
 			'link'			=>	forum_link($forum_url['topic'], array($tid, sef_friendly($cur_topic['subject']))),
-			'description'		=>	sprintf($lang_common['RSS description topic'], $cur_topic['subject']),
+			'description'	=>	sprintf($lang_common['RSS description topic'], $cur_topic['subject']),
 			'items'			=>	array(),
 			'type'			=>	'posts'
 		);
 
 		// Fetch $show posts
 		$query = array(
-			'SELECT'	=> 'p.id, p.poster, p.message, p.hide_smilies, p.posted, p.poster_id, u.email_setting, u.email, p.poster_email',
+			'SELECT'	=> 'p.id',
 			'FROM'		=> 'posts AS p',
-			'JOINS'		=> array(
-				array(
-					'INNER JOIN'	=> 'users AS u',
-					'ON'		=> 'u.id = p.poster_id'
-				)
-			),
 			'WHERE'		=> 'p.topic_id='.$tid,
 			'ORDER BY'	=> 'p.posted DESC',
 			'LIMIT'		=> $show
 		);
 
+		($hook = get_hook('ex_qr_get_id_posts')) ? eval($hook) : null;
+		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+		$posts_id = array();
+		while ($row = $forum_db->fetch_row($result))
+			$posts_id[] = $row[0];
+
+		$query = array(
+			'SELECT'	=> 'p.id, p.poster, p.message, p.hide_smilies, p.posted, p.poster_id, u.email_setting, u.email, p.poster_email',
+			'FROM'		=> 'posts AS p',
+			'JOINS'		=> array(
+				array(
+					'INNER JOIN'	=> 'users AS u',
+					'ON'			=> 'u.id=p.poster_id'
+				)
+			),
+			'WHERE'		=> 'p.id IN ('.implode(',', $posts_id).')',
+		);
+
 		($hook = get_hook('ex_qr_get_posts')) ? eval($hook) : null;
 		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+		$posts_info = array();
 		while ($cur_post = $forum_db->fetch_assoc($result))
+		{
+			$tmp_index = array_search($cur_post['id'], $posts_id);
+			$posts_info[$tmp_index] = $cur_post;
+		}
+		krsort($posts_info);
+		unset($posts_id);
+
+		foreach ($posts_info as $cur_post) 
 		{
 			if ($forum_config['o_censoring'])
 				$cur_post['message'] = censor_words($cur_post['message']);
@@ -433,7 +457,7 @@ if ($action == 'feed')
 		$feed = array(
 			'title' 		=>	$forum_config['o_board_title'].$forum_name,
 			'link'			=>	forum_link($forum_url['index']),
-			'description'		=>	sprintf($lang_common['RSS description'], $forum_config['o_board_title']),
+			'description'	=>	sprintf($lang_common['RSS description'], $forum_config['o_board_title']),
 			'items'			=>	array(),
 			'type'			=>	'topics'
 		);
@@ -444,11 +468,11 @@ if ($action == 'feed')
 			'FROM'		=> 'topics AS t',
 			'JOINS'		=> array(
 				array(
-					'INNER JOIN'		=> 'posts AS p',
-					'ON'			=> 'p.id='.($order_posted ? 't.first_post_id' : 't.last_post_id')
+					'INNER JOIN'	=> 'posts AS p',
+					'ON'			=> 'p.id=t.first_post_id'
 				),
 				array(
-					'INNER JOIN'		=> 'users AS u',
+					'INNER JOIN'	=> 'users AS u',
 					'ON'			=> 'u.id = p.poster_id'
 				),
 				array(
@@ -514,7 +538,7 @@ if ($action == 'feed')
 		$output_func($feed);
 	}
 
-	exit;
+	die;
 }
 
 // Show users online
@@ -564,7 +588,7 @@ else if ($action == 'online' || $action == 'online_full')
 	else
 		echo $lang_index['Users online'].': '.forum_number_format($num_users).'<br />'."\n";
 
-	exit;
+	die;
 }
 
 // Show board statistics
@@ -593,7 +617,7 @@ else if ($action == 'stats')
 	}
 
 	echo sprintf($lang_index['No of users'], forum_number_format($forum_stat_user['total_users'])).'<br />'."\n";
-	echo sprintf($lang_index['Newest user'], '<a href="'.forum_link($forum_url['user'], $forum_stat_user['id']).'">'.forum_htmlencode($forum_stat_user['username']).'</a>').'<br />'."\n";
+	echo sprintf($lang_index['Newest user'], ($forum_user['g_view_users']) ? '<a href="'.forum_link($forum_url['user'], $forum_stat_user['id']).'">'.forum_htmlencode($forum_stat_user['username']).'</a>' : forum_htmlencode($forum_stat_user['username'])).'<br />'."\n";
 
 	$query = array(
 		'SELECT'	=> 'SUM(f.num_topics), SUM(f.num_posts)',
@@ -629,7 +653,7 @@ else if ($action == 'stats')
 	echo sprintf($lang_index['No of topics'], forum_number_format($stats['total_topics'])).'<br />'."\n";
 	echo sprintf($lang_index['No of posts'],  forum_number_format($stats['total_posts']), forum_number_format($posts_week), $lang_index['Online list separator'], forum_number_format($posts_day)).'<br />'."\n";
 	
-	exit;
+	die;
 }
 
 
@@ -637,4 +661,4 @@ else if ($action == 'stats')
 
 // If we end up here, the script was called with some wacky parameters
 header('Content-type: text/html; charset=utf-8');
-exit($lang_common['Bad request']);
+die($lang_common['Bad request']);

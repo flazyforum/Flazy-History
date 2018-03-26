@@ -3,7 +3,7 @@
  * A database layer class that relies on the PostgreSQL PHP extension.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,7 +11,7 @@
 
 // Make sure we have built in support for PostgreSQL
 if (!function_exists('pg_connect'))
-	exit('Эта PHP среда не имеет встроенной поддержки PostgreSQL. Она необходима, если вы хотите использовать базу данных PostgreSQL для работы этого форума. Изучите PHP документацию для получения дополнительной информации.');
+	die('Эта PHP среда не имеет встроенной поддержки PostgreSQL. Она необходима, если вы хотите использовать базу данных PostgreSQL для работы этого форума. Изучите PHP документацию для получения дополнительной информации.');
 
 
 class DBLayer
@@ -103,7 +103,7 @@ class DBLayer
 	function query($sql, $unbuffered = false)	// $unbuffered is ignored since there is no pgsql_unbuffered_query()
 	{
 		if (strlen($sql) > 140000)
-			exit('Безумно большой запрос. Прервано.');
+			die('Безумно большой запрос. Прервано.');
 
 		if (strrpos($sql, 'LIMIT') !== false)
 			$sql = preg_replace('#LIMIT ([0-9]+),([ 0-9]+)#', 'LIMIT \\2 OFFSET \\1', $sql);

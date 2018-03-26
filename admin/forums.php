@@ -5,7 +5,7 @@
  * Allows administrators to add, modify, and remove forums.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -260,7 +260,7 @@ else if (isset($_GET['edit_forum']))
 
 	// Fetch forum info
 	$query = array(
-		'SELECT'	=> 'f.id, f.forum_name, f.forum_desc, f.redirect_url, f.num_topics, f.sort_by, f.cat_id',
+		'SELECT'	=> 'f.id, f.forum_name, f.forum_desc, f.redirect_url, f.counter, f.num_topics, f.sort_by, f.cat_id',
 		'FROM'		=> 'forums AS f',
 		'WHERE'		=> 'f.id='.$forum_id
 	);
@@ -283,6 +283,7 @@ else if (isset($_GET['edit_forum']))
 		$cat_id = intval($_POST['cat_id']);
 		$sort_by = intval($_POST['sort_by']);
 		$redirect_url = isset($_POST['redirect_url']) && $cur_forum['num_topics'] == 0 ? forum_trim($_POST['redirect_url']) : null;
+		$counter = intval($_POST['counter']);
 
 		if ($forum_name == '')
 			message($lang_admin_forums['Must enter forum message']);
@@ -295,7 +296,7 @@ else if (isset($_GET['edit_forum']))
 
 		$query = array(
 			'UPDATE'	=> 'forums',
-			'SET'		=> 'forum_name=\''.$forum_db->escape($forum_name).'\', forum_desc='.$forum_desc.', redirect_url='.$redirect_url.', sort_by='.$sort_by.', cat_id='.$cat_id,
+			'SET'		=> 'forum_name=\''.$forum_db->escape($forum_name).'\', forum_desc='.$forum_desc.', redirect_url='.$redirect_url.', counter='.$counter.', sort_by='.$sort_by.', cat_id='.$cat_id,
 			'WHERE'		=> 'id='.$forum_id
 		);
 
@@ -466,12 +467,12 @@ else if (isset($_GET['edit_forum']))
 			<div class="hidden">
 				<input type="hidden" name="csrf_token" value="<?php echo generate_form_token(forum_link('admin/forums.php').'?edit_forum='.$forum_id) ?>" />
 			</div>
-			<div class="content-head">
-				<h3 class="hn"><span><?php echo $lang_admin_forums['Edit forum details head'] ?></span></h3>
-			</div>
 <?php ($hook = get_hook('afo_edit_forum_pre_details_fieldset')) ? eval($hook) : null; ?>
 			<fieldset class="frm-group group<?php echo ++$forum_page['group_count'] ?>">
 				<legend class="group-legend"><strong><?php echo $lang_admin_forums['Edit forum details legend'] ?></strong></legend>
+				<div class="ct-box set<?php echo ++$forum_page['item_count'] ?>">
+					<p><?php echo $lang_admin_forums['Edit forum details head'] ?></p>
+				</div>
 <?php ($hook = get_hook('afo_edit_forum_pre_forum_name')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
@@ -531,6 +532,16 @@ else if (isset($_GET['edit_forum']))
 					</div>
 				</div>
 <?php ($hook = get_hook('afo_edit_forum_pre_details_fieldset_end')) ? eval($hook) : null; ?>
+				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
+					<div class="sf-box select">
+						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_forums['Message counter'] ?></span></label><br />
+						<span class="fld-input"><select id="fld<?php echo $forum_page['fld_count'] ?>" name="counter">
+							<option value="1"<?php if ($cur_forum['counter'] == '1') echo ' selected="selected"' ?>><?php echo $lang_admin_forums['Enabled'] ?></option>
+							<option value="0"<?php if ($cur_forum['counter'] == '0') echo ' selected="selected"' ?>><?php echo $lang_admin_forums['Disabled'] ?></option>
+<?php ($hook = get_hook('afo_edit_forum_modify_counter')) ? eval($hook) : null; ?>
+						</select></span>
+					</div>
+				</div>
 			</fieldset>
 <?php
 

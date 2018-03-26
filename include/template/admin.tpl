@@ -45,6 +45,7 @@
 	<!-- forum_about -->
 </div>
 
+<!-- forum_ga -->
 <!-- forum_debug -->
 
 </div>
