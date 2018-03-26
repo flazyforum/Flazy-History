@@ -5,14 +5,14 @@
  * Используется для установки Flazy
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
 
 
-define('FORUM_VERSION', '0.4');
-define('FORUM_DB_REVISION', 7);
+define('FORUM_VERSION', '0.7');
+define('FORUM_DB_REVISION', '13');
 define('MIN_PHP_VERSION', '4.3.0');
 define('MIN_MYSQL_VERSION', '4.1.2');
 
@@ -26,11 +26,11 @@ define('FORUM_SEARCH_MAX_WORD', 20);
 header('Content-Type: text/html; charset=utf-8');
 
 if (file_exists(FORUM_ROOT.'include/config.php'))
-	exit('Файл \'config.php\' уже есть. Это значит что Flazy уже установлен. Перейдите на <a href="'.FORUM_ROOT.'index.php">главную страницу</a>.');
+	die('Файл \'config.php\' уже есть. Это значит что Flazy уже установлен. Перейдите на <a href="'.FORUM_ROOT.'index.php">главную страницу</a>.');
 
 // Make sure we are running at least MIN_PHP_VERSION
 if (!function_exists('version_compare') || version_compare(PHP_VERSION, MIN_PHP_VERSION, '<'))
-	exit('Ваша версия PHP '.PHP_VERSION.'. Чтобы правильно работать, Flazy требуется  хотя бы PHP '.MIN_PHP_VERSION.'. Вам необходимо обновить PHP, и только тогда вы сможите прожолжить установку.');
+	die('Ваша версия PHP '.PHP_VERSION.'. Чтобы правильно работать, Flazy требуется  хотя бы PHP '.MIN_PHP_VERSION.'. Вам необходимо обновить PHP, и только тогда вы сможите прожолжить установку.');
 
 // Disable error reporting for uninitialized variables
 error_reporting(E_ALL);
@@ -43,8 +43,6 @@ require FORUM_ROOT.'include/functions/common.php';
 
 // Load UTF-8 functions
 require FORUM_ROOT.'include/utf8/utf8.php';
-require FORUM_ROOT.'include/utf8/ucwords.php';
-require FORUM_ROOT.'include/utf8/trim.php';
 
 // Strip out "bad" UTF-8 characters
 forum_remove_bad_characters();
@@ -65,12 +63,12 @@ function generate_config_file()
 $language = isset($_GET['lang']) ? $_GET['lang'] : (isset($_POST['req_language']) ? forum_trim($_POST['req_language']) : 'Russian');
 $language = preg_replace('#[\.\\\/]#', '', $language);
 if (!file_exists(FORUM_ROOT.'lang/'.$language.'/install.php'))
-	exit('Выбраный языковой пакет не существует или повреждён. Проверьте и попробуйте еще раз.');
+	die('Выбраный языковой пакет не существует или повреждён. Проверьте и попробуйте еще раз.');
 
 
-// Load the language file
+// Load the language files
 require FORUM_ROOT.'lang/'.$language.'/install.php';
-
+$default_style = 'Flazy_Cold';
 
 if (isset($_POST['generate_config']))
 {
@@ -87,7 +85,7 @@ if (isset($_POST['generate_config']))
 	$cookie_name = $_POST['cookie_name'];
 
 	echo generate_config_file();
-	exit;
+	die;
 }
 
 if (!isset($_POST['form_sent']))
@@ -123,7 +121,7 @@ if (!isset($_POST['form_sent']))
 	$base_url_guess = ((isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on') ? 'https://' : 'http://').preg_replace('/:80$/', '', $_SERVER['HTTP_HOST']).substr(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), 0, -6);
 	if (substr($base_url_guess, -1) == '/')
 		$base_url_guess = substr($base_url_guess, 0, -1);
-	
+
 	// Check for available language packs
 	$languages = get_language_packs();
 
@@ -133,11 +131,17 @@ if (!isset($_POST['form_sent']))
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en" dir="ltr">
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<title>Flazy Installation</title>
-<link rel="stylesheet" type="text/css" href="<?php echo FORUM_ROOT ?>style/Flazy_Cold/Cold.css" />
-<link rel="stylesheet" type="text/css" href="<?php echo FORUM_ROOT ?>style/Flazy_Cold/Cold_cs.css" />
-<!--[if lte IE 6]><link rel="stylesheet" type="text/css" href="<?php echo FORUM_ROOT ?>style/FlazyCold_/Cold_ie6.css" /><![endif]-->
-<!--[if IE 7]><link rel="stylesheet" type="text/css" href="<?php echo FORUM_ROOT ?>style/Flazy_Cold/Cold_ie7.css" /><![endif]-->
+<title>Установка Flazy</title>
+<link rel="stylesheet" type="text/css" href="<?php echo FORUM_ROOT ?>style/base.css" />
+<?php
+
+echo '<link rel="stylesheet" type="text/css" href="'.FORUM_ROOT.'style/base.css" />'."\n";
+echo '<link rel="stylesheet" type="text/css" href="'.FORUM_ROOT.'style/'.$default_style.'/'.$default_style.'.css" />'."\n";
+echo '<link rel="stylesheet" type="text/css" href="'.FORUM_ROOT.'style/'.$default_style.'/'.$default_style.'_cs.css" />'."\n";
+echo '<!--[if lte IE 6]><link rel="stylesheet" type="text/css" href="'.FORUM_ROOT.'style/'.$default_style.'/'.$default_style.'_ie6.css" /><![endif]-->'."\n";
+echo '<!--[if IE 7]]><link rel="stylesheet" type="text/css" href="'.FORUM_ROOT.'style/'.$default_style.'/'.$default_style.'_ie7.css" /><![endif]-->'."\n";
+
+?>
 </head>
 <body>
 
@@ -151,15 +155,14 @@ if (!isset($_POST['form_sent']))
 
 <div id="brd-announcement" class="gen-content">
 	<h1 class="hn"><span><?php printf($lang_install['Install Flazy'], FORUM_VERSION) ?></span></h1>
-
-	<div class="content"><p><?php echo $lang_install['Install intro'] ?></p></div>
+	<div class="content"><?php echo $lang_install['Install intro'] ?></div>
 </div>
 
+<div class="main-head">
+	<h1 class="hn"><span><?php printf($lang_install['Install Flazy'], FORUM_VERSION) ?></span></h1>
+</div>
 
 <div id="brd-main" class="main">
-	<div class="main-head">
-		<h1 class="hn"><span><?php printf($lang_install['Install Flazy'], FORUM_VERSION) ?></span></h1>
-	</div>
 <?php
 	
 	if (count($languages) > 1)
@@ -208,7 +211,7 @@ if (!isset($_POST['form_sent']))
 		<div class="ct-box">
 			<p><?php echo $lang_install['Part1 intro'] ?></p>
 			<ul class="spaced">
-				<li><span><strong><?php echo $lang_install['Database type'] ?></strong>: <?php echo $lang_install['Database type info']; if ($dual_mysql) echo ' '.$lang_install['Mysql type info']; if ($mysql_innodb) echo ' '.$lang_install['MySQL InnoDB info'] ?></span></li>
+				<li><span><strong><?php echo $lang_install['Database type'] ?></strong>: <?php echo $lang_install['Database type info']; if ($dual_mysql) echo ' '.$lang_install['Mysql type info']; if ($mysql_innodb) echo ' '.$lang_install['Mysql InnoDB info'] ?></span></li>
 				<li><span><strong><?php echo $lang_install['Database server'] ?></strong>: <?php echo $lang_install['Database server info'] ?></span></li>
 				<li><span><strong><?php echo $lang_install['Database name'] ?></strong>: <?php echo $lang_install['Database name info'] ?></span></li>
 				<li><span><strong><?php echo $lang_install['Database user pass'] ?></strong>: <?php echo $lang_install['Database username info'] ?></span></li>
@@ -236,31 +239,31 @@ if (!isset($_POST['form_sent']))
 			<div class="sf-set set1">
 				<div class="sf-box text required">
 					<label for="fld2"><span><?php echo $lang_install['Database server'] ?> <em><?php echo $lang_install['Required'] ?></em></span> <small><?php echo $lang_install['Database server help'] ?></small></label><br />
-					<span class="fld-input"><input id="fld2" type="text" name="req_db_host" value="localhost" size="50" maxlength="100" class="inputbox" /></span>
+					<span class="fld-input"><input id="fld2" type="text" name="req_db_host" value="localhost" size="50" maxlength="100" /></span>
 				</div>
 			</div>
 			<div class="sf-set set2">
 				<div class="sf-box text required">
 					<label for="fld3"><span><?php echo $lang_install['Database name'] ?> <em><?php echo $lang_install['Required'] ?></em></span> <small><?php echo $lang_install['Database name help'] ?></small></label><br />
-					<span class="fld-input"><input id="fld3" type="text" name="req_db_name" size="35" maxlength="50" class="inputbox" /></span>
+					<span class="fld-input"><input id="fld3" type="text" name="req_db_name" size="35" maxlength="50" /></span>
 				</div>
 			</div>
 			<div class="sf-set set3">
 				<div class="sf-box text">
 					<label for="fld4"><span><?php echo $lang_install['Database username'] ?></span> <small><?php echo $lang_install['Database username help'] ?></small></label><br />
-					<span class="fld-input"><input id="fld4" type="text" name="db_username" size="35" maxlength="50" class="inputbox" /></span>
+					<span class="fld-input"><input id="fld4" type="text" name="db_username" size="35" maxlength="50" /></span>
 				</div>
 			</div>
 			<div class="sf-set set4">
 				<div class="sf-box text">
 					<label for="fld5"><span><?php echo $lang_install['Database password'] ?></span> <small><?php echo $lang_install['Database password help'] ?></small></label><br />
-					<span class="fld-input"><input id="fld5" type="password" name="db_password" size="35" class="inputbox" /></span>
+					<span class="fld-input"><input id="fld5" type="password" name="db_password" size="35" /></span>
 				</div>
 			</div>
 			<div class="sf-set set5">
 				<div class="sf-box text">
 					<label for="fld6"><span><?php echo $lang_install['Table prefix'] ?></span> <small><?php echo $lang_install['Table prefix help'] ?></small></label><br />
-					<span class="fld-input"><input id="fld6" type="text" name="db_prefix" size="20" maxlength="30" class="inputbox" /></span>
+					<span class="fld-input"><input id="fld6" type="text" name="db_prefix" size="20" maxlength="30" /></span>
 				</div>
 			</div>
 		</fieldset>
@@ -278,25 +281,25 @@ if (!isset($_POST['form_sent']))
 			<div class="sf-set set1">
 				<div class="sf-box text required">
 					<label for="fld7"><span><?php echo $lang_install['Admin username'] ?> <em><?php echo $lang_install['Required'] ?></em></span> <small><?php echo $lang_install['Username help'] ?></small></label><br />
-					<span class="fld-input"><input id="fld7" type="text" name="req_username" size="35" maxlength="25" class="inputbox" /></span>
+					<span class="fld-input"><input id="fld7" type="text" name="req_username" size="35" maxlength="25" /></span>
 				</div>
 			</div>
 			<div class="sf-set set2">
 				<div class="sf-box text required">
 					<label for="fld8"><span><?php echo $lang_install['Admin password'] ?> <em><?php echo $lang_install['Required'] ?></em></span> <small><?php echo $lang_install['Password help'] ?></small></label><br />
-					<span class="fld-input"><input id="fld8" type="password" name="req_password1" size="35" class="inputbox" /></span>
+					<span class="fld-input"><input id="fld8" type="password" name="req_password1" size="35" /></span>
 				</div>
 			</div>
 			<div class="sf-set set3">
 				<div class="sf-box text required">
 					<label for="fld9"><span><?php echo $lang_install['Admin confirm password'] ?> <em><?php echo $lang_install['Required'] ?></em></span> <small><?php echo $lang_install['Confirm password help'] ?></small></label><br />
-					<span class="fld-input"><input id="fld9" type="password" name="req_password2" size="35" class="inputbox" /></span>
+					<span class="fld-input"><input id="fld9" type="password" name="req_password2" size="35" /></span>
 				</div>
 			</div>
 			<div class="sf-set set4">
 				<div class="sf-box text required">
 					<label for="fld10"><span><?php echo $lang_install['Admin e-mail'] ?> <em><?php echo $lang_install['Required'] ?></em></span> <small><?php echo $lang_install['E-mail address help'] ?></small></label><br />
-					<span class="fld-input"><input id="fld10" type="text" name="req_email" size="50" maxlength="80" class="inputbox" /></span>
+					<span class="fld-input"><input id="fld10" type="text" name="req_email" size="50" maxlength="80" /></span>
 				</div>
 			</div>
 		</fieldset>
@@ -317,19 +320,19 @@ if (!isset($_POST['form_sent']))
 			<div class="sf-set set1">
 				<div class="sf-box text">
 					<label for="fld11"><span><?php echo $lang_install['Board title'] ?></span></label><br />
-					<span class="fld-input"><input id="fld11" type="text" name="board_title" size="50" maxlength="255" class="inputbox" /></span>
+					<span class="fld-input"><input id="fld11" type="text" name="board_title" size="50" maxlength="255" /></span>
 				</div>
 			</div>
 			<div class="sf-set set2">
 				<div class="sf-box text">
 					<label for="fld12"><span><?php echo $lang_install['Board description'] ?></span></label><br />
-					<span class="fld-input"><input id="fld12" type="text" name="board_descrip" size="50" maxlength="255" class="inputbox" /></span>
+					<span class="fld-input"><input id="fld12" type="text" name="board_descrip" size="50" maxlength="255" /></span>
 				</div>
 			</div>
 			<div class="sf-set set3">
 				<div class="sf-box text required">
 					<label for="fld13"><span><?php echo $lang_install['Base URL'] ?> <em><?php echo $lang_install['Required'] ?></em></span> <small><?php echo $lang_install['Base URL help'] ?></small></label><br />
-					<span class="fld-input"><input id="fld13" type="text" name="req_base_url" value="<?php echo $base_url_guess ?>" size="60" maxlength="100" class="inputbox" /></span>
+					<span class="fld-input"><input id="fld13" type="text" name="req_base_url" value="<?php echo $base_url_guess ?>" size="60" maxlength="100" /></span>
 				</div>
 			</div>
 <?php
@@ -351,6 +354,7 @@ if (!isset($_POST['form_sent']))
 				</div>
 			</div>
 <?php
+
 	}
 	else
 	{
@@ -359,6 +363,7 @@ if (!isset($_POST['form_sent']))
 				<input type="hidden" name="req_language" value="<?php echo $languages[0]; ?>" />
 			</div>
 <?php
+
 	}
 
 ?>
@@ -384,7 +389,6 @@ else
 	{
 		return (get_magic_quotes_gpc() == 1) ? stripslashes($str) : $str;
 	}
-
 
 	$db_type = $_POST['req_db_type'];
 	$db_host = forum_trim($_POST['req_db_host']);
@@ -435,9 +439,9 @@ else
 
 	// Make sure board title and description aren't left blank
 	if ($board_title == '')
-		$board_title = 'My Flazy forum';
+		$board_title = 'Мой Flazy форум';
 	if ($board_descrip == '')
-		$board_descrip = 'Unfortunately no one can be told what Flazy is - you have to see it for yourself.';
+		$board_descrip = 'К сожалению, никому нельзя объяснить, что такое Flazy — тебе надо увидеть всё самому.';
 
 	if (utf8_strlen($base_url) == 0)
 		error($lang_install['Missing base url']);
@@ -445,40 +449,14 @@ else
 	if (!file_exists(FORUM_ROOT.'lang/'.$default_lang.'/common.php'))
 		error($lang_install['Invalid language']);
 
-	// Load the appropriate DB layer class
-	switch ($db_type)
-	{
-		case 'mysql':
-			require FORUM_ROOT.'include/dblayer/mysql.php';
-			break;
+	// Load DB abstraction layer and try to connect
+	if ($db_type == 'mysql' || $db_type == 'mysqli' || $db_type == 'mysql_innodb' || $db_type == 'mysqli_innodb' || $db_type == 'pgsql' ||  $db_type == 'sqlite')
+		require FORUM_ROOT.'include/dblayer/'.$db_type.'.php';
+	else
+		error(sprintf($lang_install['No such database type'], forum_htmlencode($db_type)));
 
-		case 'mysqli':
-			require FORUM_ROOT.'include/dblayer/mysqli.php';
-			break;
-
-		case 'mysql_innodb':
-			require FORUM_ROOT.'include/dblayer/mysql_innodb.php';
-			break;
-
-		case 'mysqli_innodb':
-			require FORUM_ROOT.'include/dblayer/mysqli_innodb.php';
-			break;
-
-		case 'pgsql':
-			require FORUM_ROOT.'include/dblayer/pgsql.php';
-			break;
-
-		case 'sqlite':
-			require FORUM_ROOT.'include/dblayer/sqlite.php';
-			break;
-
-		default:
-			error(sprintf($lang_install['No such database type'], forum_htmlencode($db_type)));
-	}
-
-	// Create the database object (and connect/select db)
+	// Create the database adapter object (and open/connect to/select db)
 	$forum_db = new DBLayer($db_host, $db_username, $db_password, $db_name, $db_prefix, false);
-
 
 	// If MySQL, make sure it's at least 4.1.2
 	if ($db_type == 'mysql' || $db_type == 'mysqli' || $db_type == 'mysql_innodb' || $db_type == 'mysqli_innodb')
@@ -501,7 +479,7 @@ else
 	$query = array(
 		'SELECT'	=> '1',
 		'FROM'		=> 'users',
-		'WHERE'		=> 'id = 1'
+		'WHERE'		=> 'id=1'
 	);
 
 	$result = $forum_db->query_build($query);
@@ -529,15 +507,16 @@ else
 				'allow_null'	=> false
 			),
 			'topic_id'		=> array(
-				'datatype'		=> 'int(10)',
-				'allow_null'	=> false
+				'datatype'		=> 'INT(10)',
+				'allow_null'	=> false,
+				'default'		=> '0'
 			),
 			'answer'			=> array(
 				'datatype'		=> 'VARCHAR(100)',
 				'allow_null'	=> true
 			)
 		),
-		'PRIMARY KEY'	=>	array('id')
+		'PRIMARY KEY'	=>	array('id, topic_id')
 	);
 
 	$forum_db->create_table('answers', $schema);
@@ -590,7 +569,7 @@ else
 			'cat_name'		=> array(
 				'datatype'		=> 'VARCHAR(80)',
 				'allow_null'	=> false,
-				'default'		=> '\'New Category\''
+				'default'		=> '\''.$lang_install['Default category name'].'\''
 			),
 			'disp_position'	=> array(
 				'datatype'		=> 'INT(10)',
@@ -781,6 +760,11 @@ else
 			'redirect_url'	=> array(
 				'datatype'		=> 'VARCHAR(100)',
 				'allow_null'	=> true
+			),
+			'counter'		=> array(
+				'datatype'		=> 'TINYINT(1)',
+				'allow_null'	=> false,
+				'default'		=> '1'
 			),
 			'moderators'	=> array(
 				'datatype'		=> 'TEXT',
@@ -1004,7 +988,7 @@ else
 				'allow_null'	=> true
 			),
 			'current_page_id'		=> array(
-				'datatype'		=> 'INT(10)',
+				'datatype'		=> 'INT(10) UNSIGNED',
 				'allow_null'	=> true
 			),
 			'current_ip'		=> array(
@@ -1057,12 +1041,12 @@ else
 				'datatype'		=> 'INT(10) UNSIGNED',
 				'allow_null'	=> true
 			),
-			'lastedited_at'	=> array(
+			'edited'	=> array(
 				'datatype'		=> 'INT(10) UNSIGNED',
 				'allow_null'	=> false,
 				'default'		=> '0'
 			),
-			'read_at'	=> array(
+			'readed'	=> array(
 				'datatype'		=> 'INT(10) UNSIGNED',
 				'allow_null'	=> false,
 				'default'		=> '0'
@@ -1072,7 +1056,7 @@ else
 				'allow_null'	=> false,
 				'default'		=> '\'\''
 			),
-			'body'		=> array(
+			'message'		=> array(
 				'datatype'		=> 'TEXT',
 				'allow_null'	=> false
 			),
@@ -1162,47 +1146,12 @@ else
 		'PRIMARY KEY'	=> array('id'),
 		'INDEXES'		=> array(
 			'topic_id_idx'	=> array('topic_id'),
-			'multi_idx'		=> array('poster_id', 'topic_id')
+			'multi_idx'		=> array('poster_id', 'topic_id'),
+			'posted_idx'    => array('posted')
 		)
 	);
 
 	$forum_db->create_table('posts', $schema);
-
-
-	$schema = array(
-		'FIELDS' => array(
-			'topic_id'		=> array(
-				'datatype'		=> 'int(10)',
-				'allow_null'	=> false
-			),
-			'question'			=> array(
-				'datatype'		=> 'VARCHAR(200)',
-				'allow_null'	=> false
-			),
-			'read_unvote_users'		=> array(
-				'datatype'		=> 'tinyint(1)',
-				'allow_null'	=> true
-			),
-			'revote'			=> array(
-				'datatype'		=> 'tinyint(1)',
-				'allow_null'	=> true
-			),
-			'created'	=> array(
-				'datatype'		=> 'int(10)',
-				'allow_null'	=> false
-			),
-			'days_count'	=> array(
-				'datatype'		=> 'int(10)',
-				'allow_null'	=> true
-			),
-			'votes_count'	=> array(
-				'datatype'		=> 'int(10)',
-				'allow_null'	=> true
-			)
-		),
-		'PRIMARY KEY'	=>	array('topic_id')
-	);
-	$forum_db->create_table('questions', $schema);
 
 
 	$schema = array(
@@ -1249,6 +1198,11 @@ else
 				'allow_null'	=> false,
 				'default'		=> '0'
 			),
+			'pm_id'		=> array(
+				'datatype'		=> 'INT(10) UNSIGNED',
+				'allow_null'	=> false,
+				'default'		=> '0'
+			),
 			'reported_by'	=> array(
 				'datatype'		=> 'INT(10) UNSIGNED',
 				'allow_null'	=> false,
@@ -1259,7 +1213,16 @@ else
 				'allow_null'	=> false,
 				'default'		=> '0'
 			),
+			'poster_id'		=> array(
+				'datatype'		=> 'INT(10) UNSIGNED',
+				'allow_null'	=> false,
+				'default'		=> '1'
+			),
 			'message'		=> array(
+				'datatype'		=> 'TEXT',
+				'allow_null'	=> true
+			),
+			'reason'		=> array(
 				'datatype'		=> 'TEXT',
 				'allow_null'	=> true
 			),
@@ -1311,12 +1274,12 @@ else
 				'datatype'		=> 'TEXT',
 				'allow_null'	=> true
 			),
-			'rep_plus'		=> array(
+			'plus'		=> array(
 				'datatype'		=> 'TINYINT(1)',
 				'allow_null'	=> false,
 				'default'		=> '0'
 			),
-			'rep_minus'		=> array(
+			'minus'		=> array(
 				'datatype'		=> 'TINYINT(1)',
 				'allow_null'	=> false,
 				'default'		=> '0'
@@ -1450,19 +1413,25 @@ else
 				'allow_null'	=> false,
 				'default'		=> '\'\''
 			),
+			'poster_id'		=> array(
+				'datatype'		=> 'INT(10) UNSIGNED',
+				'allow_null'	=> false,
+				'default'		=> '1'
+			),
 			'subject'		=> array(
 				'datatype'		=> 'VARCHAR(255)',
 				'allow_null'	=> false,
 				'default'		=> '\'\''
 			),
 			'description'		=> array(
-				'datatype'		=> 'TEXT',
-				'allow_null'	=> false
+				'datatype'		=> 'VARCHAR(255)',
+				'allow_null'	=> true,
+				'default'		=> '\'\''
 			),
-			'poll'		=> array(
-				'datatype'		=> 'TINYINT(1)',
-				'allow_null'	=> false,
-				'default'		=> '0'
+			'question'			=> array(
+				'datatype'		=> 'VARCHAR(255)',
+				'allow_null'	=> true,
+				'default'		=> '\'\''
 			),
 			'posted'		=> array(
 				'datatype'		=> 'INT(10) UNSIGNED',
@@ -1488,6 +1457,11 @@ else
 				'datatype'		=> 'VARCHAR(200)',
 				'allow_null'	=> true
 			),
+			'last_poster_id'	=> array(
+				'datatype'		=> 'INT(10) UNSIGNED',
+				'allow_null'	=> false,
+				'default'		=> '0'
+			),
 			'num_views'		=> array(
 				'datatype'		=> 'MEDIUMINT(8) UNSIGNED',
 				'allow_null'	=> false,
@@ -1511,6 +1485,31 @@ else
 			'moved_to'		=> array(
 				'datatype'		=> 'INT(10) UNSIGNED',
 				'allow_null'	=> true
+			),
+			'read_unvote'		=> array(
+				'datatype'		=> 'TINYINT(1)',
+				'allow_null'	=> false,
+				'default'		=> '0'
+			),
+			'revote'			=> array(
+				'datatype'		=> 'TINYINT(1)',
+				'allow_null'	=> false,
+				'default'		=> '0'
+			),
+			'poll_created'	=> array(
+				'datatype'		=> 'INT(10) UNSIGNED',
+				'allow_null'	=> false,
+				'default'		=> '0'
+			),
+			'days_count'	=> array(
+				'datatype'		=> 'INT(10)',
+				'allow_null'	=> false,
+				'default'		=> '0'
+			),
+			'votes_count'	=> array(
+				'datatype'		=> 'INT(10)',
+				'allow_null'	=> false,
+				'default'		=> '0'
 			),
 			'forum_id'		=> array(
 				'datatype'		=> 'INT(10) UNSIGNED',
@@ -1562,6 +1561,10 @@ else
 			),
 			'title'				=> array(
 				'datatype'		=> 'VARCHAR(50)',
+				'allow_null'	=> true
+			),
+			'avatar'			=> array(
+				'datatype'		=> 'CHAR(3)',
 				'allow_null'	=> true
 			),
 			'realname'			=> array(
@@ -1618,6 +1621,18 @@ else
 				'allow_null'	=> true
 			),
 			'moikrug'			=> array(
+				'datatype'		=> 'VARCHAR(30)',
+				'allow_null'	=> true
+			),
+			'facebook'			=> array(
+				'datatype'		=> 'VARCHAR(15)',
+				'allow_null'	=> true
+			),
+			'twitter'			=> array(
+				'datatype'		=> 'VARCHAR(30)',
+				'allow_null'	=> true
+			),
+			'lastfm'			=> array(
 				'datatype'		=> 'VARCHAR(30)',
 				'allow_null'	=> true
 			),
@@ -1702,12 +1717,12 @@ else
 				'default'		=> '0'
 			),
 			'time_format'		=> array(
-				'datatype'		=> 'INT(10) UNSIGNED',
+				'datatype'		=> 'TINYINT(1)',
 				'allow_null'	=> false,
 				'default'		=> '0'
 			),
 			'date_format'		=> array(
-				'datatype'		=> 'INT(10) UNSIGNED',
+				'datatype'		=> 'TINYINT(1)',
 				'allow_null'	=> false,
 				'default'		=> '0'
 			),
@@ -1770,14 +1785,29 @@ else
 				'datatype'		=> 'VARCHAR(8)',
 				'allow_null'	=> true
 			),
+			'pm_inbox'		=> array(
+				'datatype'		=> 'INT(10) UNSIGNED',
+				'allow_null'	=> false,
+				'default'		=> '0'
+			),
+			'pm_outbox'		=> array(
+				'datatype'		=> 'INT(10) UNSIGNED',
+				'allow_null'	=> false,
+				'default'		=> '0'
+			),
+			'pm_new'		=> array(
+				'datatype'		=> 'INT(10) UNSIGNED',
+				'allow_null'	=> false,
+				'default'		=> '0'
+			),
 			'pm_long_subject'		=> array(
 				'datatype'		=> 'TINYINT(1)',
-				'allow_null'	=> true,
+				'allow_null'	=> false,
 				'default'	=> '1'
 			),
 			'pm_get_mail'		=> array(
 				'datatype'		=> 'TINYINT(1)',
-				'allow_null'	=> true,
+				'allow_null'	=> false,
 				'default'	=> '1'
 			),
 			'user_agent'		=> array(
@@ -1785,34 +1815,49 @@ else
 				'allow_null'	=> true
 			),
 			'rep_enable'		=> array(
-				'datatype'		=> 'SMALLINT(6)',
+				'datatype'		=> 'TINYINT(1)',
 				'allow_null'	=> false,
 				'default'		=> '1'
 			),
-			'rep_plus'		=> array(
+			'reputation_plus'	=> array(
 				'datatype'		=> 'INT(10) UNSIGNED',
 				'allow_null'	=> false,
 				'default'	=> '0'
 			),
-			'rep_minus'		=> array(
+			'reputation_minus'	=> array(
 				'datatype'		=> 'INT(10) UNSIGNED',
 				'allow_null'	=> false,
 				'default'	=> '0'
 			),
-			'pos_plus'		=> array(
+			'positive_plus'		=> array(
 				'datatype'		=> 'INT(10) UNSIGNED',
 				'allow_null'	=> false,
 				'default'	=> '0'
 			),
-			'pos_minus'		=> array(
+			'positive_minus'		=> array(
 				'datatype'		=> 'INT(10) UNSIGNED',
 				'allow_null'	=> false,
 				'default'	=> '0'
 			),
 			'rep_enable_adm'		=> array(
 				'datatype'		=> 'TINYINT(1) UNSIGNED',
-				'allow_null'	=> true,
+				'allow_null'	=> false,
 				'default'	=> '1'
+			),
+			'fasety_auth'		=> array(
+				'datatype'		=> 'TINYINT(1)',
+				'allow_null'	=> false,
+				'default'	=> '0'
+			),
+			'fasety_last_auth'	=> array(
+				'datatype'		=> 'INT(10) UNSIGNED',
+				'allow_null'	=> false,
+				'default'	=> '0'
+			),
+			'fasety_auth_mail'	=> array(
+				'datatype'		=> 'TINYINT(1)',
+				'allow_null'	=> false,
+				'default'	=> '0'
 			)
 		),
 		'PRIMARY KEY'	=> array('id'),
@@ -1835,15 +1880,15 @@ else
 				'allow_null'	=> false
 			),
 			'topic_id'		=> array(
-				'datatype'		=> 'int(10)',
+				'datatype'		=> 'INT(10)',
 				'allow_null'	=> false
 			),
 			'user_id'			=> array(
-				'datatype'		=> 'int(10)',
+				'datatype'		=> 'INT(10)',
 				'allow_null'	=> false
 			),
 			'answer_id'			=> array(
-				'datatype'		=> 'int(10)',
+				'datatype'		=> 'INT(10)',
 				'allow_null'	=> false
 			),
 			'voted'			=> array(
@@ -1852,7 +1897,12 @@ else
 				'default'		=> '0'
 			),
 		),
-		'PRIMARY KEY'	=>	array('id')
+		'PRIMARY KEY'	=>	array('id'),
+		'INDEXES'		=> array(
+			'topic_id_idx'		=> array('topic_id'),
+			'user_id_idx'		=> array('user_id'),
+			'answer_id_idx'		=> array('answer_id')
+		)
 	);
 
 	$forum_db->create_table('voting', $schema);
@@ -1937,7 +1987,7 @@ else
 	$query = array(
 		'INSERT'	=> 'group_id, username, password, email, language, num_posts, last_post, registered, registration_ip, last_visit, salt',
 		'INTO'		=> 'users',
-		'VALUES'	=> '1, \''.$forum_db->escape($username).'\', \''.forum_hash($password1, $salt).'\', \''.$forum_db->escape($email).'\', \''.$forum_db->escape($default_lang).'\', 1, '.$now.', '.$now.', \'127.0.0.1\', '.$now.', \''.$forum_db->escape($salt).'\''
+		'VALUES'	=> '1, \''.$forum_db->escape($username).'\', \''.forum_hash($password1, $salt).'\', \''.$forum_db->escape($email).'\', \''.$forum_db->escape($default_lang).'\', 1, '.$now.', '.$now.', \''.$forum_db->escape(get_remote_address()).'\', '.$now.', \''.$forum_db->escape($salt).'\''
 	);
 
 	$forum_db->query_build($query) or error(__FILE__, __LINE__);
@@ -1952,35 +2002,34 @@ else
 	// Insert config data
 	$config = array(
 		'o_cur_version'			=> "'".FORUM_VERSION."'",
-		'o_database_revision'		=> "'".FORUM_DB_REVISION."'",
+		'o_database_revision'	=> "'".FORUM_DB_REVISION."'",
 		'o_board_title'			=> "'".$forum_db->escape($board_title)."'",
 		'o_board_desc'			=> "'".$forum_db->escape($board_descrip)."'",
-		'o_default_timezone'		=> "'0'",
+		'o_default_timezone'	=> "'0'",
 		'o_time_format'			=> "'H:i:s'",
 		'o_date_format'			=> "'Y-m-d'",
-		'o_check_for_updates'		=> "'$check_for_updates'",
+		'o_check_for_updates'	=> "'$check_for_updates'",
 		'o_timeout_visit'		=> "'1800'",
 		'o_timeout_online'		=> "'300'",
-		'o_register_timeout'		=> "'3600'",
+		'o_register_timeout'	=> "'3600'",
 		'o_redirect_delay'		=> "'1'",
 		'o_show_version'		=> "'0'",
 		'o_show_user_info'		=> "'1'",
 		'o_show_post_count'		=> "'1'",
-		'o_show_ua_info'		=> "'1'",
 		'o_merge_timeout'		=> "'300'",
 		'o_signatures'			=> "'1'",
-		'o_smilies'			=> "'1'",
+		'o_smilies'				=> "'1'",
 		'o_smilies_sig'			=> "'1'",
 		'o_make_links'			=> "'1'",
 		'o_post_edit'			=> "'0'",
 		'o_default_lang'		=> "'".$forum_db->escape($default_lang)."'",
 		'o_default_style'		=> "'Flazy_Cold'",
 		'o_user_style'			=> "'1'",
-		'o_default_user_group'		=> "'3'",
+		'o_default_user_group'	=> "'3'",
 		'o_topic_review'		=> "'15'",
-		'o_disp_topics_default'		=> "'30'",
-		'o_disp_posts_default'		=> "'25'",
-		'o_indent_num_spaces'		=> "'4'",
+		'o_disp_topics_default'	=> "'30'",
+		'o_disp_posts_default'	=> "'25'",
+		'o_indent_num_spaces'	=> "'4'",
 		'o_quote_depth'			=> "'3'",
 		'o_quickpost'			=> "'1'",
 		'o_rep_enabled'			=> "'1'",
@@ -1989,32 +2038,32 @@ else
 		'o_online_today'		=> "'1'",
 		'o_online_ft'			=> "'1'",
 		'o_statistic'			=> "'1'",
-		'o_record'			=> "'1'",
+		'o_record'				=> "'1'",
 		'o_censoring'			=> "'0'",
-		'o_ranks'			=> "'1'",
+		'o_ranks'				=> "'1'",
 		'o_show_dot'			=> "'0'",
 		'o_topic_views'			=> "'1'",
 		'o_quickjump'			=> "'1'",
-		'o_gzip'			=> "'0'",
-		'o_additional_navlinks'		=> "''",
+		'o_gzip'				=> "'0'",
+		'o_additional_navlinks'	=> "''",
 		'o_report_enabled'		=> "'1'",
 		'o_report_method'		=> "'0'",
 		'o_regs_report'			=> "'0'",
-		'o_default_email_setting'	=> "'1'",
+		'o_default_email_setting'=> "'1'",
 		'o_mailing_list'		=> "'".$forum_db->escape($email)."'",
-		'o_avatars'			=> "'$avatars'",
-		'o_avatars_dir'			=> "'img/avatars'",
+		'o_avatars'				=> "'$avatars'",
 		'o_avatars_width'		=> "'120'",
 		'o_avatars_height'		=> "'120'",
 		'o_avatars_size'		=> "'20480'",
+		'o_gravatar'			=> "'G'",
 		'o_pm_inbox_size'		=> "'100'",
 		'o_pm_outbox_size'		=> "'100'",
-		'o_pm_show_new_count'		=> "'1'",
-		'o_pm_show_global_link'		=> "'0'",
-		'o_google_analytics'		=> "''",
-		'o_google_analytics_type'	=> "'new'",
-		'o_search_all_forums'		=> "'1'",
-		'o_sef'				=> "'Default'",
+		'o_pm_show_new_count'	=> "'1'",
+		'o_pm_show_global_link'	=> "'0'",
+		'o_pm_get_mail'			=> "'1'",
+		'o_google_analytics'	=> "''",
+		'o_search_all_forums'	=> "'1'",
+		'o_sef'					=> "'Default'",
 		'o_admin_email'			=> "'".$forum_db->escape($email)."'",
 		'o_webmaster_email'		=> "'".$forum_db->escape($email)."'",
 		'o_subscriptions'		=> "'1'",
@@ -2024,44 +2073,46 @@ else
 		'o_smtp_ssl'			=> "'0'",
 		'o_regs_allow'			=> "'1'",
 		'o_regs_verify'			=> "'0'",
-		'o_spam_ip'			=> "'1'",
+		'o_spam_ip'				=> "'1'",
 		'o_spam_email'			=> "'1'",
-		'o_spam_name'			=> "'1'",
+		'o_spam_username'		=> "'1'",
 		'o_announcement'		=> "'0'",
-		'o_announcement_heading'	=> "'".$lang_install['Default announce heading']."'",
-		'o_announcement_message'	=> "'".$lang_install['Default announce message']."'",
+		'o_announcement_heading'=> "'".$lang_install['Default announce heading']."'",
+		'o_announcement_message'=> "'".$lang_install['Default announce message']."'",
 		'o_html_top'			=> "'0'",
-		'o_html_top_message'		=> "'".$lang_install['Default HTML message']."'",
+		'o_html_top_message'	=> "'".$lang_install['Default HTML message']."'",
 		'o_html_bottom'			=> "'0'",
-		'o_html_bottom_message'		=> "'".$lang_install['Default HTML message']."'",
-		'o_adbox'			=> "'0'",
+		'o_html_bottom_message'	=> "'".$lang_install['Default HTML message']."'",
+		'o_adbox'				=> "'0'",
 		'o_adbox_message'		=> "'".$lang_install['Default Adbox message']."'",
 		'o_guestbox'			=> "'0'",
-		'o_guestbox_message'		=> "'".$lang_install['Default Guestbox message']."'",
+		'o_guestbox_message'	=> "'".$lang_install['Default Guestbox message']."'",
 		'o_topicbox'			=> "'0'",
-		'o_topicbox_message'		=> "'".$lang_install['Default HTML message']."'",
-		'o_rules'			=> "'0'",
+		'o_topicbox_message'	=> "'".$lang_install['Default HTML message']."'",
+		'o_externbox'			=> "'0'",
+		'o_externbox_message'	=> "'".$lang_install['Default HTML message']."'",
+		'o_rules'				=> "'0'",
 		'o_rules_message'		=> "'".$lang_install['Default rules']."'",
 		'o_maintenance'			=> "'0'",
-		'o_maintenance_message'		=> "'".$lang_install['Default maint message']."'",
-		'o_default_dst'			=> "'1'",
+		'o_maintenance_message'	=> "'".$lang_install['Default maint message']."'",
+		'o_default_dst'			=> "'0'",
 		'p_message_bbcode'		=> "'1'",
 		'p_message_img_tag'		=> "'1'",
-		'p_message_all_caps'		=> "'1'",
-		'p_subject_all_caps'		=> "'1'",
+		'p_message_all_caps'	=> "'1'",
+		'p_subject_all_caps'	=> "'1'",
 		'p_sig_all_caps'		=> "'1'",
 		'p_sig_bbcode'			=> "'1'",
 		'p_sig_img_tag'			=> "'0'",
 		'p_sig_length'			=> "'400'",
 		'p_sig_lines'			=> "'4'",
-		'p_allow_banned_email'		=> "'1'",
-		'p_allow_dupe_email'		=> "'0'",
-		'p_force_guest_email'		=> "'1'",
+		'p_allow_banned_email'	=> "'1'",
+		'p_allow_dupe_email'	=> "'0'",
+		'p_force_guest_email'	=> "'1'",
 		'p_enable_bb_panel'		=> "'1'",
-		'p_bb_panel_smilies'		=> "'16'",
-		'p_poll_enable_read'		=> "'0'",
-		'p_poll_enable_revote'		=> "'0'",
-		'p_poll_max_answers'		=> "'7'",
+		'p_bb_panel_smilies'	=> "'16'",
+		'p_poll_enable_read'	=> "'0'",
+		'p_poll_enable_revote'	=> "'0'",
+		'p_poll_max_answers'	=> "'7'",
 		'p_poll_min_posts'		=> "'0'",
 		'c_max_users'			=> "'0'",
 		'c_max_guests'			=> "'0'",
@@ -2102,9 +2153,9 @@ else
 	$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 	$query = array(
-		'INSERT'	=> 'poster, subject, posted, first_post_id, last_post, last_post_id, last_poster, forum_id',
+		'INSERT'	=> 'poster, poster_id, subject, posted, first_post_id, last_post, last_post_id, last_poster, last_poster_id, forum_id',
 		'INTO'		=> 'topics',
-		'VALUES'	=> '\''.$forum_db->escape($username).'\', \''.$lang_install['Default topic subject'].'\', '.$now.', 1, '.$now.', 1, \''.$forum_db->escape($username).'\', '.$forum_db->insert_id().''
+		'VALUES'	=> '\''.$forum_db->escape($username).'\', 2, \''.$lang_install['Default topic subject'].'\', '.$now.', 1, '.$now.', 1, \''.$forum_db->escape($username).'\', 2, '.$forum_db->insert_id().''
 	);
 
 	$forum_db->query_build($query) or error(__FILE__, __LINE__);
@@ -2112,7 +2163,7 @@ else
 	$query = array(
 		'INSERT'	=> 'poster, poster_id, poster_ip, message, posted, topic_id',
 		'INTO'		=> 'posts',
-		'VALUES'	=> '\''.$forum_db->escape($username).'\', '.$new_uid.', \'127.0.0.1\', \''.$lang_install['Default post contents'].'\', '.$now.', '.$forum_db->insert_id().''
+		'VALUES'	=> '\''.$forum_db->escape($username).'\', '.$new_uid.', \''.$forum_db->escape(get_remote_address()).'\', \''.$lang_install['Default post contents'].'\', '.$now.', '.$forum_db->insert_id().''
 	);
 
 	if ($db_type != 'pgsql')
@@ -2168,9 +2219,9 @@ else
 
 	// Attempt to write config.php and serve it up for download if writing fails
 	$written = false;
-	if (is_writable(FORUM_ROOT))
+	if (is_writable(FORUM_ROOT.'include/'))
 	{
-		$fh = @fopen(FORUM_ROOT.'/include/config.php', 'wb');
+		$fh = @fopen(FORUM_ROOT.'include/config.php', 'wb');
 		if ($fh)
 		{
 			fwrite($fh, $config);
@@ -2187,12 +2238,16 @@ else
 <head>
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
 <title>Установка Flazy</title>
-<link rel="stylesheet" type="text/css" href="<?php echo FORUM_ROOT ?>style/Flazy_Cold/Cold.css" />
-<link rel="stylesheet" type="text/css" href="<?php echo FORUM_ROOT ?>style/Flazy_Cold/Cold_cs.css" />
-<!--[if lte IE 6]><link rel="stylesheet" type="text/css" href="<?php echo FORUM_ROOT ?>style/Flazy_Cold/Cold_ie6.css" /><![endif]-->
-<!--[if IE 7]><link rel="stylesheet" type="text/css" href="<?php echo FORUM_ROOT ?>style/Flazy_Cold/Cold_ie7.css" /><![endif]-->
-</head>
+<?php
 
+echo '<link rel="stylesheet" type="text/css" href="'.FORUM_ROOT.'style/base.css" />'."\n";
+echo '<link rel="stylesheet" type="text/css" href="'.FORUM_ROOT.'style/'.$default_style.'/'.$default_style.'.css" />'."\n";
+echo '<link rel="stylesheet" type="text/css" href="'.FORUM_ROOT.'style/'.$default_style.'/'.$default_style.'_cs.css" />'."\n";
+echo '<!--[if lte IE 6]><link rel="stylesheet" type="text/css" href="'.FORUM_ROOT.'style/'.$default_style.'/'.$default_style.'_ie6.css" /><![endif]-->'."\n";
+echo '<!--[if IE 7]]><link rel="stylesheet" type="text/css" href="'.FORUM_ROOT.'style/'.$default_style.'/'.$default_style.'_ie7.css" /><![endif]-->'."\n";
+
+?>
+</head>
 <body>
 
 <div id="brd-install" class="brd-page">
@@ -2237,15 +2292,15 @@ if (!$written)
 <?php endif; ?>
 		<form class="frm-form" method="post" accept-charset="utf-8" action="install.php">
 			<div class="hidden">
-			<input type="hidden" name="generate_config" value="1" />
-			<input type="hidden" name="db_type" value="<?php echo $db_type; ?>" />
-			<input type="hidden" name="db_host" value="<?php echo $db_host; ?>" />
-			<input type="hidden" name="db_name" value="<?php echo forum_htmlencode($db_name); ?>" />
-			<input type="hidden" name="db_username" value="<?php echo forum_htmlencode($db_username); ?>" />
-			<input type="hidden" name="db_password" value="<?php echo forum_htmlencode($db_password); ?>" />
-			<input type="hidden" name="db_prefix" value="<?php echo forum_htmlencode($db_prefix); ?>" />
-			<input type="hidden" name="base_url" value="<?php echo forum_htmlencode($base_url); ?>" />
-			<input type="hidden" name="cookie_name" value="<?php echo forum_htmlencode($cookie_name); ?>" />
+				<input type="hidden" name="generate_config" value="1" />
+				<input type="hidden" name="db_type" value="<?php echo $db_type; ?>" />
+				<input type="hidden" name="db_host" value="<?php echo $db_host; ?>" />
+				<input type="hidden" name="db_name" value="<?php echo forum_htmlencode($db_name); ?>" />
+				<input type="hidden" name="db_username" value="<?php echo forum_htmlencode($db_username); ?>" />
+				<input type="hidden" name="db_password" value="<?php echo forum_htmlencode($db_password); ?>" />
+				<input type="hidden" name="db_prefix" value="<?php echo forum_htmlencode($db_prefix); ?>" />
+				<input type="hidden" name="base_url" value="<?php echo forum_htmlencode($base_url); ?>" />
+				<input type="hidden" name="cookie_name" value="<?php echo forum_htmlencode($cookie_name); ?>" />
 			</div>
 			<div class="frm-buttons">
 				<span class="submit"><input type="submit" value="<?php echo $lang_install['Download config'] ?>" /></span>
@@ -2262,6 +2317,7 @@ else
 			<p class="warn"><?php printf($lang_install['Write info'], '<a href="'.FORUM_ROOT.'index.php">'.$lang_install['Go to index'].'</a>') ?></p>
 		</div>
 <?php
+
 }
 
 ?>

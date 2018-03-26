@@ -1,9 +1,7 @@
 <?php
 /**
- * A database layer class that relies on the MySQLi PHP extension.
- *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,9 +9,11 @@
 
 // Make sure we have built in support for MySQL
 if (!function_exists('mysqli_connect'))
-	exit('Эта PHP среда не имеет встроенной поддержки Improved MySQL (mysqli). Она необходима, если вы хотите использовать базу данных MySQL 4.1 (или более позднюю версию) для работы этого форума. Изучите PHP документацию для получения дополнительной информации.');
+	die('Эта PHP среда не имеет встроенной поддержки Improved MySQL (mysqli). Она необходима, если вы хотите использовать базу данных MySQL 4.1 (или более позднюю версию) для работы этого форума. Изучите PHP документацию для получения дополнительной информации.');
 
-
+/**
+ * Абстрактная для работы PHP с базой данных MySQLi.
+ */
 class DBLayer
 {
 	var $prefix;
@@ -28,7 +28,7 @@ class DBLayer
 	);
 
 
-	function DBLayer($db_host, $db_username, $db_password, $db_name, $db_prefix, $foo)
+	function DBLayer($db_host, $db_username, $db_password, $db_name, $db_prefix, $p_connect)
 	{
 		$this->prefix = $db_prefix;
 
@@ -36,10 +36,12 @@ class DBLayer
 		if (strpos($db_host, ':') !== false)
 			list($db_host, $db_port) = explode(':', $db_host);
 
+		$p_connect = $p_connect && version_compare(PHP_VERSION, '5.3.0', '>=') ? 'p:' : '';
+
 		if (isset($db_port))
-			$this->link_id = @mysqli_connect($db_host, $db_username, $db_password, $db_name, $db_port);
+			$this->link_id = @mysqli_connect($p_connect.$db_host, $db_username, $db_password, $db_name, $db_port);
 		else
-			$this->link_id = @mysqli_connect($db_host, $db_username, $db_password, $db_name);
+			$this->link_id = @mysqli_connect($p_connect.$db_host, $db_username, $db_password, $db_name);
 
 		if (!$this->link_id)
 			error('Невозможно подключиться к MySQL и выбрать базу данных. MySQL сообщила:: '.mysqli_connect_error(), __FILE__, __LINE__);
@@ -67,7 +69,7 @@ class DBLayer
 	function query($sql, $unbuffered = false)
 	{
 		if (strlen($sql) > 140000)
-			exit('Безумно большой запрос. Прервано.');
+			die('Безумно большой запрос. Прервано.');
 
 		if (defined('FORUM_SHOW_QUERIES'))
 			$q_start = get_microtime();
@@ -347,7 +349,7 @@ class DBLayer
 		}
 
 		// We remove the last two characters (a newline and a comma) and add on the ending
-		$query = substr($query, 0, strlen($query) - 2)."\n".') ENGINE = '.(isset($schema['ENGINE']) ? $schema['ENGINE'] : 'MyISAM').' CHARACTER SET utf8';
+		$query = substr($query, 0, strlen($query) - 2)."\n".') ENGINE='.(isset($schema['ENGINE']) ? $schema['ENGINE'] : 'MyISAM').' CHARACTER SET utf8';
 
 		$this->query($query) or error(__FILE__, __LINE__);
 	}
@@ -373,6 +375,34 @@ class DBLayer
 			$default_value = '\''.$this->escape($default_value).'\'';
 
 		$this->query('ALTER TABLE '.($no_prefix ? '' : $this->prefix).$table_name.' ADD '.$field_name.' '.$field_type.($allow_null ? ' ' : ' NOT NULL').($default_value !== null ? ' DEFAULT '.$default_value : ' ').($after_field != null ? ' AFTER '.$after_field : '')) or error(__FILE__, __LINE__);
+	}
+
+
+	function alter_field($table_name, $field_name, $field_type, $allow_null, $default_value = null, $after_field = null, $no_prefix = false)
+	{
+		if (!$this->field_exists($table_name, $field_name, $no_prefix))
+			return;
+
+		$field_type = preg_replace(array_keys($this->datatype_transformations), array_values($this->datatype_transformations), $field_type);
+
+		if ($default_value !== null && !is_int($default_value) && !is_float($default_value))
+			$default_value = '\''.$this->escape($default_value).'\'';
+
+		$this->query('ALTER TABLE '.($no_prefix ? '' : $this->prefix).$table_name.' MODIFY '.$field_name.' '.$field_type.($allow_null ? ' ' : ' NOT NULL').($default_value !== null ? ' DEFAULT '.$default_value : ' ').($after_field != null ? ' AFTER '.$after_field : '')) or error(__FILE__, __LINE__);
+	}
+
+
+	function rename_field($table_name, $field_name, $field_new_name, $field_type, $allow_null, $default_value = null, $no_prefix = false)
+	{
+		if (!$this->field_exists($table_name, $field_name, $no_prefix))
+			return;
+
+		$field_type = preg_replace(array_keys($this->datatype_transformations), array_values($this->datatype_transformations), $field_type);
+
+		if ($default_value !== null && !is_int($default_value) && !is_float($default_value))
+			$default_value = '\''.$this->escape($default_value).'\'';
+
+		$this->query('ALTER TABLE '.($no_prefix ? '' : $this->prefix).$table_name.' CHANGE '.$field_name.' '.$field_new_name.' '.$field_type.($allow_null ? ' ' : ' NOT NULL').($default_value !== null ? ' DEFAULT '.$default_value : ' ')) or error(__FILE__, __LINE__);
 	}
 
 

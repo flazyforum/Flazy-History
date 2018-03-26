@@ -3,12 +3,13 @@
  * Регулярные выражения используемые в соответствии с SEF URL и его URL.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
 
 $rewrite_rules = array(
+'/^\/?$/i'	=> 'index.php',
 '/^category[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> 'index.php?cid=$1',
 '/^topic[\/_-]?([0-9]+).*(new|last)[\/_-]?(posts?)(\.html?|\/)?$/i'	=> 'viewtopic.php?id=$1&action=$2',
 '/^print[\/_-]?([0-9]+).*(\.html?|\/)?$/i'	=> 'viewtopic.php?id=$1&action=print',
@@ -19,23 +20,27 @@ $rewrite_rules = array(
 '/^(forum|topic)[\/_-]?([0-9]+).*(\.html?|\/)?$/i'	=> 'view$1.php?id=$2',
 
 '/^feed[\/_-]?(rss|atom)[\/_-]?(f|t)(orum|opic)[\/_-]?([0-9]+)[\/_-]?(last_post|posted)?(\.xml?|\/)?$/i'	=> 'extern.php?action=feed&$2id=$4&order=$5&type=$1',
+'/^feed[\/_-]?(rss|atom)[\/_-]?forum[\/_-]?(topics|posts)[\/_-]?([0-9]+)[\/_-]?(last_post|posted)?(\.xml?|\/)?$/i'		=> 'extern.php?action=feed&content=$2&fid=$3&order=$4&type=$1',
 
 '/^new[\/_-]?reply[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> 'post.php?tid=$1',
 '/^new[\/_-]?reply[\/_-]?([0-9]+)[\/_-]?quote[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> 'post.php?tid=$1&qid=$2',
 '/^new[\/_-]?topic[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> 'post.php?fid=$1',
 
 '/^(delete|edit)[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> '$1.php?id=$2',
-'/^(login|search|register)(\.html?|\/)?$/i'		=> '$1.php',
+'/^(login|online|pm|register|search|statistic)(\.html?|\/)?$/i'		=> '$1.php',
+
 '/^logout[\/_-]?([0-9]+)[\/_-]([a-z0-9]+)(\.html?|\/)?$/i'	=> 'login.php?action=out&id=$1&csrf_token=$2',
 '/^request[\/_-]?password(\.html?|\/)?$/i'	=> 'login.php?action=forget',
 
+'/^user[\/_-]?([0-9]+)[\/_-]?(reputation|positive)(\.html?|\/)?$/i'		=> 'reputation.php?section=$2&id=$1',
+'/^user[\/_-]?([0-9]+)[\/_-]?(reputation|positive)[\/_-]p(age)?[\/_-]?([0-9]+)(\.html?|\/)?$/i'		=> 'reputation.php?section=$2&id=$1&p=$3',
+'/^user[\/_-]?([0-9]+)[\/_-]post[\/_-]?([0-9]+)[\/_-](positive|negative)(\.html?|\/)?$/i'		=> 'reputation.php?id=$1&pid=$2&method=$3',
 '/^user[\/_-]?([0-9]+)(\.html?|\/)?$/i'		=> 'profile.php?id=$1',
 '/^user[\/_-]?([0-9]+)[\/_-]?([a-z]+)(\.html?|\/)?$/i'		=> 'profile.php?section=$2&id=$1',
-'/^user[\/_-]?([0-9]+)[\/_-]?pm[\/_-]?send(\.html?|\/)?$/i'	=> 'profile.php?id=$1&action=pm_send',
-'/^user[\/_-]?([0-9]+)[\/_-]?pm[\/_-]?compose[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> 'profile.php?id=$1&section=pm&pmpage=compose&receiver_id=$2',
-'/^user[\/_-]?([0-9]+)[\/_-]?pm[\/_-]?([0-9a-z]+)(\.html?|\/)?$/i'	=> 'profile.php?id=$1&section=pm&pmpage=$2',
-'/^user[\/_-]?([0-9]+)[\/_-]?pm[\/_-]?([0-9a-z]+)[\/_-]?(p|page\/)([0-9]+)(\.html?|\/)?$/i'	=> 'profile.php?id=$1&section=pm&pmpage=$2&p=$4',
-'/^user[\/_-]?([0-9]+)[\/_-]?pm[\/_-]?([0-9a-z]+)[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> 'profile.php?id=$1&section=pm&pmpage=$2&message_id=$3',
+
+'/^pm[\/_-]?([a-z]+)(\.html?|\/)?$/i'	=> 'pm.php?section=$1',
+'/^pm[\/_-]?([a-z]+)[\/_-]?(p|page\/)([0-9]+)(\.html?|\/)?$/i'	=> 'pm.php?section=$1&p=$2',
+'/^pm[\/_-]?(message|edit|write|delete)[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> 'pm.php?section=$1&id=$2',
 
 '/^(delete)[\/_-]?(avatar|user)?[\/_-]?([0-9]+)[\/_-]?([a-z0-9]+)?(\.html?|\/)?$/i'	=> 'profile.php?action=$1_$2&id=$3&csrf_token=$4',
 
@@ -63,8 +68,9 @@ $rewrite_rules = array(
 '/^users\/(.*)\/([0-9-]+)\/?([a-z_]+)[\/_-]([a-zA-Z]+)[\/_-]p(age)?[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> 'userlist.php?username=$1&show_group=$2&sort_by=$3&sort_dir=$4&p=$6',
 '/^users\/(.*)\/([0-9-]+)\/?([a-z_]+)[\/_-]([a-zA-Z]+)(\.html?|\/)?$/i'		=> 'userlist.php?username=$1&show_group=$2&sort_by=$3&sort_dir=$4',
 
-'/^(email|report|subscribe|unsubscribe)[\/_-]?([0-9]+)[\/_-]?([a-z0-9]+)?(\.html?|\/)?$/i'	=> 'misc.php?$1=$2&csrf_token=$3',
-'/^(mark|rules)[\/_-]?(read)?[\/_-]?([a-z0-9]+)?(\.html?|\/)?$/i'	=>	'misc.php?action=$1$2&csrf_token=$3',
+'/^report[\/_-]?([0-9]+)[\/_-]?(post|pm)?(\.html?|\/)?$/i'	=> 'misc.php?report=$1&action=$2',
+'/^(email|subscribe|unsubscribe)[\/_-]?([0-9]+)[\/_-]?([a-z0-9]+)?(\.html?|\/)?$/i'	=> 'misc.php?$1=$2&csrf_token=$3',
+'/^(mark|rules|smilies)[\/_-]?(read)?[\/_-]?([a-z0-9]+)?(\.html?|\/)?$/i'	=>	'misc.php?action=$1$2&csrf_token=$3',
 '/^mark[\/_-](forum)[\/_-]?([0-9]+)[\/_-](read)[\/_-]([a-z0-9]+)(\.html?|\/)?$/i'	=>	'misc.php?action=markforumread&fid=$2&csrf_token=$4',
 '/^help[\/_-]([a-z]+)(\.html?|\/)?$/i'		=> 'help.php?section=$1',
 
@@ -79,12 +85,6 @@ $rewrite_rules = array(
 
 '/^feed[\/_-]?(rss|atom)(\.xml?|\/)?$/i'	=> 'extern.php?action=feed&type=$1',
 
-'/^online(\.html?|\/)?$/i'	=> 'online.php',
 '/^statistic[\/_-]([a-z]+)(\.html?|\/)?$/i'	=> 'statistic.php?section=$1',
 '/^statistic[\/_-]([a-z]+)[\/_-]p(age)?[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> 'statistic.php?section=$1&p=$3',
-
-'/^(reputation|positive)[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> 'reputation.php?id=$2&section=$1',
-'/^(reputation|positive)[\/_-]?([0-9]+)[\/_-]p(age)?[\/_-]?([0-9]+)(\.html?|\/)?$/i'	=> 'reputation.php?id=$1&section=$2&p=$3',
-'/^reputation[\/_-]?([0-9]+)[\/_-]?user[\/_-]?([0-9]+)[\/_-]?(1|2)(\.html?|\/)?$/i'	=> 'reputation.php?pid=$1&id=$2&method=$3'
-
 );

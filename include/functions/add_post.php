@@ -1,19 +1,20 @@
 <?php
 /**
- * Создать новое сообщение.
- *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
 
-
-// Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
-// Отправка писем по подписке
+/**
+ * Отправка писем по подписке.
+ * @param array Массив, содержащий ключи - и соответствующие значения использумы в функции add_post()
+ * @param int ID сообщения.
+ * @see add_post()
+ */
 function send_subscriptions($post_info, $new_pid)
 {
 	global $forum_config, $forum_db, $forum_url, $lang_common;
@@ -45,19 +46,19 @@ function send_subscriptions($post_info, $new_pid)
 		'JOINS'		=> array(
 			array(
 				'INNER JOIN'	=> 'subscriptions AS s',
-				'ON'		=> 'u.id=s.user_id'
+				'ON'			=> 'u.id=s.user_id'
 			),
 			array(
-				'LEFT JOIN'	=> 'forum_perms AS fp',
-				'ON'		=> '(fp.forum_id='.$post_info['forum_id'].' AND fp.group_id=u.group_id)'
+				'LEFT JOIN'		=> 'forum_perms AS fp',
+				'ON'			=> '(fp.forum_id='.$post_info['forum_id'].' AND fp.group_id=u.group_id)'
 			),
 			array(
-				'LEFT JOIN'	=> 'online AS o',
-				'ON'		=> 'u.id=o.user_id'
+				'LEFT JOIN'		=> 'online AS o',
+				'ON'			=> 'u.id=o.user_id'
 			),
 			array(
-				'LEFT JOIN'	=> 'bans AS b',
-				'ON'		=> 'u.username=b.username'
+				'LEFT JOIN'		=> 'bans AS b',
+				'ON'			=> 'u.username=b.username'
 			),
 		),
 		//'WHERE'		=> 'b.username IS NULL AND COALESCE(o.logged, u.last_visit)>'.$previous_post_time.' AND (fp.read_forum IS NULL OR fp.read_forum=1) AND s.topic_id='.$post_info['topic_id'].' AND u.id!='.$post_info['poster_id']
@@ -71,7 +72,6 @@ function send_subscriptions($post_info, $new_pid)
 
 	if ($forum_db->num_rows($result))
 	{
-
 		if (!defined('FORUM_EMAIL_FUNCTIONS_LOADED'))
 			require FORUM_ROOT.'include/functions/email.php';
 
@@ -135,7 +135,27 @@ function send_subscriptions($post_info, $new_pid)
 	($hook = get_hook('fn_send_subscriptions_end')) ? eval($hook) : null;
 }
 
-// Создать новое сообщение
+
+/**
+ * Создать новое сообщение.
+ * @param array Массив, содержащий следующие ключи - и соответствующие значения:
+ *  - Обязательные:
+ *    -# is_guest: Глобальная переменная $forum_user['is_guest'].
+ *    -# poster: Имя автора сообщения.
+ *    -# poster_id: ID автора сообщения, всегда 1 для сообщений от гостей.
+ *    -# poster_email: Email автора сообщения, всегда 0 для зарегистрированый пользователей.
+ *    -# subject: Название темы (заголовок).
+ *    -# message: Тело сообщения.
+ *    -# hide_smilies: Состояние отображение смайлов в сообщений: 1 - заменять на изображения, 0 - не заменять.
+ *    -# posted: Время создания темы.
+ *    -# subscr_action: Подписаться или не подписываться на тему.
+ *    -# topic_id: ID темы к которой принадлежит сообщение.
+ *    -# forum_id: ID форума к которому принадлежит сообщение.
+ *    -# update_user: Увеличить число сообщений и изненить время последнего сообщения автора.
+ *    -# counter: Увеличить число сообщений автора, настройка счетчика форума.
+ *    -# update_unread: Обновить индикатор непрочитаных сообщений.
+ * @param int ID нового сообщения.
+ */
 function add_post($post_info, &$new_pid)
 {
 	global $forum_db, $db_type, $forum_config, $lang_common;
@@ -202,7 +222,7 @@ function add_post($post_info, &$new_pid)
 	// Update topic
 	$query = array(
 		'UPDATE'	=> 'topics',
-		'SET'		=> 'num_replies='.$num_replies.', last_post='.$post_info['posted'].', last_post_id='.$new_pid.', last_poster=\''.$forum_db->escape($post_info['poster']).'\'',
+		'SET'		=> 'num_replies='.$num_replies.', last_post='.$post_info['posted'].', last_post_id='.$new_pid.', last_poster=\''.$forum_db->escape($post_info['poster']).'\', last_poster_id='.$post_info['poster_id'],
 		'WHERE'		=> 'id='.$post_info['topic_id']
 	);
 
@@ -236,10 +256,12 @@ function add_post($post_info, &$new_pid)
 		{
 			$query = array(
 				'UPDATE'	=> 'users',
-				'SET'		=> 'num_posts=num_posts+1, last_post='.$post_info['posted'].', user_agent=\''.$post_info['user_agent'].'\'',
+				'SET'		=> 'last_post='.$post_info['posted'],
 				'WHERE'		=> 'id='.$post_info['poster_id']
 			);
 
+			if ($post_info['counter'])
+				$query['SET'] .= ', num_posts=num_posts+1';
 		}
 
 		($hook = get_hook('fn_add_post_qr_update_last_post')) ? eval($hook) : null;
@@ -248,7 +270,7 @@ function add_post($post_info, &$new_pid)
 
 	// If the posting user is logged in update his/her unread indicator
 	if (!$post_info['is_guest'] && isset($post_info['update_unread']) && $post_info['update_unread'])
-	{	
+	{
 		$tracked_topics = get_tracked_topics();
 		$tracked_topics['topics'][$post_info['topic_id']] = time();
 		set_tracked_topics($tracked_topics);

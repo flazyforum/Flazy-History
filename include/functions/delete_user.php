@@ -1,19 +1,19 @@
 <?php
 /**
- * Удалить участника и все данные связанные с нем.
- *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
 
-
-// Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
-// Удалить участника и все данные связанные с нем
+/**
+ * Удалить участника и все данные связанные с ним.
+ * @param int ID участника.
+ * @param bool Удалять все сообщения участника.
+ */
 function delete_user($user_id, $delete_posts = false)
 {
 	global $forum_db, $db_type, $forum_config;
@@ -29,7 +29,7 @@ function delete_user($user_id, $delete_posts = false)
 		'JOINS'		=> array(
 			array(
 				'INNER JOIN'	=> 'groups AS g',
-				'ON'		=> 'g.g_id=u.group_id'
+				'ON'			=> 'g.g_id=u.group_id'
 			)
 		),
 		'WHERE'		=> 'u.id='.$user_id
@@ -64,12 +64,12 @@ function delete_user($user_id, $delete_posts = false)
 
 		// Find all posts made by this user
 		$query = array(
-			'SELECT'	=> 'p.id, p.topic_id, t.forum_id, t.first_post_id, t.poll',
+			'SELECT'	=> 'p.id, p.topic_id, t.forum_id, t.first_post_id, t.question',
 			'FROM'		=> 'posts AS p',
 			'JOINS'		=> array(
 				array(
 					'INNER JOIN'	=> 'topics AS t',
-					'ON'		=> 't.id=p.topic_id'
+					'ON'			=> 't.id=p.topic_id'
 				)
 			),
 			'WHERE'		=> 'p.poster_id='.$user_id
@@ -78,21 +78,15 @@ function delete_user($user_id, $delete_posts = false)
 		($hook = get_hook('fn_delete_user_qr_get_user_posts')) ? eval($hook) : null;
 		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
 
-		if ($cur_post['first_post_id'] == $cur_post['id'])
-		{
-			if (!defined('FORUM_FUNCTIONS_DELETE_TOPIC'))
-				require FORUM_ROOT.'include/functions/delete_post.php';
-		}
-		else
-		{
-			if (!defined('FORUM_FUNCTIONS_DELETE_POST'))
-				require FORUM_ROOT.'include/functions/delete_topic.php';
-		}
+		if (!defined('FORUM_FUNCTIONS_DELETE_TOPIC'))
+			require FORUM_ROOT.'include/functions/delete_post.php';
+		if (!defined('FORUM_FUNCTIONS_DELETE_POST'))
+			require FORUM_ROOT.'include/functions/delete_topic.php';
 
 		while ($cur_post = $forum_db->fetch_assoc($result))
 		{
 			if ($cur_post['first_post_id'] == $cur_post['id'])
-				delete_topic($cur_post['topic_id'], $cur_post['forum_id'], $cur_post['poll']);
+				delete_topic($cur_post['topic_id'], $cur_post['forum_id'], $cur_post['question']);
 			else
 				delete_post($cur_post['id'], $cur_post['topic_id'], $cur_post['forum_id']);
 		}
@@ -117,6 +111,24 @@ function delete_user($user_id, $delete_posts = false)
 	);
 
 	($hook = get_hook('fn_delete_user_qr_delete_user')) ? eval($hook) : null;
+	$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+	// Delete PM
+	$query = array(
+		'DELETE'    => 'pm',
+		'WHERE'     => 'receiver_id='.$user_id.' AND deleted_by_sender=1'
+	);
+
+	($hook = get_hook('fn_fl_delete_user_qr_delete_pm')) ? eval($hook) : null;
+	$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+	$query = array(
+	    'UPDATE'    => 'pm',
+		'SET'       => 'deleted_by_receiver=1',
+	    'WHERE'     => 'receiver_id='.$user_id
+	);
+
+	($hook = get_hook('fn_fl_delete_user_qr_update_pm')) ? eval($hook) : null;
 	$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 	// Delete user avatar

@@ -3,7 +3,7 @@
  * Функции используеме для индексации сообщение и тем.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,7 +11,7 @@
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
 if (!defined('FORUM_SEARCH_MIN_WORD'))
 	define('FORUM_SEARCH_MIN_WORD', 3);
@@ -72,7 +72,7 @@ function update_search_index($mode, $post_id, $message, $subject = null, $descri
 			'JOINS'		=> array(
 				array(
 					'INNER JOIN'	=> 'search_matches AS m',
-					'ON'		=> 'w.id=m.word_id'
+					'ON'			=> 'w.id=m.word_id'
 				)
 			),
 			'WHERE'		=> 'm.post_id='.$post_id
@@ -83,8 +83,8 @@ function update_search_index($mode, $post_id, $message, $subject = null, $descri
 
 		// Declare here to stop array_keys() and array_diff() from complaining if not set
 		$cur_words = array(
-			'post'		=> array(),
-			'subject'	=> array(),
+			'post'			=> array(),
+			'subject'		=> array(),
 			'description'	=> array()
 		);
 
@@ -95,13 +95,13 @@ function update_search_index($mode, $post_id, $message, $subject = null, $descri
 
 		$words = array(
 			'add'	=> array(
-				'post'		=> array_diff($words_message, array_keys($cur_words['post'])),
-				'subject'	=> array_diff($words_subject, array_keys($cur_words['subject'])),
+				'post'			=> array_diff($words_message, array_keys($cur_words['post'])),
+				'subject'		=> array_diff($words_subject, array_keys($cur_words['subject'])),
 				'description'	=> array_diff($words_description, array_keys($cur_words['description']))
 			),
 			'del'	=> array(
-				'post'		=> array_diff(array_keys($cur_words['post']), $words_message),
-				'subject'	=> array_diff(array_keys($cur_words['subject']), $words_subject),
+				'post'			=> array_diff(array_keys($cur_words['post']), $words_message),
+				'subject'		=> array_diff(array_keys($cur_words['subject']), $words_subject),
 				'description'	=> array_diff(array_keys($cur_words['description']), $words_description)
 			)
 		);
@@ -110,13 +110,13 @@ function update_search_index($mode, $post_id, $message, $subject = null, $descri
 	{
 		$words = array(
 			'add'	=> array(
-				'post'		=> $words_message,
-				'subject'	=> $words_subject,
+				'post'			=> $words_message,
+				'subject'		=> $words_subject,
 				'description'	=> $words_description
 			),
 			'del'	=> array(
-				'post'		=> array(),
-				'subject'	=> array(),
+				'post'			=> array(),
+				'subject'		=> array(),
 				'description'	=> array()
 			)
 		);

@@ -3,7 +3,7 @@
  * Позволяет пользователям просматривать и редактировать информацию о себе.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -12,6 +12,9 @@
 if (!defined('FORUM_ROOT'))
 	define('FORUM_ROOT', './');
 require FORUM_ROOT.'include/common.php';
+
+require FORUM_ROOT.'include/utf8/substr_replace.php';
+require FORUM_ROOT.'include/utf8/ucwords.php';
 
 ($hook = get_hook('pf_start')) ? eval($hook) : null;
 
@@ -125,21 +128,20 @@ if ($action == 'change_pass')
 			$forum_page['crumbs'] = array(
 				array($forum_config['o_board_title'], forum_link($forum_url['index'])),
 				array(sprintf($lang_profile['Users profile'], $user['username'], $lang_profile['Section about']), forum_link($forum_url['profile'], array($id, 'about'))),
-				($forum_page['own_profile']) ? array($lang_profile['Change your password'], forum_link($forum_url['change_password'], $id)) : array(sprintf($lang_profile['Change user password'], forum_htmlencode($user['username'])),forum_link($forum_url['change_password']), $id)
+				($forum_page['own_profile']) ? array($lang_profile['Change your password'], forum_link($forum_url['change_password'], $id)) : array(sprintf($lang_profile['Change user password'], forum_htmlencode($user['username'])), forum_link($forum_url['change_password']), $id)
 			);
 
 			($hook = get_hook('pf_change_pass_key_pre_header_load')) ? eval($hook) : null;
 
-			$forum_js->addFile($base_url.'/include/js/jquery.js');
-			$forum_js->addFile($base_url.'/include/js/jquery.pstrength.js');
-			$forum_js->addCode('$(function() {
+			$forum_js->file(array('jquery', 'pstrength'));
+			$forum_js->code('$(function() {
 				$(\'.password\').pstrength();
 			});');
 
 			define('FORUM_PAGE', 'profile-changepass');
 			require FORUM_ROOT.'header.php';
 
-			// START SUBST - <!-- forum_main -->
+			// START SUBST - <forum_main>
 			ob_start();
 
 			($hook = get_hook('pf_change_pass_key_output_start')) ? eval($hook) : null;
@@ -191,7 +193,7 @@ if ($action == 'change_pass')
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text required">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Confirm new password'] ?> <em><?php echo $lang_common['Required'] ?></em></span> <small><?php echo $lang_profile['Confirm password help'] ?></small></label><br />
-						<span class="fld-input"><input type="password" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_new_password2" size="35" class="inputbox" value="<?php echo(isset($_POST['req_new_password2']) ? (forum_htmlencode($_POST['req_new_password2'])) : ''); ?>"/></span><br />
+						<span class="fld-input"><input type="password" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_new_password2" size="35" value="<?php echo(isset($_POST['req_new_password2']) ? (forum_htmlencode($_POST['req_new_password2'])) : ''); ?>"/></span><br />
 					</div>
 				</div>
 <?php ($hook = get_hook('pf_change_pass_key_pre_fieldset_end')) ? eval($hook) : null; ?>
@@ -209,9 +211,9 @@ if ($action == 'change_pass')
 			($hook = get_hook('pf_change_pass_key_end')) ? eval($hook) : null;
 
 			$tpl_temp = forum_trim(ob_get_contents());
-			$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+			$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 			ob_end_clean();
-			// END SUBST - <!-- forum_main -->
+			// END SUBST - <forum_main>
 
 			require FORUM_ROOT.'footer.php';
 		}
@@ -295,21 +297,20 @@ if ($action == 'change_pass')
 	$forum_page['crumbs'] = array(
 		array($forum_config['o_board_title'], forum_link($forum_url['index'])),
 		array(sprintf($lang_profile['Users profile'], $user['username']), forum_link($forum_url['profile'], array($id, 'about'))),
-		($forum_page['own_profile']) ? array($lang_profile['Change your password'], forum_link($forum_url['change_password'], $id)) : array(sprintf($lang_profile['Change user password'], forum_htmlencode($user['username'])),forum_link($forum_url['change_password'], $id))
+		($forum_page['own_profile']) ? array($lang_profile['Change your password'], forum_link($forum_url['change_password'], $id)) : array(sprintf($lang_profile['Change user password'], forum_htmlencode($user['username'])), forum_link($forum_url['change_password'], $id))
 	);
 
 	($hook = get_hook('pf_change_pass_normal_pre_header_load')) ? eval($hook) : null;
 
-	$forum_js->addFile($base_url.'/include/js/jquery.js');
-	$forum_js->addFile($base_url.'/include/js/jquery.pstrength.js');
-	$forum_js->addCode('$(function() {
+	$forum_js->file(array('jquery', 'pstrength'));
+	$forum_js->code('$(function() {
 		$(\'.password\').pstrength();
 	});');
 
 	define('FORUM_PAGE', 'profile-changepass');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('pf_change_pass_normal_output_start')) ? eval($hook) : null;
@@ -358,7 +359,7 @@ if ($action == 'change_pass')
 								<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text required">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Old password'] ?> <em><?php echo $lang_common['Required'] ?></em></span> <small><?php echo $lang_profile['Old password help'] ?></small></label><br />
-						<span class="fld-input"><input type="password" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_old_password" size="35" class="inputbox" value="<?php echo(isset($_POST['req_old_password']) ? (forum_htmlencode($_POST['req_old_password'])) : ''); ?>"/></span>
+						<span class="fld-input"><input type="password" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_old_password" size="35" value="<?php echo(isset($_POST['req_old_password']) ? (forum_htmlencode($_POST['req_old_password'])) : ''); ?>"/></span>
 					</div>
 				</div>
 <?php endif; ($hook = get_hook('pf_change_pass_normal_pre_new_password')) ? eval($hook) : null; ?>
@@ -372,7 +373,7 @@ if ($action == 'change_pass')
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text required">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Confirm new password'] ?> <em><?php echo $lang_common['Required'] ?></em></span> <small><?php echo $lang_profile['Confirm password help'] ?></small></label><br />
-						<span class="fld-input"><input type="password" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_new_password2" size="35" class="inputbox" value="<?php echo(isset($_POST['req_new_password2']) ? (forum_htmlencode($_POST['req_new_password2'])) : ''); ?>"/></span><br />
+						<span class="fld-input"><input type="password" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_new_password2" size="35" value="<?php echo(isset($_POST['req_new_password2']) ? (forum_htmlencode($_POST['req_new_password2'])) : ''); ?>"/></span><br />
 					</div>
 				</div>
 <?php ($hook = get_hook('pf_change_pass_normal_pre_fieldset_end')) ? eval($hook) : null; ?>
@@ -389,9 +390,9 @@ if ($action == 'change_pass')
 	($hook = get_hook('pf_change_pass_normal_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -451,12 +452,9 @@ else if ($action == 'change_email')
 			require FORUM_ROOT.'include/functions/email.php';
 
 		// Validate the email-address
-		$new_email = strtolower(forum_trim($_POST['req_new_email']));
+		$new_email = utf8_strtolower(forum_trim($_POST['req_new_email']));
 		if (!is_valid_email($new_email))
 			$errors[] = $lang_common['Invalid e-mail'];
-
-		if (!defined('LAZY_CHECK_EMAIL_FUNCTIONSD'))
-			require FORUM_ROOT.'include/functions/check_mail.php';
 
 		// Check if it's a banned e-mail address
 		if (is_banned_email($new_email))
@@ -482,27 +480,15 @@ else if ($action == 'change_email')
 			}
 		}
 
-		// Check if someone else already has registered with that e-mail address
-		$query = array(
-			'SELECT'	=> 'u.id, u.username',
-			'FROM'		=> 'users AS u',
-			'WHERE'		=> 'u.email=\''.$forum_db->escape($new_email).'\''
-		);
-
-		($hook = get_hook('pf_change_email_normal_qr_check_email_dupe')) ? eval($hook) : null;
-		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-		
-		if ($forum_db->num_rows($result))
+		$dupe_email = is_dupe_email($new_email);
+		if ($dupe_email)
 		{
 			($hook = get_hook('pf_change_email_normal_dupe_email')) ? eval($hook) : null;
 
 			if (!$forum_config['p_allow_dupe_email'])
 				$errors[] = $lang_profile['Dupe e-mail'];
-			else if (($forum_config['o_mailing_list'] != '') && empty($errors))
+			else if ($forum_config['o_mailing_list'] != '')
 			{
-				while ($cur_dupe = $forum_db->fetch_assoc($result))
-					$dupe_list[] = $cur_dupe['username'];
-
 				$mail_tpl = forum_trim(file_get_contents(FORUM_ROOT.'lang/'.$forum_user['language'].'/mail_templates/dupe_email.tpl'));
 				$first_crlf = strpos($mail_tpl, "\n");
 
@@ -511,7 +497,7 @@ else if ($action == 'change_email')
 
 				$mail_subject = str_replace('<mail_subject>', $lang_common['Duplicate email notification'], $mail_subject);
 				$mail_message = str_replace('<user>', $forum_user['username'], $mail_message);
-				$mail_message = str_replace('<first_user>', implode(', ', $dupe_list), $mail_message);
+				$mail_message = str_replace('<first_user>', implode(', ', $dupe_email), $mail_message);
 				$mail_message = str_replace('<profile_user>', forum_link($forum_url['user'], $new_uid), $mail_message);
 				$mail_message = str_replace('<board_mailer>', sprintf($lang_common['Forum mailer'], $forum_config['o_board_title']), $mail_message);
 
@@ -534,7 +520,7 @@ else if ($action == 'change_email')
 				($hook = get_hook('pf_change_email_key_qr_update_email')) ? eval($hook) : null;
 				$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
-				redirect(forum_link($forum_url['profile_about'], $id), $lang_profile['E-mail updated redirect']);
+				redirect(forum_link($forum_url['user'], $id), $lang_profile['E-mail updated redirect']);
 			}
 			// We have a confirmed e-mail so we going to send an activation link
 
@@ -598,7 +584,7 @@ else if ($action == 'change_email')
 	define('FORUM_PAGE', 'profile-changemail');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('pf_change_email_normal_output_start')) ? eval($hook) : null;
@@ -669,9 +655,9 @@ else if ($action == 'change_email')
 	($hook = get_hook('pf_change_email_normal_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -719,8 +705,8 @@ else if ($action == 'delete_user' || isset($_POST['delete_user_comply']) || isse
 	// Setup breadcrumbs
 	$forum_page['crumbs'] = array(
 		array($forum_config['o_board_title'], forum_link($forum_url['index'])),
-		array(sprintf($lang_profile['Users profile'], $user['username'], $lang_profile['Section admin']), forum_link($forum_url['profile'], array($id, 'admin'))),
-		$lang_profile['Delete user']
+		array(sprintf($lang_profile['Users profile'], $user['username'], $lang_profile['Section admin']), forum_link($forum_url['profile_admin'], $id)),
+		array($lang_profile['Delete user'], forum_link($forum_url['delete_user'], $id))
 	);
 
 	($hook = get_hook('pf_delete_user_pre_header_load')) ? eval($hook) : null;
@@ -728,7 +714,7 @@ else if ($action == 'delete_user' || isset($_POST['delete_user_comply']) || isse
 	define('FORUM_PAGE', 'dialogue');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('pf_delete_user_output_start')) ? eval($hook) : null;
@@ -768,9 +754,9 @@ else if ($action == 'delete_user' || isset($_POST['delete_user_comply']) || isse
 	($hook = get_hook('pf_delete_user_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -796,7 +782,17 @@ else if ($action == 'delete_avatar')
 
 	if (!defined('FORUM_FUNCTIONS_DELETE_AVATAR'))
 		require FORUM_ROOT.'include/functions/delete_avatar.php';
+
 	delete_avatar($id);
+
+	$query = array(
+		'UPDATE'	=> 'users',
+		'SET'		=> 'avatar=NULL',
+		'WHERE'		=> 'id='.$id
+	);
+
+	($hook = get_hook('pf_fl_delete_avatar_qr')) ? eval($hook) : null;
+	$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 	($hook = get_hook('pf_delete_avatar_pre_redirect')) ? eval($hook) : null;
 
@@ -858,6 +854,8 @@ else if (isset($_POST['update_forums']))
 	if ($forum_user['g_id'] != FORUM_ADMIN)
 		message($lang_common['No permission']);
 
+	require FORUM_ROOT.'include/utf8/strcasecmp.php';
+
 	($hook = get_hook('pf_forum_moderators_form_submitted')) ? eval($hook) : null;
 
 	$moderator_in = (isset($_POST['moderator_in'])) ? array_keys($_POST['moderator_in']) : array();
@@ -870,6 +868,7 @@ else if (isset($_POST['update_forums']))
 
 	($hook = get_hook('pf_forum_moderators_qr_get_all_forum_mods')) ? eval($hook) : null;
 	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+
 	while ($cur_forum = $forum_db->fetch_assoc($result))
 	{
 		$cur_moderators = ($cur_forum['moderators'] != '') ? unserialize($cur_forum['moderators']) : array();
@@ -878,7 +877,7 @@ else if (isset($_POST['update_forums']))
 		if (in_array($cur_forum['id'], $moderator_in) && !in_array($id, $cur_moderators))
 		{
 			$cur_moderators[$user['username']] = $id;
-			ksort($cur_moderators);
+			uksort($cur_moderators, 'utf8_strcasecmp');
 		}
 		// If the user shouldn't have moderator access (and he/she already has it)
 		else if (!in_array($cur_forum['id'], $moderator_in) && in_array($id, $cur_moderators))
@@ -909,11 +908,11 @@ else if (isset($_POST['reputation']))
 	if ($forum_user['g_id'] != FORUM_ADMIN)
 		message($lang_common['No permission']);
 
-	if (!isset($_POST['rep_enable_adm']) || $_POST['rep_enable_adm'] != '0') $_POST['rep_enable_adm'] = '1';
+	$rep_enable_adm = (!isset($_POST['rep_enable_adm']) || $_POST['rep_enable_adm'] != '0') ? '1' : '0';
 
 	$query = array(
 			'UPDATE'	=> 'users',
-			'SET'		=> 'rep_enable_adm='.$_POST['rep_enable_adm'],
+			'SET'		=> 'rep_enable_adm='.$rep_enable_adm,
 			'WHERE'		=> 'id='.$id
 	);
 
@@ -970,7 +969,7 @@ else if (isset($_POST['form_sent']))
 			// Check for use of incorrect URLs
 			confirm_current_url(forum_link($forum_url['profile'], array($id, 'identity')));
 
-			$form = extract_elements(array('realname', 'sex', 'url', 'location', 'country', 'jabber', 'icq', 'msn', 'aim', 'yahoo', 'skype', 'magent', 'vkontakte', 'classmates', 'mirtesen', 'moikrug'));
+			$form = extract_elements(array('realname', 'sex', 'url', 'location', 'country', 'jabber', 'icq', 'msn', 'aim', 'yahoo', 'skype', 'magent', 'vkontakte', 'classmates', 'mirtesen', 'moikrug', 'facebook', 'twitter', 'lastfm'));
 
 			($hook = get_hook('pf_change_details_identity_validation')) ? eval($hook) : null;
 
@@ -1000,35 +999,17 @@ else if (isset($_POST['form_sent']))
 			if ($forum_user['is_admmod'])
 			{
 				// Validate the email-address
-				$form['email'] = strtolower(forum_trim($_POST['req_email']));
-
-				$dupe_list = array();
-
-				$query = array(
-					'SELECT'	=> 'u.username',
-					'FROM'		=> 'users AS u',
-					'WHERE'		=> 'u.email=\''.$forum_db->escape($form['email']).'\''
-				);
-
-				($hook = get_hook('pf_qr_check_email_dupe')) ? eval($hook) : null;
-				$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-
-				if ($forum_db->num_rows($result) && empty($errors))
-				{
-					if (!$forum_config['p_allow_dupe_email'] && $form['email'] != $user['email'])
-						$errors[] = $lang_profile['Dupe e-mail'];
- 
-					while ($cur_dupe = $forum_db->fetch_assoc($result))
-						$dupe_list[] = $cur_dupe['username'];
-				}
+				$form['email'] = utf8_strtolower(forum_trim($_POST['req_email']));
 
 				if (!defined('FORUM_EMAIL_FUNCTIONS_LOADED'))
 					require FORUM_ROOT.'include/functions/email.php';
-		
+
 				if (!is_valid_email($form['email']))
 					$errors[] = $lang_common['Invalid e-mail'];
 				else if (!$forum_config['p_allow_banned_email'] && is_banned_email($form['email']))
 					$errors[] = $lang_profile['Banned e-mail'];
+				else if (!$forum_config['p_allow_dupe_email'] && $form['email'] != $user['email'] && is_dupe_email($form['email']))
+					$errors[] = $lang_profile['Dupe e-mail'];
 			}
 
 			if ($forum_user['is_admmod'])
@@ -1052,7 +1033,7 @@ else if (isset($_POST['form_sent']))
 			}
 
 			// Add http:// if the URL doesn't contain it or https:// already
-			if ($form['url'] != '' && strpos(strtolower($form['url']), 'http://') !== 0  && strpos(strtolower($form['url']), 'https://') !== 0)
+			if ($form['url'] != '' && strpos(utf8_strtolower($form['url']), 'http://') !== 0  && strpos(utf8_strtolower($form['url']), 'https://') !== 0)
 				$form['url'] = 'http://'.$form['url'];
 
 			// If the ICQ UIN contains anything other than digits it's invalid
@@ -1061,22 +1042,21 @@ else if (isset($_POST['form_sent']))
 
 			if ($form['vkontakte'] != '')
 			{
-				if (preg_match('#http://vkontakte.ru/id([0-9]+)#s', $form['vkontakte'], $matches))
-					$form['vkontakte'] = $matches['1'];
+				if (preg_match('#http://(www.)?vkontakte.ru/id([0-9]+)#s', $form['vkontakte'], $matches))
+					$form['vkontakte'] = $matches['2'];
 				else
-					$errors[] = $lang_profile['Bad Vkontakt'];
+					$errors[] = sprintf($lang_profile['Bad url page'], $lang_profile['Vkontakte']);
 			}
 
 			if ($form['classmates'] != '' && strpos(strtolower($form['classmates']), 'http://') === 0  && strpos(strtolower($form['classmates']), 'odnoklassniki.ru') === 0)
 				$errors[] = $lang_profile['Bad Сlassmates'];
 
-
 			if ($form['mirtesen'] != '')
 			{
-				if (preg_match('#http://mirtesen.ru/people/([0-9]+)#s', $form['mirtesen'], $matches))
-					$form['mirtesen'] = $matches['1'];
+				if (preg_match('#http://(www.)?mirtesen.ru/people/([0-9]+)#s', $form['mirtesen'], $matches))
+					$form['mirtesen'] = $matches['2'];
 				else
-					$errors[] = $lang_profile['Bad Mirtesen'];
+					$errors[] = sprintf($lang_profile['Bad url page'], $lang_profile['Mirtesen']);
 			}
 
 			if ($form['moikrug'] != '')
@@ -1084,7 +1064,32 @@ else if (isset($_POST['form_sent']))
 				if (preg_match('#http://(.*).moikrug.ru#s', $form['moikrug'], $matches))
 					$form['moikrug'] = $matches['1'];
 				else
-					$errors[] = $lang_profile['Bad Moikrug'];
+					$errors[] = sprintf($lang_profile['Bad url page'], $lang_profile['Moikrug']);
+			}
+			if ($form['facebook'] != '')
+			{
+				if (preg_match('#http://(www.)?facebook.com/profile.php(.+?)id=([0-9]+)#s', $form['facebook'], $matches))
+					$form['facebook'] = $matches['3'];
+				else if (preg_match('#http://(www.)?facebook.com/(.*)#s', $form['facebook'], $matches))
+					$form['facebook'] = $matches['2'];
+				else
+					$errors[] = sprintf($lang_profile['Bad url page'], $lang_profile['Facebook']);
+			}
+
+			if ($form['twitter'] != '')
+			{
+				if (preg_match('#http://(www.)?twitter.com/(.*)#s', $form['twitter'], $matches))
+					$form['twitter'] = $matches['2'];
+				else
+					$errors[] = sprintf($lang_profile['Bad url page'], $lang_profile['Twitter']);
+			}
+
+			if ($form['lastfm'] != '')
+			{
+				if (preg_match('#http://(www.)?last.fm/user/(.*)#s', $form['lastfm'], $matches))
+					$form['lastfm'] = $matches['2'];
+				else
+					$errors[] = sprintf($lang_profile['Bad url page'], $lang_profile['Last.fm']);
 			}
 
 			break;
@@ -1104,7 +1109,7 @@ else if (isset($_POST['form_sent']))
 			$form['date_format'] = (isset($form['date_format'])) ? intval($form['date_format']) : 0;
 
 			$form['email_setting'] = intval($form['email_setting']);
-			if ($form['email_setting'] < 0 && $form['email_setting'] > 2) $form['email_setting'] = 1;
+			if ($form['email_setting'] < 0 || $form['email_setting'] > 2) $form['email_setting'] = 1;
 
 			if ($forum_config['o_subscriptions'])
 			{
@@ -1146,13 +1151,13 @@ else if (isset($_POST['form_sent']))
 			if (!isset($form['rep_enable']) || $form['rep_enable'] != '1') $form['rep_enable'] = '0';
 
 			if ($form['security_ip'] == '0')
-				$form['security_ip'] = $user['registration_ip'];
-			if ($form['security_ip'] == '1')
+				$form['security_ip'] = get_remote_address();
+			else if ($form['security_ip'] == '1')
 			{
-				$netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user['registration_ip'], $ip_part) ? $ip_part[1].'.'.$ip_part[2] : '0';
+				$netmask = (preg_match('/^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$/', get_remote_address(), $matches) || preg_match('/^([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4})$/', get_remote_address(), $matches)) ? $matches[1].'.'.$matches[2] : '0';
 				$form['security_ip'] = $netmask;
 			}
-			if ($form['security_ip'] == '2')
+			else
 				$form['security_ip'] = '0';
 
 			break;
@@ -1215,25 +1220,24 @@ else if (isset($_POST['form_sent']))
 			{
 				switch ($uploaded_file['error'])
 				{
-					case 1:	// UPLOAD_ERR_INI_SIZE
-					case 2:	// UPLOAD_ERR_FORM_SIZE
+					case 1: // UPLOAD_ERR_INI_SIZE
+					case 2: // UPLOAD_ERR_FORM_SIZE
 						$errors[] = $lang_profile['Too large ini'];
 						break;
 
-					case 3:	// UPLOAD_ERR_PARTIAL
+					case 3: // UPLOAD_ERR_PARTIAL
 						$errors[] = $lang_profile['Partial upload'];
 						break;
 
-					case 4:	// UPLOAD_ERR_NO_FILE
+					case 4: // UPLOAD_ERR_NO_FILE
 						$errors[] = $lang_profile['No file'];
 						break;
 
-					case 6:	// UPLOAD_ERR_NO_TMP_DIR
+					case 6: // UPLOAD_ERR_NO_TMP_DIR
 						$errors[] = $lang_profile['No tmp directory'];
 						break;
 
-					default:
-						// No error occured, but was something actually uploaded?
+					default: // No error occured, but was something actually uploaded?
 						if ($uploaded_file['size'] == 0)
 							$errors[] = $lang_profile['No file'];
 						break;
@@ -1266,10 +1270,12 @@ else if (isset($_POST['form_sent']))
 					else
 						$extension = '.png';
 
+					$form['avatar'] = str_replace('.', '', $extension);
+
 					($hook = get_hook('pf_change_details_avatar_determine_extension')) ? eval($hook) : null;
 
 					// Move the file to the avatar directory. We do this before checking the width/height to circumvent open_basedir restrictions.
-					if (!@move_uploaded_file($uploaded_file['tmp_name'], $forum_config['o_avatars_dir'].'/'.$id.'.tmp'))
+					if (!@move_uploaded_file($uploaded_file['tmp_name'], FORUM_AVATAR_DIR.'/'.$id.'.tmp'))
 						$errors[] = sprintf($lang_profile['Move failed'], '<a href="mailto:'.forum_htmlencode($forum_config['o_admin_email']).'">'.forum_htmlencode($forum_config['o_admin_email']).'</a>');
 
 					if (empty($errors))
@@ -1277,15 +1283,15 @@ else if (isset($_POST['form_sent']))
 						($hook = get_hook('pf_change_details_avatar_modify_size')) ? eval($hook) : null;
 
 						// Now check the width/height
-						list($width, $height, $type,) = getimagesize($forum_config['o_avatars_dir'].'/'.$id.'.tmp');
+						list($width, $height, $type,) = getimagesize(FORUM_AVATAR_DIR.'/'.$id.'.tmp');
 						if (empty($width) || empty($height) || $width > $forum_config['o_avatars_width'] || $height > $forum_config['o_avatars_height'])
 						{
-							@unlink($forum_config['o_avatars_dir'].'/'.$id.'.tmp');
+							@unlink(FORUM_AVATAR_DIR.'/'.$id.'.tmp');
 							$errors[] = sprintf($lang_profile['Too wide or high'], $forum_config['o_avatars_width'], $forum_config['o_avatars_height']);
 						}
 						else if ($type == 1 && $uploaded_file['type'] != 'image/gif') // Prevent dodgy uploads
 						{
-							@unlink($forum_config['o_avatars_dir'].'/'.$id.'.tmp');
+							@unlink(FORUM_AVATAR_DIR.'/'.$id.'.tmp');
 							$errors[] = $lang_profile['Bad type'];
 						}
 
@@ -1299,8 +1305,8 @@ else if (isset($_POST['form_sent']))
 							delete_avatar($id);
 
 							// Put the new avatar in its place
-							@rename($forum_config['o_avatars_dir'].'/'.$id.'.tmp', $forum_config['o_avatars_dir'].'/'.$id.$extension);
-							@chmod($forum_config['o_avatars_dir'].'/'.$id.$extension, 0644);
+							@rename(FORUM_AVATAR_DIR.'/'.$id.'.tmp', FORUM_AVATAR_DIR.'/'.$id.$extension);
+							@chmod(FORUM_AVATAR_DIR.'/'.$id.$extension, 0644);
 						}
 					}
 				}
@@ -1318,7 +1324,8 @@ else if (isset($_POST['form_sent']))
 		}
 	}
 
-	$skip_db_update_sections = array('avatar');
+	//$skip_db_update_sections = array('avatar');
+	$skip_db_update_sections = array();
 
 	($hook = get_hook('pf_change_details_pre_database_validation')) ? eval($hook) : null;
 
@@ -1412,6 +1419,8 @@ else if (isset($_POST['form_sent']))
 			// If the user is a moderator or an administrator we have to update the moderator lists and bans cache
 			if ($user['g_id'] == FORUM_ADMIN || $user['g_moderator'])
 			{
+				require FORUM_ROOT.'include/utf8/strcasecmp.php';
+
 				$query = array(
 					'SELECT'	=> 'f.id, f.moderators',
 					'FROM'		=> 'forums AS f'
@@ -1427,7 +1436,7 @@ else if (isset($_POST['form_sent']))
 					{
 						unset($cur_moderators[$old_username]);
 						$cur_moderators[$form['username']] = $id;
-						ksort($cur_moderators);
+						uksort($cur_moderators, 'utf8_strcasecmp');
 
 						$query = array(
 							'UPDATE'	=> 'forums',
@@ -1454,101 +1463,7 @@ else if (isset($_POST['form_sent']))
 	}
 }
 
-
-if ($action == 'pm_send')
-{
-	// Check for use of incorrect URLs
-	confirm_current_url(forum_link($forum_url['pm_send'], array($id, isset($_GET['csrf_token']) ? $_GET['csrf_token'] : '')));
-
-	if (!defined('FORUM_PM_FUNCTIONS'))
-		require FORUM_ROOT.'include/functions/pm.php';
-
-	$pm_body = isset($_POST['req_message']) ? $_POST['req_message'] : '';
-	$pm_subject = isset($_POST['pm_subject']) ? $_POST['pm_subject'] : '';
-	$pm_receiver_username = isset($_POST['pm_receiver']) ? $_POST['pm_receiver'] : '';
-	$pm_message_id = isset($_POST['message_id']) ? $_POST['message_id'] : false;
-
-	$pm_page = isset($_GET['pmpage']) ? $_GET['pmpage'] : '';
-
-	$forum_links['pm'] = array(
-		'<li'.($pm_page == 'inbox' ? ' class="active item1"' : ' class="normal"').'><a href="'.forum_link($forum_url['pm'], array($forum_user['id'], 'inbox')).'#brd-crumbs-top">'.$lang_profile['Inbox'].'</a></li>',
-		'<li'.($pm_page == 'outbox' ? ' class="active item1"' : ' class="normal"').'><a href="'.forum_link($forum_url['pm'], array($forum_user['id'], 'outbox')).'#brd-crumbs-top">'.$lang_profile['Outbox'].'</a></li>',
-		'<li'.($pm_page == 'write' ? ' class="active item1"' : ' class="normal"').'><a href="'.forum_link($forum_url['pm'], array($forum_user['id'], 'write')).'#brd-crumbs-top">'.$lang_profile['Compose message'].'</a></li>'
-	);
-
-	if (isset($_POST['send_action']) && in_array($_POST['send_action'], array('send', 'draft', 'delete', 'preview')))
-		$pm_send_action = $_POST['send_action'];
-	else if (isset($_POST['draft']))
-		$pm_send_action = 'draft';
-	else if (isset($_POST['submit']))
-		$pm_send_action = 'send';
-	else if (isset($_POST['delete']))
-		$pm_send_action = 'delete';
-	else
-		$pm_send_action = 'preview';
-
-	if ($pm_send_action == 'draft')
-	{
-		$pm_errors = pm_save_message($pm_body, $pm_subject, $pm_receiver_username, $pm_message_id);
-		$pm_msg_preview = false;
-	}
-	else if ($pm_send_action == 'send')
-	{
-		$pm_errors = pm_send_message($pm_body, $pm_subject, $pm_receiver_username, $pm_message_id);
-		$pm_msg_preview = false;
-	}
-	else if ($pm_send_action == 'delete' && $pm_message_id !== false)
-	{
-		pm_delete_from_outbox(array((int) $pm_message_id));
-		redirect(forum_link($forum_url['pm'], array($forum_user['id'], 'outbox')), $lang_profile['Message deleted']);
-	}
-	else
-	{
-		// Preview message
-		$pm_errors = array();
-		$pm_msg_preview = pm_preview($pm_receiver_username, $pm_subject, $pm_body, $pm_errors);
-	}
-
-	if (!defined('FORUM_FUNCTIONS_PM_SEND_FORM'))
-		require FORUM_ROOT.'include/functions/pm/send_form.php';
-
-	$pm_page_text = pm_send_form($pm_receiver_username, $pm_subject, $pm_body, $pm_message_id, false, false, $pm_msg_preview);
-
-	// Setup breadcrumbs
-	$forum_page['crumbs'] = array(
-		array($forum_config['o_board_title'], forum_link($forum_url['index'])),
-		array(sprintf($lang_profile['Users profile'], $forum_user['username']), forum_link($forum_url['profile'], array($forum_user['id'], 'about'))),
-		$lang_profile['Private messages']
-	);
-
-	define('FORUM_PAGE', 'profile-pm');
-	require FORUM_ROOT.'header.php';
-
-	// START SUBST - <!-- forum_main -->
-	ob_start();
-
-?>
-		<div class="admin-submenu gen-content">
-			<ul>
-				<?php echo implode("\n\t\t\t\t", $forum_links['pm'])."\n" ?>
-			</ul>
-		</div>
-<?php 
-
-	echo $pm_page_text;
-
-	$tpl_temp = trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
-	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
-
-	require FORUM_ROOT.'footer.php';
-
-}
-
-
 ($hook = get_hook('pf_new_action')) ? eval($hook) : null;
-
 
 if ($user['signature'] != '')
 {
@@ -1557,7 +1472,6 @@ if ($user['signature'] != '')
 
 	$parsed_signature = parse_signature($user['signature']);
 }
-
 
 // View or edit?
 if ($forum_user['id'] != $id &&
@@ -1585,18 +1499,18 @@ if ($forum_user['id'] != $id &&
 
 	$forum_page['user_ident']['username'] = '<li class="username'.(($user['realname'] =='') ? ' fn nickname' :  ' nickname').'"><strong>'.forum_htmlencode($user['username']).'</strong>'.(($user['sex'] != '0') ? $sex_pic :  '').'</li>';
 
+	$forum_page['user_ident']['usertitle'] = '<li class="usertitle"><span>'.get_title($user).'</span></li>';
+
 	if ($forum_config['o_avatars'])
 	{
 		if (!defined('FORUM_FUNCTIONS_GENERATE_AVATAR'))
 			require FORUM_ROOT.'include/functions/generate_avatar_markup.php';
 
-		$forum_page['avatar_markup'] = generate_avatar_markup($id);
+		$forum_page['avatar_markup'] = generate_avatar_markup($id, $user['avatar'], $user['email']);
 
 		if (!empty($forum_page['avatar_markup']))
 			$forum_page['user_ident']['avatar'] = '<li class="useravatar">'.$forum_page['avatar_markup'].'</li>';
 	}
-
-	$forum_page['user_ident']['usertitle'] = '<li class="usertitle"><span>'.get_title($user).'</span></li>';
 
 	// Setup user information
 	$forum_page['user_info'] = array();
@@ -1610,9 +1524,8 @@ if ($forum_user['id'] != $id &&
 	if ($user['location'] !='')
 		$forum_page['user_info']['location'] = '<li><span>'.$lang_profile['From'].': <strong> '.forum_htmlencode(($forum_config['o_censoring'] == '1') ? censor_words($user['location']) : $user['location']).'</strong></span></li>';
 
-
 	if ($user['country'] != '')
-		$forum_page['user_info']['country'] = '<li><span>'.$lang_profile['Country'].': <strong>'.$lang_country[$user['country']].'</strong> <img src="'.$base_url.'/img/flags/'.$user['country'].'" alt="'.$lang_country[$user['country']].'"/></span></li>';
+		$forum_page['user_info']['country'] = '<li><span>'.$lang_profile['Country'].': <strong>'.$lang_country[$user['country']].'</strong> <img src="'.$base_url.'/img/flags/'.$user['country'].'.gif" alt="'.$lang_country[$user['country']].'"/></span></li>';
 
 	$forum_page['user_info']['registered'] = '<li><span>'.$lang_profile['Registered'].': <strong> '.format_time($user['registered'], 1).'</strong></span></li>';
 	$forum_page['user_info']['lastpost'] = '<li><span>'.$lang_profile['Last post'].': <strong> '.format_time($user['last_post']).'</strong></span></li>';
@@ -1621,7 +1534,7 @@ if ($forum_user['id'] != $id &&
 	$num_posts_day = $user['num_posts'] > 0 ? substr($user['num_posts']/(floor((time()-$user['registered'])/84600) + (((time()-$user['registered'])%84600)?1:0)), 0, 5) : 0;
 
 	if ($forum_config['o_show_post_count'] || $forum_user['is_admmod'])
-		$forum_page['user_info']['posts'] = '<li><span>'.$lang_profile['Posts'].': <strong>'.forum_number_format($user['num_posts']).'</strong> <strong>'.($user['num_posts'] > 0 ? sprintf($lang_profile['Posts day'], $num_posts_day) : '').'</strong></span></li>';
+		$forum_page['user_info']['posts'] = '<li><span>'.$lang_profile['Posts'].': <strong>'.forum_number_format($user['num_posts']).'</strong> <strong>'.($user['num_posts'] > 0 ? sprintf($lang_profile['Posts in day'], $num_posts_day) : '').'</strong></span></li>';
 
 	// Setup user address
 	$forum_page['user_contact'] = array();
@@ -1633,7 +1546,7 @@ if ($forum_user['id'] != $id &&
 		$forum_page['user_contact']['forum-mail'] = '<li><span class="prof email">'.$lang_profile['E-mail'].': <a href="'.forum_link($forum_url['email'], $id).'">'.$lang_profile['Send forum e-mail'].'</a></span></li>';
 
 	if (!$forum_user['is_guest'] && $forum_user['id'] != $user['id'])
-		$forum_page['user_contact']['pm']= '<li><span class="prof pm"><a class="contact" href="'.forum_link($forum_url['pm_post_link'], array($forum_user['id'], $id)).'">'.$lang_profile['Send PM'].'</a></span></li>';
+		$forum_page['user_contact']['pm']= '<li><span class="prof pm"><a class="contact" href="'.forum_link($forum_url['pm_post'], $id).'">'.$lang_profile['Send PM'].'</a></span></li>';
 
 	if ($user['url'] != '')
 	{
@@ -1665,8 +1578,15 @@ if ($forum_user['id'] != $id &&
 		$forum_page['user_contact']['mirtesen'] = '<li><span class="prof mirtesen"><a href="'.forum_link('click.php').'?http://mirtesen.ru/people/'.forum_htmlencode($user['mirtesen']).'" onclick="window.open(this.href); return false" rel="nofollow">'.$lang_profile['Mirtesen'].'</a></span></li>';
 	if ($user['moikrug'] != '')
 		$forum_page['user_contact']['moikrug'] = '<li><span class="prof moikrug"><a href="'.forum_link('click.php').'?http://'.forum_htmlencode($user['moikrug']).'.moikrug.ru/" onclick="window.open(this.href); return false" rel="nofollow">'.$lang_profile['Moikrug'].'</a></span></li>';
-
-
+	if ($user['facebook'] != '')
+	{
+		$facebook_url = preg_match('([0-9])', $user['facebook'], $matches) ? 'profile.php?id=' : '';
+		$forum_page['user_contact']['facebook'] = '<li><span class="prof facebook"><a href="'.forum_link('click.php').'?http://facebook.com/'.$facebook_url.forum_htmlencode($user['facebook']).'" onclick="window.open(this.href); return false" rel="nofollow">'.$lang_profile['Facebook'].'</a></span></li>';
+	}
+	if ($user['twitter'] != '')
+		$forum_page['user_contact']['twitter'] = '<li><span class="prof twitter"><a href="'.forum_link('click.php').'?http://twitter.com/'.forum_htmlencode($user['twitter']).'" onclick="window.open(this.href); return false" rel="nofollow">'.$lang_profile['Twitter'].'</a></span></li>';
+	if ($user['lastfm'] != '')
+		$forum_page['user_contact']['lastfm'] = '<li><span class="prof lastfm"><a href="'.forum_link('click.php').'?http://last.fm/user/'.forum_htmlencode($user['lastfm']).'" onclick="window.open(this.href); return false" rel="nofollow">'.$lang_profile['Last.fm'].'</a></span></li>';
 
 	// Setup signature demo
 	if ($forum_config['o_signatures'] && isset($parsed_signature))
@@ -1676,8 +1596,8 @@ if ($forum_user['id'] != $id &&
 	if ($forum_user['g_search'])
 	{
 		$forum_page['user_activity'] = array();
-		$forum_page['user_activity']['search_posts'] = '<span'.(empty($forum_page['user_activity']) ? ' class="item1"' : '').'><a href="'.forum_link($forum_url['search_user_posts'], $id).'">'.sprintf($lang_profile['View user posts'], forum_htmlencode($user['username'])).'</a></span>';
-		$forum_page['user_activity']['search_topics'] = '<span'.(empty($forum_page['user_activity']) ? ' class="item1"' : '').'><a href="'.forum_link($forum_url['search_user_topics'], $id).'">'.sprintf($lang_profile['View user topics'], forum_htmlencode($user['username'])).'</a></span>';
+		$forum_page['user_activity']['search_posts'] = '<span'.(empty($forum_page['user_activity']) ? ' class="first-item"' : '').'><a href="'.forum_link($forum_url['search_user_posts'], $id).'">'.sprintf($lang_profile['View user posts'], forum_htmlencode($user['username'])).'</a></span>';
+		$forum_page['user_activity']['search_topics'] = '<span'.(empty($forum_page['user_activity']) ? ' class="first-item"' : '').'><a href="'.forum_link($forum_url['search_user_topics'], $id).'">'.sprintf($lang_profile['View user topics'], forum_htmlencode($user['username'])).'</a></span>';
 	}
 
 	// Setup breadcrumbs
@@ -1686,9 +1606,7 @@ if ($forum_user['id'] != $id &&
 		array(sprintf($lang_profile['Users profile'], $user['username']), forum_link($forum_url['user'], $id))
 	);
 
-
 	$forum_page['group_count'] = $forum_page['item_count'] = $forum_page['fld_count'] = 0;
-
 
 	($hook = get_hook('pf_view_details_pre_header_load')) ? eval($hook) : null;
 
@@ -1696,7 +1614,7 @@ if ($forum_user['id'] != $id &&
 	define('FORUM_PAGE', 'profile');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('pf_view_details_output_start')) ? eval($hook) : null;
@@ -1747,9 +1665,9 @@ if ($forum_user['id'] != $id &&
 	($hook = get_hook('pf_view_details_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -1763,13 +1681,12 @@ else
 		array(sprintf($lang_profile['Users profile'], $user['username']), forum_link($forum_url['user'], $id))
 	);
 
-
 	// Is this users own profile
 	$forum_page['own_profile'] = ($forum_user['id'] == $id) ? true : false;
 
 	// Setup navigation menu
 	$forum_page['main_menu'] = array();
-	$forum_page['main_menu']['about'] = '<li class="item1'.(($section == 'about')  ? ' active' : '').'"><a href="'.forum_link($forum_url['profile'], array($id, 'about')).'#brd-crumbs-top"><span>'.$lang_profile['Section about'].'</span></a></li>';
+	$forum_page['main_menu']['about'] = '<li class="first-item'.(($section == 'about')  ? ' active' : '').'"><a href="'.forum_link($forum_url['profile'], array($id, 'about')).'#brd-crumbs-top"><span>'.$lang_profile['Section about'].'</span></a></li>';
 	$forum_page['main_menu']['identity'] = '<li'.(($section == 'identity')  ? ' class="active"' : '').'><a href="'.forum_link($forum_url['profile'], array($id, 'identity')).'#brd-crumbs-top"><span>'.$lang_profile['Section identity'].'</span></a></li>';
 	$forum_page['main_menu']['settings'] = '<li'.(($section == 'settings') ? ' class="active"' : '').'><a href="'.forum_link($forum_url['profile'], array($id, 'settings')).'#brd-crumbs-top"><span>'.$lang_profile['Section settings'].'</span></a></li>';
 
@@ -1780,7 +1697,7 @@ else
 		$forum_page['main_menu']['avatar'] = '<li'.(($section == 'avatar') ? ' class="active"' : '').'><a href="'.forum_link($forum_url['profile'], array($id, 'avatar')).'#brd-crumbs-top"><span>'.$lang_profile['Section avatar'].'</span></a></li>';
 
 	if ($forum_user['id'] == $id)
-		$forum_page['main_menu']['pm'] = '<li'.(($section == 'pm') ? ' class="active"' : '').'><a href="'.forum_link($forum_url['pm'], array($id, 'inbox')).'#brd-crumbs-top"><span>'.$lang_profile['Private messages'].'</span></a></li>';
+		$forum_page['main_menu']['pm'] = '<li'.(($section == 'pm') ? ' class="active"' : '').'><a href="'.forum_link($forum_url['pm'], 'inbox').'#brd-crumbs-top"><span>'.$lang_profile['Private messages'].'</span></a></li>';
 
 	if ($forum_user['g_id'] == FORUM_ADMIN || ($forum_user['g_moderator'] == '1' && $forum_user['g_mod_ban_users'] && !$forum_page['own_profile']))
 		$forum_page['main_menu']['admin'] = '<li'.(($section == 'admin') ? ' class="active"' : '').'><a href="'.forum_link($forum_url['profile'], array($id, 'admin')).'#brd-crumbs-top"><span>'.$lang_profile['Section admin'].'</span></a></li>';
@@ -1818,18 +1735,18 @@ else
 
 		$forum_page['user_ident']['username'] = '<li class="username'.(($user['realname'] =='') ? ' fn nickname' :  ' nickname').'"><strong>'.forum_htmlencode($user['username']).'</strong>'.(($user['sex'] != '0') ? $sex_pic :  '').'</li>';
 
+		$forum_page['user_ident']['usertitle'] = '<li class="usertitle"><span>'.get_title($user).'</span></li>';
+
 		if ($forum_config['o_avatars'])
 		{
 			if (!defined('FORUM_FUNCTIONS_GENERATE_AVATAR'))
 				require FORUM_ROOT.'include/functions/generate_avatar_markup.php';
 
-			$forum_page['avatar_markup'] = generate_avatar_markup($id);
+			$forum_page['avatar_markup'] = generate_avatar_markup($id, $user['avatar'], $user['email']);
 
 			if (!empty($forum_page['avatar_markup']))
 				$forum_page['user_ident']['avatar'] = '<li class="useravatar">'.$forum_page['avatar_markup'].'</li>';
 		}
-
-		$forum_page['user_ident']['usertitle'] = '<li class="usertitle"><span>'.get_title($user).'</span></li>';
 
 		// Create array for private information
 		$forum_page['user_private'] = array();
@@ -1847,7 +1764,7 @@ else
 			$forum_page['user_info']['location'] = '<li><span>'.$lang_profile['From'].': <strong> '.forum_htmlencode(($forum_config['o_censoring']) ? censor_words($user['location']) : $user['location']).'</strong></span></li>';
 
 		if ($user['country'] != '')
-			$forum_page['user_info']['country'] = '<li><span>'.$lang_profile['Country'].': <strong>'.$lang_country[$user['country']].'</strong> <img src="'.$base_url.'/img/flags/'.$user['country'].'" alt="'.$lang_country[$user['country']].'"/></span></li>';
+			$forum_page['user_info']['country'] = '<li><span>'.$lang_profile['Country'].': <strong>'.$lang_country[$user['country']].'</strong> <img src="'.$base_url.'/img/flags/'.$user['country'].'.gif" alt="'.$lang_country[$user['country']].'"/></span></li>';
 
 		$forum_page['user_info']['registered'] = '<li><span>'.$lang_profile['Registered'].': <strong> '.format_time($user['registered'], 1).'</strong></span></li>';
 		$forum_page['user_info']['lastpost'] = '<li><span>'.$lang_profile['Last post'].': <strong> '.format_time($user['last_post']).'</strong></span></li>';
@@ -1856,9 +1773,9 @@ else
 		$num_posts_day = $user['num_posts'] > 0 ? substr($user['num_posts']/(floor((time()-$user['registered'])/84600) + (((time()-$user['registered'])%84600)?1:0)), 0, 5) : 0;
 
  		if ($forum_config['o_show_post_count'] || $forum_user['is_admmod'])
-			$forum_page['user_info']['posts'] = '<li><span>'.$lang_profile['Posts'].': <strong>'.forum_number_format($user['num_posts']).'</strong> <strong>'.($user['num_posts'] > 0 ? sprintf($lang_profile['Posts day'], $num_posts_day) : '').'</strong></span></li>';
+			$forum_page['user_info']['posts'] = '<li><span>'.$lang_profile['Posts'].': <strong>'.forum_number_format($user['num_posts']).'</strong> <strong>'.($user['num_posts'] > 0 ? sprintf($lang_profile['Posts in day'], $num_posts_day) : '').'</strong></span></li>';
 		else
-			$forum_page['user_private']['posts'] = '<li><span>'.$lang_profile['Posts'].': <strong>'.forum_number_format($user['num_posts']).'</strong> <strong>'.($user['num_posts'] > 0 ? sprintf($lang_profile['Posts day'], $num_posts_day) : '').'</strong></span></li>';
+			$forum_page['user_private']['posts'] = '<li><span>'.$lang_profile['Posts'].': <strong>'.forum_number_format($user['num_posts']).'</strong> <strong>'.($user['num_posts'] > 0 ? sprintf($lang_profile['Posts in day'], $num_posts_day) : '').'</strong></span></li>';
 
 		if ($forum_user['is_admmod'] && $user['admin_note'] != '')
 			$forum_page['user_private']['note'] = '<li><span>'.$lang_profile['Note'].': <strong>'.forum_htmlencode($user['admin_note']).'</strong></span></li>';
@@ -1877,10 +1794,7 @@ else
 			$forum_page['user_private']['forum-mail'] = '<li><span class="prof email">'.$lang_profile['E-mail'].': <a href="'.forum_link($forum_url['email'], $id).'">'.$lang_profile['Send forum e-mail'].'</a></span></li>';
 
 		if (!$forum_user['is_guest'] && $forum_user['id'] != $user['id'])
-		{
-
-			$forum_page['user_contact']['pm']= '<li><span class="prof pm"><a class="contact" href="'.forum_link($forum_url['pm_post_link'], array($forum_user['id'], $id)).'">'.$lang_profile['Send PM'].'</a></span></li>';
-		}
+			$forum_page['user_contact']['pm']= '<li><span class="prof pm"><a class="contact" href="'.forum_link($forum_url['pm_post'], $id).'">'.$lang_profile['Send PM'].'</a></span></li>';
 
 		if ($user['url'] != '')
 		{
@@ -1892,9 +1806,6 @@ else
 			$forum_page['url'] = '<a href="'.forum_link('click.php').'?'.$user['url'].'" class="external url" rel="me" onclick="window.open(this.href); return false">'.$user['url'].'</a>';
 			$forum_page['user_contact']['website'] = '<li><span class="prof website">'.$lang_profile['Website'].': '.$forum_page['url'].'</span></li>';
 		}
-
-		if ($forum_config['o_show_ua_info'] && $user['user_agent'])
-			$forum_page['user_private']['useragent']= '<li><span class="prof browser">'.$lang_profile['OS and Browser'].': '.useragent_info($user['user_agent']).'</span></li>';
 
 		if ($forum_user['is_admmod'])
 			$forum_page['user_private']['ip']= '<li><span class="prof ip">'.$lang_profile['IP'].': <a href="'.forum_link($forum_url['get_host'], forum_htmlencode($user['registration_ip'])).'">'.forum_htmlencode($user['registration_ip']).'</a> <a href="'.forum_link('click.php').'?http://www.ripe.net/whois?form_type=simple&amp;full_query_string=&amp;searchtext='.forum_htmlencode($user['registration_ip']).'&amp;do_search=Search" onclick="window.open(this.href); return false">Whois</a></span></li>';
@@ -1922,6 +1833,15 @@ else
 			$forum_page['user_contact']['mirtesen'] = '<li><span class="prof mirtesen"><a href="'.forum_link('click.php').'?http://mirtesen.ru/people/'.forum_htmlencode($user['mirtesen']).'" onclick="window.open(this.href); return false" rel="nofollow">'.$lang_profile['Mirtesen'].'</a></span></li>';
 		if ($user['moikrug'] != '')
 			$forum_page['user_contact']['moikrug'] = '<li><span class="prof moikrug"><a href="'.forum_link('click.php').'?http://'.forum_htmlencode($user['moikrug']).'.moikrug.ru/" onclick="window.open(this.href); return false" rel="nofollow">'.$lang_profile['Moikrug'].'</a></span></li>';
+		if ($user['facebook'] != '')
+		{
+			$facebook_url = preg_match('([0-9])', $user['facebook'], $matches) ? 'profile.php?id=' : '';
+			$forum_page['user_contact']['facebook'] = '<li><span class="prof facebook"><a href="'.forum_link('click.php').'?http://facebook.com/'.$facebook_url.forum_htmlencode($user['facebook']).'" onclick="window.open(this.href); return false" rel="nofollow">'.$lang_profile['Facebook'].'</a></span></li>';
+		}
+		if ($user['twitter'] != '')
+			$forum_page['user_contact']['twitter'] = '<li><span class="prof twitter"><a href="'.forum_link('click.php').'?http://twitter.com/'.forum_htmlencode($user['twitter']).'" onclick="window.open(this.href); return false" rel="nofollow">'.$lang_profile['Twitter'].'</a></span></li>';
+		if ($user['lastfm'] != '')
+			$forum_page['user_contact']['lastfm'] = '<li><span class="prof lastfm"><a href="'.forum_link('click.php').'?http://last.fm/user/'.forum_htmlencode($user['lastfm']).'" onclick="window.open(this.href); return false" rel="nofollow">'.$lang_profile['Last.fm'].'</a></span></li>';
 
 		// Setup signature demo
 		if ($forum_config['o_signatures'] && isset($parsed_signature))
@@ -1931,21 +1851,21 @@ else
 		if ($forum_user['g_search'] || $forum_user['is_admmod'])
 		{
 			$forum_page['user_activity'] = array();
-			$forum_page['user_activity']['search_posts'] = '<span'.(empty($forum_page['user_activity']) ? ' class="item1"' : '').'><a href="'.forum_link($forum_url['search_user_posts'], $id).'">'.(($forum_page['own_profile']) ? $lang_profile['View your posts'] : sprintf($lang_profile['View user posts'], forum_htmlencode($user['username']))).'</a></span>';
-			$forum_page['user_activity']['search_topics'] = '<span'.(empty($forum_page['user_activity']) ? ' class="item1"' : '').'><a href="'.forum_link($forum_url['search_user_topics'], $id).'">'.(($forum_page['own_profile']) ? $lang_profile['View your topics'] : sprintf($lang_profile['View user topics'], forum_htmlencode($user['username']))).'</a></span>';
+			$forum_page['user_activity']['search_posts'] = '<span'.(empty($forum_page['user_activity']) ? ' class="first-item"' : '').'><a href="'.forum_link($forum_url['search_user_posts'], $id).'">'.(($forum_page['own_profile']) ? $lang_profile['View your posts'] : sprintf($lang_profile['View user posts'], forum_htmlencode($user['username']))).'</a></span>';
+			$forum_page['user_activity']['search_topics'] = '<span'.(empty($forum_page['user_activity']) ? ' class="first-item"' : '').'><a href="'.forum_link($forum_url['search_user_topics'], $id).'">'.(($forum_page['own_profile']) ? $lang_profile['View your topics'] : sprintf($lang_profile['View user topics'], forum_htmlencode($user['username']))).'</a></span>';
 		}
 
 		if (($forum_page['own_profile'] || $forum_user['g_id'] == FORUM_ADMIN) && $forum_config['o_subscriptions'])
-			 $forum_page['user_activity']['search_subs'] = '<span'.(empty($forum_page['user_activity']) ? ' class="item1"' : '').'><a href="'.forum_link($forum_url['search_subscriptions'], $id).'">'.(($forum_page['own_profile']) ? $lang_profile['View your subscriptions'] : sprintf($lang_profile['View user subscriptions'], forum_htmlencode($user['username']))).'</a></span>';
+			 $forum_page['user_activity']['search_subs'] = '<span'.(empty($forum_page['user_activity']) ? ' class="first-item"' : '').'><a href="'.forum_link($forum_url['search_subscriptions'], $id).'">'.(($forum_page['own_profile']) ? $lang_profile['View your subscriptions'] : sprintf($lang_profile['View user subscriptions'], forum_htmlencode($user['username']))).'</a></span>';
 
 		// Setup user options
 		$forum_page['user_options'] = array();
 
 		if ($forum_page['own_profile'] || $forum_user['g_id'] == FORUM_ADMIN || ($forum_user['g_moderator'] && $forum_user['g_mod_change_passwords']))
-			$forum_page['user_options']['change_password'] = '<span'.(empty($forum_page['user_options']) ? ' class="item1"' : '').'><a href="'.forum_link($forum_url['change_password'], $id).'">'.(($forum_page['own_profile']) ? $lang_profile['Change your password'] : sprintf($lang_profile['Change user password'], forum_htmlencode($user['username']))).'</a></span>';
+			$forum_page['user_options']['change_password'] = '<span'.(empty($forum_page['user_options']) ? ' class="first-item"' : '').'><a href="'.forum_link($forum_url['change_password'], $id).'">'.(($forum_page['own_profile']) ? $lang_profile['Change your password'] : sprintf($lang_profile['Change user password'], forum_htmlencode($user['username']))).'</a></span>';
 
 		if (!$forum_user['is_admmod'])
-			$forum_page['user_options']['change_email'] = '<span'.(empty($forum_page['user_options']) ? ' class="item1"' : '').'><a href="'.forum_link($forum_url['change_email'], $id).'">'.(($forum_page['own_profile']) ? $lang_profile['Change your e-mail'] : sprintf($lang_profile['Change user e-mail'], forum_htmlencode($user['username']))).'</a></span>';
+			$forum_page['user_options']['change_email'] = '<span'.(empty($forum_page['user_options']) ? ' class="first-item"' : '').'><a href="'.forum_link($forum_url['change_email'], $id).'">'.(($forum_page['own_profile']) ? $lang_profile['Change your e-mail'] : sprintf($lang_profile['Change user e-mail'], forum_htmlencode($user['username']))).'</a></span>';
 
 		$forum_page['group_count'] = $forum_page['item_count'] = $forum_page['fld_count'] = 0;
 
@@ -1954,7 +1874,7 @@ else
 		define('FORUM_PAGE', 'profile-about');
 		require FORUM_ROOT.'header.php';
 
-		// START SUBST - <!-- forum_main -->
+		// START SUBST - <forum_main>
 		ob_start();
 
 		($hook = get_hook('pf_change_details_about_output_start')) ? eval($hook) : null;
@@ -2020,9 +1940,9 @@ else
 		($hook = get_hook('pf_change_details_about_end')) ? eval($hook) : null;
 
 		$tpl_temp = forum_trim(ob_get_contents());
-		$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+		$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 		ob_end_clean();
-		// END SUBST - <!-- forum_main -->
+		// END SUBST - <forum_main>
 
 		require FORUM_ROOT.'footer.php';
 	}
@@ -2045,7 +1965,7 @@ else
 
 		$forum_page['hidden_fields'] = array(
 			'form_sent'		=> '<input type="hidden" name="form_sent" value="1" />',
-			'csrf_token'		=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
+			'csrf_token'	=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
 		);
 
 		if ($forum_user['is_admmod'] && ($forum_user['g_id'] == FORUM_ADMIN || $forum_user['g_mod_rename_users']))
@@ -2059,7 +1979,7 @@ else
 		define('FORUM_PAGE', 'profile-identity');
 		require FORUM_ROOT.'header.php';
 
-		// START SUBST - <!-- forum_main -->
+		// START SUBST - <forum_main>
 		ob_start();
 
 		($hook = get_hook('pf_change_details_identity_output_start')) ? eval($hook) : null;
@@ -2105,7 +2025,7 @@ if ($forum_page['has_required']): ?>		<div id="req-msg" class="req-warn ct-box e
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text required">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Username'] ?> <em><?php echo $lang_common['Required'] ?></em></span> <small><?php echo $lang_profile['Username help'] ?></small></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_username" value="<?php echo(isset($_POST['req_username']) ? forum_htmlencode($_POST['req_username']) : forum_htmlencode($user['username'])) ?>" size="35" maxlength="25" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_username" value="<?php echo(isset($_POST['req_username']) ? forum_htmlencode($_POST['req_username']) : forum_htmlencode($user['username'])) ?>" size="35" maxlength="25" /></span>
 					</div>
 				</div>
 <?php endif; ($hook = get_hook('pf_change_details_identity_pre_email')) ? eval($hook) : null; ?>
@@ -2113,7 +2033,7 @@ if ($forum_page['has_required']): ?>		<div id="req-msg" class="req-warn ct-box e
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text required">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['E-mail'] ?> <em><?php echo $lang_common['Required'] ?></em></span> <small><?php echo $lang_profile['E-mail help'] ?></small></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_email" value="<?php echo(isset($_POST['req_email']) ? forum_htmlencode($_POST['req_email']) : forum_htmlencode($user['email'])) ?>" size="35" maxlength="80" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_email" value="<?php echo(isset($_POST['req_email']) ? forum_htmlencode($_POST['req_email']) : forum_htmlencode($user['email'])) ?>" size="35" maxlength="80" /></span>
 					</div>
 				</div>
 <?php endif; ($hook = get_hook('pf_change_details_identity_pre_req_info_fieldset_end')) ? eval($hook) : null; ?>
@@ -2126,9 +2046,10 @@ if ($forum_page['has_required']): ?>		<div id="req-msg" class="req-warn ct-box e
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Realname'] ?></span></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[realname]" value="<?php echo(isset($form['realname']) ? forum_htmlencode($form['realname']) : forum_htmlencode($user['realname'])) ?>" size="35" maxlength="40" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[realname]" value="<?php echo(isset($form['realname']) ? forum_htmlencode($form['realname']) : forum_htmlencode($user['realname'])) ?>" size="35" maxlength="40" /></span>
 					</div>
 				</div>
+<?php ($hook = get_hook('pf_fl_change_details_identity_pre_sex')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Sex'] ?></span></label><br />
@@ -2143,7 +2064,7 @@ if ($forum_page['has_required']): ?>		<div id="req-msg" class="req-warn ct-box e
 <?php if ($forum_user['g_set_title']): ?>				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Title'] ?></span><small><?php echo $lang_profile['Leave blank'] ?></small></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="title" value="<?php echo(isset($_POST['title']) ? forum_htmlencode($_POST['title']) : forum_htmlencode($user['title'])) ?>" size="35" maxlength="50" class="inputbox" /></span><br />
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="title" value="<?php echo(isset($_POST['title']) ? forum_htmlencode($_POST['title']) : forum_htmlencode($user['title'])) ?>" size="35" maxlength="50" /></span><br />
 					</div>
 				</div>
 <?php endif; ?>
@@ -2151,7 +2072,7 @@ if ($forum_page['has_required']): ?>		<div id="req-msg" class="req-warn ct-box e
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Location'] ?></span></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[location]" value="<?php echo((isset($form['location']) ? forum_htmlencode($form['location']) : forum_htmlencode($user['location']))) ?>" size="35" maxlength="30" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[location]" value="<?php echo((isset($form['location']) ? forum_htmlencode($form['location']) : forum_htmlencode($user['location']))) ?>" size="35" maxlength="30" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('pf_change_details_identity_pre_country')) ? eval($hook) : null; ?>
@@ -2174,14 +2095,15 @@ if ($forum_page['has_required']): ?>		<div id="req-msg" class="req-warn ct-box e
 <?php if ($forum_user['g_id'] == FORUM_ADMIN): ?>				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Edit count'] ?></span></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="num_posts" value="<?php echo $user['num_posts'] ?>" size="8" maxlength="8" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="num_posts" value="<?php echo $user['num_posts'] ?>" size="8" maxlength="8" /></span>
 					</div>
 				</div>
 <?php endif; ($hook = get_hook('pf_change_details_identity_pre_admin_note')) ? eval($hook) : null; ?>
-<?php if ($forum_user['is_admmod']): ?>				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
+<?php if ($forum_user['is_admmod']): ?>
+				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Admin note'] ?></span></label><br />
-						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="admin_note" value="<?php echo(isset($_POST['admin_note']) ? forum_htmlencode($_POST['admin_note']) : forum_htmlencode($user['admin_note'])) ?>" size="35" maxlength="30" class="inputbox" /></span>
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="admin_note" value="<?php echo(isset($_POST['admin_note']) ? forum_htmlencode($_POST['admin_note']) : forum_htmlencode($user['admin_note'])) ?>" size="35" maxlength="30" /></span>
 					</div>
 				</div>
 <?php endif; ($hook = get_hook('pf_change_details_identity_pre_personal_fieldset_end')) ? eval($hook) : null; ?>
@@ -2193,56 +2115,56 @@ if ($forum_page['has_required']): ?>		<div id="req-msg" class="req-warn ct-box e
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="website"><?php echo $lang_profile['Website'] ?></span></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[url]" value="<?php echo(isset($form['url']) ? forum_htmlencode($form['url']) : forum_htmlencode($user['url'])) ?>" size="50" maxlength="80" class="inputbox website inim" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[url]" value="<?php echo(isset($form['url']) ? forum_htmlencode($form['url']) : forum_htmlencode($user['url'])) ?>" size="50" maxlength="80" class="website inim" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('pf_change_details_identity_pre_jabber')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="jabber"><?php echo $lang_profile['Jabber'] ?></span></label><br />
-						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[jabber]" value="<?php echo(isset($form['jabber']) ? forum_htmlencode($form['jabber']) : forum_htmlencode($user['jabber'])) ?>" size="40" maxlength="80" class="inputbox jabber inim" /></span>
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[jabber]" value="<?php echo(isset($form['jabber']) ? forum_htmlencode($form['jabber']) : forum_htmlencode($user['jabber'])) ?>" size="40" maxlength="80" class="jabber inim" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('pf_change_details_identity_pre_icq')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="icq"><?php echo $lang_profile['ICQ'] ?></span></label><br />
-						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[icq]" value="<?php echo(isset($form['icq']) ? forum_htmlencode($form['icq']) : $user['icq']) ?>" size="12" maxlength="12" class="inputbox icq inim" /></span>
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[icq]" value="<?php echo(isset($form['icq']) ? forum_htmlencode($form['icq']) : $user['icq']) ?>" size="12" maxlength="12" class="icq inim" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('pf_change_details_identity_pre_msn')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="msn"><?php echo $lang_profile['MSN'] ?></span></label><br />
-						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[msn]" value="<?php echo(isset($form['msn']) ? forum_htmlencode($form['msn']) : forum_htmlencode($user['msn'])) ?>" size="40" maxlength="80" class="inputbox msn inim" /></span>
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[msn]" value="<?php echo(isset($form['msn']) ? forum_htmlencode($form['msn']) : forum_htmlencode($user['msn'])) ?>" size="40" maxlength="80" class="msn inim" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('pf_change_details_identity_pre_aim')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="aim"><?php echo $lang_profile['AOL IM'] ?></span></label><br />
-						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[aim]" value="<?php echo(isset($form['aim']) ? forum_htmlencode($form['aim']) : forum_htmlencode($user['aim'])) ?>" size="20" maxlength="30" class="inputbox aim inim" /></span>
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[aim]" value="<?php echo(isset($form['aim']) ? forum_htmlencode($form['aim']) : forum_htmlencode($user['aim'])) ?>" size="20" maxlength="30" class="aim inim" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('pf_change_details_identity_pre_yahoo')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="yahoo"><?php echo $lang_profile['Yahoo'] ?></span></label><br />
-						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[yahoo]" value="<?php echo(isset($form['yahoo']) ? forum_htmlencode($form['yahoo']) : forum_htmlencode($user['yahoo'])) ?>" size="20" maxlength="30" class="inputbox yahoo inim" /></span>
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[yahoo]" value="<?php echo(isset($form['yahoo']) ? forum_htmlencode($form['yahoo']) : forum_htmlencode($user['yahoo'])) ?>" size="20" maxlength="30" class="yahoo inim" /></span>
 					</div>
 				</div>
-<?php ($hook = get_hook('pf_change_details_identity_pre_skype')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('pf_fl_change_details_identity_pre_skype')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="skype"><?php echo $lang_profile['Skype'] ?></span></label><br />
-						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[skype]" value="<?php echo(isset($form['skype']) ? forum_htmlencode($form['skype']) : forum_htmlencode($user['skype'])) ?>" size="20" maxlength="30" class="inputbox skype inim" /></span>
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[skype]" value="<?php echo(isset($form['skype']) ? forum_htmlencode($form['skype']) : forum_htmlencode($user['skype'])) ?>" size="20" maxlength="30" class="skype inim" /></span>
 					</div>
 				</div>
-<?php ($hook = get_hook('pf_change_details_identity_pre_magent')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('pf_fl_change_details_identity_pre_magent')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="magent"><?php echo $lang_profile['Mail Agent'] ?></span></label><br />
-						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[magent]" value="<?php echo(isset($form['magent']) ? forum_htmlencode($form['magent']) : forum_htmlencode($user['magent'])) ?>" size="40" maxlength="80" class="inputbox magent inim" /></span>
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[magent]" value="<?php echo(isset($form['magent']) ? forum_htmlencode($form['magent']) : forum_htmlencode($user['magent'])) ?>" size="40" maxlength="80" class="magent inim" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('pf_change_details_identity_pre_contact_fieldset_end')) ? eval($hook) : null; ?>
@@ -2250,32 +2172,59 @@ if ($forum_page['has_required']): ?>		<div id="req-msg" class="req-warn ct-box e
 <?php ($hook = get_hook('pf_change_details_identity_contact_fieldset_end')) ? eval($hook) : null; ?>
 <?php $forum_page['item_count'] = 0; ?>
 			<fieldset class="frm-group group<?php echo ++$forum_page['group_count'] ?>">
-<?php ($hook = get_hook('pf_change_details_identity_pre_vkontakte')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('pf_fl_change_details_identity_pre_vkontakte')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="vkontakte"><?php echo $lang_profile['Vkontakte'] ?></span></label><br />
-						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[vkontakte]" value="<?php echo(isset($form['vkontakte']) ? 'http://vkontakte.ru/id'.forum_htmlencode($form['vkontakte']) : (empty($user['vkontakte']) ? '' : 'http://vkontakte.ru/id'.forum_htmlencode($user['vkontakte']))) ?>" size="40" maxlength="80" class="inputbox vkontakte inim" /></span>
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[vkontakte]" value="<?php echo(isset($form['vkontakte']) && empty($form['vkontakte']) ? forum_htmlencode($form['vkontakte']) : (empty($user['vkontakte']) ? '' : 'http://vkontakte.ru/id'.forum_htmlencode($user['vkontakte']))) ?>" size="40" maxlength="80" class="vkontakte inim" /></span>
 					</div>
 				</div>
-<?php ($hook = get_hook('pf_change_details_identity_pre_classmates')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('pf_fl_change_details_identity_pre_classmates')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="classmates"><?php echo $lang_profile['Сlassmates'] ?></span></label><br />
-						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[classmates]" value="<?php echo(isset($form['classmates']) ? forum_htmlencode($form['classmates']) : forum_htmlencode($user['classmates'])) ?>" size="40" maxlength="80" class="inputbox classmates inim" /></span>
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[classmates]" value="<?php echo(isset($form['classmates']) && empty($form['classmates']) ? forum_htmlencode($form['classmates']) : forum_htmlencode($user['classmates'])) ?>" size="40" maxlength="80" class="classmates inim" /></span>
 					</div>
 				</div>
-<?php ($hook = get_hook('pf_change_details_identity_pre_mirtesen')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('pf_fl_change_details_identity_pre_mirtesen')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="mirtesen"><?php echo $lang_profile['Mirtesen'] ?></span></label><br />
-						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[mirtesen]" value="<?php echo(isset($form['mirtesen']) ? 'http://mirtesen.ru/people/'.forum_htmlencode($form['mirtesen']) : (empty($user['mirtesen']) ? '' : 'http://mirtesen.ru/people/'.forum_htmlencode($user['mirtesen']))) ?>" size="40" maxlength="80" class="inputbox mirtesen inim" /></span>
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[mirtesen]" value="<?php echo(isset($form['mirtesen']) && empty($form['mirtesen']) ? forum_htmlencode($form['mirtesen']) : (empty($user['mirtesen']) ? '' : 'http://mirtesen.ru/people/'.forum_htmlencode($user['mirtesen']))) ?>" size="40" maxlength="80" class="mirtesen inim" /></span>
 					</div>
 				</div>
-<?php ($hook = get_hook('pf_change_details_identity_pre_moikrug')) ? eval($hook) : null; ?>
+<?php ($hook = get_hook('pf_fl_change_details_identity_pre_moikrug')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="moikrug"><?php echo $lang_profile['Moikrug'] ?></span></label><br />
-						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[moikrug]" value="<?php echo(isset($form['moikrug']) ? 'http://'.forum_htmlencode($form['moikrug']).'.moikrug.ru/' : (empty($user['moikrug']) ? '' : 'http://'.forum_htmlencode($user['moikrug']).'.moikrug.ru/')) ?>" size="40" maxlength="80" class="inputbox moikrug inim" /></span>
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[moikrug]" value="<?php echo(isset($form['moikrug']) && empty($form['moikrug']) ? forum_htmlencode($form['moikrug']) : (empty($user['moikrug']) ? '' : 'http://'.forum_htmlencode($user['moikrug']).'.moikrug.ru/')) ?>" size="40" maxlength="80" class="moikrug inim" /></span>
+					</div>
+				</div>
+<?php
+
+($hook = get_hook('pf_fl_change_details_identity_pre_facebook')) ? eval($hook) : null;
+
+$facebook_url = preg_match('([0-9])', $user['facebook'], $matches) ? 'profile.php?id=' : '';
+
+?>
+				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
+					<div class="sf-box text">
+						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="facebook"><?php echo $lang_profile['Facebook'] ?></span></label><br />
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[facebook]" value="<?php echo(isset($form['facebook']) && empty($form['facebook']) ? forum_htmlencode($form['facebook']) : (empty($user['facebook']) ? '' : 'http://facebook.com/'.$facebook_url.forum_htmlencode($user['facebook']))) ?>" size="40" maxlength="80" class="facebook inim" /></span>
+					</div>
+				</div>
+<?php ($hook = get_hook('pf_fl_change_details_identity_pre_twitter')) ? eval($hook) : null; ?>
+				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
+					<div class="sf-box text">
+						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="twitter"><?php echo $lang_profile['Twitter'] ?></span></label><br />
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[twitter]" value="<?php echo(isset($form['twitter']) && empty($form['twitter']) ? forum_htmlencode($form['twitter']) : (empty($user['twitter']) ? '' : 'http://twitter.com/'.forum_htmlencode($user['twitter']))) ?>" size="40" maxlength="80" class="twitter inim" /></span>
+					</div>
+				</div>
+<?php ($hook = get_hook('pf_fl_change_details_identity_pre_lastfm')) ? eval($hook) : null; ?>
+				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
+					<div class="sf-box text">
+						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="prof" id="lastfm"><?php echo $lang_profile['Last.fm'] ?></span></label><br />
+						<span class="fld-input"><input id="fld<?php echo $forum_page['fld_count'] ?>" type="text" name="form[lastfm]" value="<?php echo(isset($form['lastfmr']) && empty($form['lastfm']) ? forum_htmlencode($form['lastfm']) : (empty($user['lastfm']) ? '' : 'http://last.fm/user/'.forum_htmlencode($user['lastfm']))) ?>" size="40" maxlength="80" class="lastfm inim" /></span>
 					</div>
 				</div>
 			</fieldset>
@@ -2289,21 +2238,20 @@ if ($forum_page['has_required']): ?>		<div id="req-msg" class="req-warn ct-box e
 		($hook = get_hook('pf_change_details_identity_end')) ? eval($hook) : null;
 
 		$tpl_temp = forum_trim(ob_get_contents());
-		$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+		$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 		ob_end_clean();
-		// END SUBST - <!-- forum_main -->
+		// END SUBST - <forum_main>
 
 		require FORUM_ROOT.'footer.php';
 	}
 
 	else if ($section == 'settings')
 	{
-
 		// Setup breadcrumbs
 		$forum_page['crumbs'] = array(
 			array($forum_config['o_board_title'], forum_link($forum_url['index'])),
 			array(sprintf($lang_profile['Users profile'], $user['username']), forum_link($forum_url['user'], $id)),
-			array($lang_profile['Section settings'],forum_link($forum_url['profile'], array($id, 'settings')))
+			array($lang_profile['Section settings'], forum_link($forum_url['profile'], array($id, 'settings')))
 		);
 
 		// Check for use of incorrect URLs
@@ -2318,7 +2266,7 @@ if ($forum_page['has_required']): ?>		<div id="req-msg" class="req-warn ct-box e
 
 		$forum_page['hidden_fields'] = array(
 			'form_sent'		=> '<input type="hidden" name="form_sent" value="1" />',
-			'csrf_token'		=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
+			'csrf_token'	=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
 		);
 
 		($hook = get_hook('pf_change_details_settings_pre_header_load')) ? eval($hook) : null;
@@ -2326,7 +2274,7 @@ if ($forum_page['has_required']): ?>		<div id="req-msg" class="req-warn ct-box e
 		define('FORUM_PAGE', 'profile-settings');
 		require FORUM_ROOT.'header.php';
 
-		// START SUBST - <!-- forum_main -->
+		// START SUBST - <forum_main>
 		ob_start();
 
 		($hook = get_hook('pf_change_details_settings_output_start')) ? eval($hook) : null;
@@ -2519,50 +2467,46 @@ if ($forum_page['has_required']): ?>		<div id="req-msg" class="req-warn ct-box e
 				<fieldset class="mf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<legend><span><?php echo $lang_profile['Image display'] ?></span></legend>
 					<div class="mf-box">
-<?php if ($forum_config['o_smilies'] || $forum_config['o_smilies_sig']): ?>						<div class="mf-item">
+<?php if ($forum_config['o_smilies'] || $forum_config['o_smilies_sig']): ?>
+						<div class="mf-item">
 							<span class="fld-input"><input type="checkbox" id="fld<?php echo ++$forum_page['fld_count'] ?>" name="form[show_smilies]" value="1"<?php if ($user['show_smilies']) echo ' checked="checked"' ?> /></span>
 							<label for="fld<?php echo $forum_page['fld_count'] ?>"><?php echo $lang_profile['Show smilies'] ?></label>
 						</div>
-<?php endif; if ($forum_config['o_avatars']): ?>											<div class="mf-item">
+<?php endif; if ($forum_config['o_avatars']): ?>
+						<div class="mf-item">
 							<span class="fld-input"><input type="checkbox" id="fld<?php echo ++$forum_page['fld_count'] ?>" name="form[show_avatars]" value="1"<?php if ($user['show_avatars']) echo ' checked="checked"' ?> /></span>
 							<label for="fld<?php echo $forum_page['fld_count'] ?>"><?php echo $lang_profile['Show avatars'] ?></label>
 						</div>
-<?php endif; if ($forum_config['p_message_img_tag']): ?>										<div class="mf-item">
+<?php endif; if ($forum_config['p_message_img_tag']): ?>
+						<div class="mf-item">
 							<span class="fld-input"><input type="checkbox" id="fld<?php echo ++$forum_page['fld_count'] ?>" name="form[show_img]" value="1"<?php if ($user['show_img'] == '1') echo ' checked="checked"' ?> /></span>
 							<label for="fld<?php echo $forum_page['fld_count'] ?>"><?php echo $lang_profile['Show images'] ?></label>
 						</div>
-<?php endif; if ($forum_config['o_signatures'] && $forum_config['p_sig_img_tag']): ?>						<div class="mf-item">
+<?php endif; if ($forum_config['o_signatures'] && $forum_config['p_sig_img_tag']): ?>
+						<div class="mf-item">
 							<span class="fld-input"><input type="checkbox" id="fld<?php echo ++$forum_page['fld_count'] ?>" name="form[show_img_sig]" value="1"<?php if ($user['show_img_sig']) echo ' checked="checked"' ?> /></span>
 							<label for="fld<?php echo $forum_page['fld_count'] ?>"><?php echo $lang_profile['Show images sigs'] ?></label>
 						</div>
-<?php endif; ?>
-<?php ($hook = get_hook('pf_change_details_settings_new_image_display_option')) ? eval($hook) : null; ?>
+<?php endif; ($hook = get_hook('pf_change_details_settings_new_image_display_option')) ? eval($hook) : null; ?>
 					</div>
 <?php ($hook = get_hook('pf_change_details_settings_pre_image_display_fieldset_end')) ? eval($hook) : null; ?>
 				</fieldset>
-<?php ($hook = get_hook('pf_change_details_settings_pre_show_sigs_checkbox')) ? eval($hook) : null; ?>
-<?php if ($forum_config['o_signatures']): ?>				
+<?php ($hook = get_hook('pf_change_details_settings_pre_show_sigs_checkbox')) ? eval($hook) : null; if ($forum_config['o_signatures']): ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box checkbox">
 						<span class="fld-input"><input type="checkbox" id="fld<?php echo ++$forum_page['fld_count'] ?>" name="form[show_sig]" value="1"<?php if ($user['show_sig']) echo ' checked="checked"' ?> /></span>
 						<label for="fld<?php echo $forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Signature display'] ?></span> <?php echo $lang_profile['Show sigs'] ?></label>
 					</div>
 				</div>
-<?php ($hook = get_hook('pf_change_details_settings_pre_show_bb_panel_checkbox')) ? eval($hook) : null;
-if ($forum_config['p_enable_bb_panel']):
-?>
+<?php  endif; ($hook = get_hook('pf_change_details_settings_pre_show_bb_panel_checkbox')) ? eval($hook) : null; if ($forum_config['p_enable_bb_panel']): ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box checkbox">
 						<span class="fld-input"><input type="checkbox" id="fld<?php echo ++$forum_page['fld_count'] ?>" name="form[show_bb_panel]" value="1"<?php if ($user['show_bb_panel']) echo ' checked="checked"' ?> /></span>
-						<label for="fld<?php echo $forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Signature bb panel'] ?></span> <?php echo $lang_profile['Show bb panel'] ?></label>
+						<label for="fld<?php echo $forum_page['fld_count'] ?>"><span><?php echo $lang_profile['BB panel display'] ?></span> <?php echo $lang_profile['Show bb panel'] ?></label>
 					</div>
 				</div>
-<?php
-
-endif;
-
-($hook = get_hook('pf_change_details_settings_pre_display_fieldset_end')) ? eval($hook) : null; ?>
-<?php endif; ?>			</fieldset>
+<?php endif; ($hook = get_hook('pf_change_details_settings_pre_display_fieldset_end')) ? eval($hook) : null; ?>
+			</fieldset>
 <?php ($hook = get_hook('pf_change_details_settings_display_fieldset_end')) ? eval($hook) : null; ?>
 <?php $forum_page['item_count'] = 0; ?>
 <?php ($hook = get_hook('pf_change_details_settings_pre_pagination_fieldset')) ? eval($hook) : null; ?>
@@ -2572,14 +2516,14 @@ endif;
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Topics per page'] ?></span> <small><?php echo $lang_profile['Leave blank'] ?></small></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[disp_topics]" value="<?php echo $user['disp_topics'] ?>" size="6" maxlength="3" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[disp_topics]" value="<?php echo $user['disp_topics'] ?>" size="6" maxlength="3" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('pf_change_details_settings_pre_disp_posts')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Posts per page'] ?></span>	<small><?php echo $lang_profile['Leave blank'] ?></small></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[disp_posts]" value="<?php echo $user['disp_posts'] ?>" size="6" maxlength="3" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[disp_posts]" value="<?php echo $user['disp_posts'] ?>" size="6" maxlength="3" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('pf_change_details_settings_pre_pagination_fieldset_end')) ? eval($hook) : null; ?>
@@ -2610,7 +2554,8 @@ endif;
 <?php ($hook = get_hook('pf_change_details_settings_pre_email_settings_fieldset_end')) ? eval($hook) : null; ?>
 				</fieldset>
 <?php ($hook = get_hook('pf_change_details_settings_email_settings_fieldset_end')) ? eval($hook) : null; ?>
-<?php if ($forum_config['o_subscriptions']): ?>				<fieldset class="mf-set set<?php echo ++$forum_page['item_count'] ?>">
+<?php if ($forum_config['o_subscriptions']): ?>
+				<fieldset class="mf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<legend><span><?php echo $lang_profile['Subscription settings'] ?></span></legend>
 					<div class="mf-box">
 						<div class="mf-item">
@@ -2625,6 +2570,7 @@ endif;
 					</div>
 <?php ($hook = get_hook('pf_change_details_settings_pre_private_messages_fieldset_end')) ? eval($hook) : null; ?>
 				</fieldset>
+<?php endif; ?>
 				<fieldset class="mf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<legend><span><?php echo $lang_profile['Private messages'] ?></span></legend>
 					<div class="mf-box">
@@ -2632,32 +2578,38 @@ endif;
 							<span class="fld-input"><input type="checkbox" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[pm_long_subject]" value="1"<?php if ($user['pm_long_subject']) echo ' checked="checked"' ?> /></span>
 							<label for="fld14"><?php echo $lang_profile['Begin message quote'] ?></label>
 						</div>
+<?php if ($forum_config['o_pm_get_mail']): ?>
 						<div class="mf-item">
 							<span class="fld-input"><input type="checkbox" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[pm_get_mail]" value="1"<?php if ($user['pm_get_mail']) echo ' checked="checked"' ?> /></span>
 							<label for="fld14"><?php echo $lang_profile['Get mail'] ?></label>
 						</div>
 					</div>
-<?php ($hook = get_hook('pf_change_details_settings_pre_reputation_fieldset_end')) ? eval($hook) : null; ?>
+<?php endif; ($hook = get_hook('pf_change_details_settings_pre_reputation_fieldset_end')) ? eval($hook) : null; ?>
 				</fieldset>
-<?php if ($forum_config['o_rep_enabled']): ?>				<fieldset class="mf-set set<?php echo ++$forum_page['item_count'] ?>">
+<?php if ($forum_config['o_rep_enabled']): ?>
+				<fieldset class="mf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<legend><span><?php echo $lang_profile['Manage reputation'] ?></span></legend>
 					<div class="mf-box">
 						<div class="mf-item">
 							<span class="fld-input"><input type="checkbox" id="fld<?php echo $forum_page['fld_count'] ?>" name="form[rep_enable]" value="1"<?php if ($user['rep_enable']) echo ' checked="checked"' ?> /></span>
-							<label for="fld14"><?php echo $lang_profile['Description Manage reputation'] ?></label>
+							<label for="fld14"><?php echo $lang_profile['Manage reputation label'] ?></label>
 						</div>
 					</div>
-				</fieldset><?php endif; ?>
-<?php ($hook = get_hook('pf_change_details_settings_subscription_fieldset_end')) ? eval($hook) : null; 
+				</fieldset>
+<?php
 
-$netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user['registration_ip'], $ip_part) ? $ip_part[1].'.'.$ip_part[2] : '0';
+endif;
+
+($hook = get_hook('pf_change_details_settings_subscription_fieldset_end')) ? eval($hook) : null;
+$ip = get_remote_address();
+$netmask = (preg_match('/^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$/', $ip, $matches) || preg_match('/^([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4})$/', $ip, $matches)) ? $matches[1].'.'.$matches[2] : '0';
 
 ?>
 				<fieldset class="mf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<legend><span><?php echo $lang_profile['Security level'] ?></span></legend>
 					<div class="mf-box">
 						<div class="mf-item">
-							<span class="fld-input"><input type="radio" id="fld<?php echo ++$forum_page['fld_count'] ?>" name="form[security_ip]" value="0"<?php if ($user['security_ip'] == $user['registration_ip']) echo ' checked="checked"' ?> /></span>
+							<span class="fld-input"><input type="radio" id="fld<?php echo ++$forum_page['fld_count'] ?>" name="form[security_ip]" value="0"<?php if ($user['security_ip'] == $ip) echo ' checked="checked"' ?> /></span>
 							<label for="fld<?php echo $forum_page['fld_count'] ?>"><?php echo $lang_profile['High security'] ?></label>
 						</div>
 						<div class="mf-item">
@@ -2670,7 +2622,6 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 						</div>
 					</div>
 				</fieldset>
-<?php endif; ?>
 			</fieldset>
 <?php ($hook = get_hook('pf_change_details_settings_pre_email_fieldset_end')) ? eval($hook) : null; ?>
 <?php $forum_page['item_count'] = 0; ?>
@@ -2685,9 +2636,9 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 		($hook = get_hook('pf_change_details_settings_end')) ? eval($hook) : null;
 
 		$tpl_temp = forum_trim(ob_get_contents());
-		$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+		$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 		ob_end_clean();
-		// END SUBST - <!-- forum_main -->
+		// END SUBST - <forum_main>
 
 		require FORUM_ROOT.'footer.php';
 	}
@@ -2698,7 +2649,7 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 		$forum_page['crumbs'] = array(
 			array($forum_config['o_board_title'], forum_link($forum_url['index'])),
 			array(sprintf($lang_profile['Users profile'], $user['username']), forum_link($forum_url['user'], $id)),
-			array($lang_profile['Section signature'],forum_link($forum_url['profile'], array($id, 'signature')))
+			array($lang_profile['Section signature'], forum_link($forum_url['profile'], array($id, 'signature')))
 		);
 
 		// Check for use of incorrect URLs
@@ -2715,24 +2666,24 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 
 		$forum_page['hidden_fields'] = array(
 			'form_sent'		=> '<input type="hidden" name="form_sent" value="1" />',
-			'csrf_token'		=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
+			'csrf_token'	=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
 		);
 
 		// Setup help
 		$forum_page['text_options'] = array();
 		if ($forum_config['p_sig_bbcode'])
-			$forum_page['text_options']['bbcode'] = '<span'.(empty($forum_page['text_options']) ? ' class="item1"' : '').'><a class="exthelp" href="'.forum_link($forum_url['help'], 'bbcode').'" title="'.sprintf($lang_common['Help page'], $lang_common['BBCode']).'">'.$lang_common['BBCode'].'</a></span>';
+			$forum_page['text_options']['bbcode'] = '<span'.(empty($forum_page['text_options']) ? ' class="first-item"' : '').'><a class="exthelp" href="'.forum_link($forum_url['help'], 'bbcode').'" title="'.sprintf($lang_common['Help page'], $lang_common['BBCode']).'">'.$lang_common['BBCode'].'</a></span>';
 		if ($forum_config['p_sig_img_tag'])
-			$forum_page['text_options']['img'] = '<span'.(empty($forum_page['text_options']) ? ' class="item1"' : '').'><a class="exthelp" href="'.forum_link($forum_url['help'], 'img').'" title="'.sprintf($lang_common['Help page'], $lang_common['Images']).'">'.$lang_common['Images'].'</a></span>';
+			$forum_page['text_options']['img'] = '<span'.(empty($forum_page['text_options']) ? ' class="first-item"' : '').'><a class="exthelp" href="'.forum_link($forum_url['help'], 'img').'" title="'.sprintf($lang_common['Help page'], $lang_common['Images']).'">'.$lang_common['Images'].'</a></span>';
 		if ($forum_config['o_smilies_sig'])
-			$forum_page['text_options']['smilies'] = '<span'.(empty($forum_page['text_options']) ? ' class="item1"' : '').'><a class="exthelp" href="'.forum_link($forum_url['help'], 'smilies').'" title="'.sprintf($lang_common['Help page'], $lang_common['Smilies']).'">'.$lang_common['Smilies'].'</a></span>';
+			$forum_page['text_options']['smilies'] = '<span'.(empty($forum_page['text_options']) ? ' class="first-item"' : '').'><a class="exthelp" href="'.forum_link($forum_url['help'], 'smilies').'" title="'.sprintf($lang_common['Help page'], $lang_common['Smilies']).'">'.$lang_common['Smilies'].'</a></span>';
 
 		($hook = get_hook('pf_change_details_signature_pre_header_load')) ? eval($hook) : null;
 
 		define('FORUM_PAGE', 'profile-signature');
 		require FORUM_ROOT.'header.php';
 
-		// START SUBST - <!-- forum_main -->
+		// START SUBST - <forum_main>
 		ob_start();
 
 		($hook = get_hook('pf_change_details_signature_output_start')) ? eval($hook) : null;
@@ -2770,11 +2721,6 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 		}
 
 ?>
-		<div class="ct-box user-box">
-			<h2 class="hn"><span><?php echo $lang_profile['Signature info'] ?></span></h2>
-
-		</div>
-
 		<form class="frm-form" method="post" accept-charset="utf-8" action="<?php echo $forum_page['form_action'] ?>">
 			<div class="hidden">
 				<?php echo implode("\n\t\t\t\t", $forum_page['hidden_fields'])."\n" ?>
@@ -2782,6 +2728,9 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 <?php ($hook = get_hook('pf_change_details_signature_pre_fieldset')) ? eval($hook) : null; ?>
 			<fieldset class="frm-group group<?php echo ++$forum_page['group_count'] ?>">
 				<legend class="group-legend"><strong><?php echo $lang_profile['Signature'] ?></strong></legend>
+				<div class="ct-box set<?php echo ++$forum_page['item_count'] ?>">
+					<p><?php echo $lang_profile['Signature info'] ?></p>
+				</div>
 <?php ($hook = get_hook('pf_change_details_signature_pre_signature_demo')) ? eval($hook) : null; ?>
 <?php if (isset($forum_page['sig_demo'])): ?>
 				<div class="ct-set info-set set<?php echo ++$forum_page['item_count'] ?>">
@@ -2790,15 +2739,17 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 						<div class="sig-demo"><?php echo $forum_page['sig_demo'] ?></div>
 					</div>
 				</div>
-<?php endif; ($hook = get_hook('pf_change_details_signature_pre_signature_text')) ? eval($hook) : null; ?>				<div class="txt-set set<?php echo ++$forum_page['item_count'] ?>">
+<?php endif; ($hook = get_hook('pf_change_details_signature_pre_signature_text')) ? eval($hook) : null; ?>
+				<div class="txt-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="txt-box textarea">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Compose signature'] ?></span> <small><?php printf($lang_profile['Sig max size'], forum_number_format($forum_config['p_sig_length']), forum_number_format($forum_config['p_sig_lines'])) ?></small></label>
-						<div class="txt-input"><span class="fld-input"><textarea id="fld<?php echo $forum_page['fld_count'] ?>" class="inputbox" name="signature" rows="4" cols="65"><?php echo(isset($_POST['signature']) ? forum_htmlencode($_POST['signature']) : forum_htmlencode($user['signature'])) ?></textarea></span></div>
+						<div class="txt-input"><span class="fld-input"><textarea id="fld<?php echo $forum_page['fld_count'] ?>" name="signature" rows="4" cols="65"><?php echo(isset($_POST['signature']) ? forum_htmlencode($_POST['signature']) : forum_htmlencode($user['signature'])) ?></textarea></span></div>
 					</div>
 				</div>
 <?php ($hook = get_hook('pf_change_details_signature_pre_fieldset_end')) ? eval($hook) : null; ?>
 			</fieldset>
-<?php ($hook = get_hook('pf_change_details_signature_fieldset_end')) ? eval($hook) : null; ?>			<div class="frm-buttons">
+<?php ($hook = get_hook('pf_change_details_signature_fieldset_end')) ? eval($hook) : null; ?>
+			<div class="frm-buttons">
 				<span class="submit"><input type="submit" name="update" value="<?php echo $lang_profile['Update profile'] ?>" /> </span><span><?php echo $lang_profile['Instructions'] ?></span>
 			</div>
 		</form>
@@ -2808,9 +2759,9 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 		($hook = get_hook('pf_change_details_signature_end')) ? eval($hook) : null;
 
 		$tpl_temp = forum_trim(ob_get_contents());
-		$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+		$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 		ob_end_clean();
-		// END SUBST - <!-- forum_main -->
+		// END SUBST - <forum_main>
 
 		require FORUM_ROOT.'footer.php';
 	}
@@ -2830,14 +2781,22 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 		if (!defined('FORUM_FUNCTIONS_GENERATE_AVATAR'))
 			require FORUM_ROOT.'include/functions/generate_avatar_markup.php';
 	
-		$forum_page['avatar_markup'] = generate_avatar_markup($id);
+		$forum_page['avatar_markup'] = generate_avatar_markup($id, $user['avatar'], $user['email']);
+
+		$filetypes = array('jpg', 'gif', 'png');
+		foreach ($filetypes as $cur_type)
+		{
+				$path = FORUM_AVATAR_DIR.'/'.$id.'.'.$cur_type;
+				if (file_exists($path))
+					$avatar_markup = true;
+		}
 
 		// Setup the form
 		$forum_page['group_count'] = $forum_page['item_count'] = $forum_page['fld_count'] = 0;
 		$forum_page['form_action'] = forum_link($forum_url['profile'], array($id, 'avatar'));
 
 		$forum_page['hidden_fields'] = array(
-			'form_sent'	=> '<input type="hidden" name="form_sent" value="1" />',
+			'form_sent'		=> '<input type="hidden" name="form_sent" value="1" />',
 			'max_file_size'	=> '<input type="hidden" name="MAX_FILE_SIZE" value="'.$forum_config['o_avatars_size'].'" />',
 			'csrf_token'	=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
 		);
@@ -2845,32 +2804,20 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 		// Setup form information
 		$forum_page['frm_info'] = array();
 
-		$filetypes = array('jpg', 'gif', 'png');
-		$count_filetypes = count($filetypes) - 1;
-		for ($i = 0; $i <= $count_filetypes; $i++)
-			$avatat_default[] = strpos($forum_page['avatar_markup'], 'no.'.$filetypes[$i]);
-
-
-		if (!empty($forum_page['avatar_markup']) && implode('', $avatat_default) == '')
-		{
+		if (isset($avatar_markup))
 			$forum_page['frm_info']['avatar_replace'] = '<li><span>'.$lang_profile['Avatar info replace'].'</span></li>';
-			$forum_page['frm_info']['avatar_type'] = '<li><span>'.$lang_profile['Avatar info type'].'</span></li>';
-			$forum_page['frm_info']['avatar_size'] = '<li><span>'.sprintf($lang_profile['Avatar info size'], $forum_config['o_avatars_width'], $forum_config['o_avatars_height'], forum_number_format($forum_config['o_avatars_size']), forum_number_format(ceil($forum_config['o_avatars_size'] / 1024))).'</span></li>';
-			$forum_page['avatar_demo'] = $forum_page['avatar_markup'];
-		}
 		else
-		{
 			$forum_page['frm_info']['avatar_none'] = '<li><span>'.$lang_profile['Avatar info none'].'</span></li>';
-			$forum_page['frm_info']['avatar_info'] = '<li><span>'.$lang_profile['Avatar info type'].'</span></li>';
-			$forum_page['frm_info']['avatar_size'] = '<li><span>'.sprintf($lang_profile['Avatar info size'], $forum_config['o_avatars_width'], $forum_config['o_avatars_height'], forum_number_format($forum_config['o_avatars_size']), forum_number_format(ceil($forum_config['o_avatars_size'] / 1024))).'</span></li>';
-		}
+
+		$forum_page['frm_info']['avatar_type'] = '<li><span>'.$lang_profile['Avatar info type'].'</span></li>';
+		$forum_page['frm_info']['avatar_size'] = '<li><span>'.sprintf($lang_profile['Avatar info size'], $forum_config['o_avatars_width'], $forum_config['o_avatars_height'], forum_number_format($forum_config['o_avatars_size']), forum_number_format(ceil($forum_config['o_avatars_size'] / 1024))).'</span></li>';
 
 		($hook = get_hook('pf_change_details_avatar_pre_header_load')) ? eval($hook) : null;
 
 		define('FORUM_PAGE', 'profile-avatar');
 		require FORUM_ROOT.'header.php';
 
-		// START SUBST - <!-- forum_main -->
+		// START SUBST - <forum_main>
 		ob_start();
 
 		($hook = get_hook('pf_change_details_avatar_output_start')) ? eval($hook) : null;
@@ -2903,10 +2850,6 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 		}
 
 ?>
-		<div class="ct-box user-box">
-			<h2 class="hn"><span><?php echo $lang_profile['Avatar info'] ?></span></h2>
-
-		</div>
 		<form class="frm-form" method="post" accept-charset="utf-8" action="<?php echo $forum_page['form_action'] ?>" enctype="multipart/form-data">
 			<div class="hidden">
 				<?php echo implode("\n\t\t\t\t", $forum_page['hidden_fields'])."\n" ?>
@@ -2914,19 +2857,24 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 <?php ($hook = get_hook('pf_change_details_avatar_pre_fieldset')) ? eval($hook) : null; ?>
 			<fieldset class="frm-group group<?php echo ++$forum_page['group_count'] ?>">
 				<legend class="group-legend"><strong><?php echo $lang_profile['Avatar'] ?></strong></legend>
+					<div class="ct-box set<?php echo ++$forum_page['item_count'] ?>">
+						<p><?php echo $lang_profile['Avatar info'] ?></p>
+					</div>
 <?php ($hook = get_hook('pf_change_details_avatar_pre_cur_avatar_info')) ? eval($hook) : null; ?>
 				<div class="ct-set info-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="ct-box info-box">
 						<h3 class="hn ct-legend"><?php echo $lang_profile['Current avatar'] ?></h3>
-						<p><?php echo (isset($forum_page['avatar_demo'])) ? '<a href="'.forum_link($forum_url['delete_avatar'], array($id, generate_form_token('delete_avatar'.$id.$forum_user['id']))).'"><strong>'.$lang_profile['Delete avatar info'].'</strong></a>' : $lang_profile['No avatar info'] ?></p>
+						<p><?php echo (isset($avatar_markup)) ? '<a href="'.forum_link($forum_url['delete_avatar'], array($id, generate_form_token('delete_avatar'.$id.$forum_user['id']))).'"><strong>'.$lang_profile['Delete avatar info'].'</strong></a>' : $lang_profile['No avatar info'] ?></p>
 					</div>
 				</div>
 <?php ($hook = get_hook('pf_change_details_avatar_pre_avatar_demo')) ? eval($hook) : null; ?>
 				<div class="ct-set info-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="ct-box info-box">
-<?php if (isset($forum_page['avatar_demo'])): ?>						<h3 class="hn ct-legend avatar-demo"><span><?php echo $forum_page['avatar_demo'] ?></span></h3>
-<?php endif; ?>						<ul class="info-list">
-						<?php echo implode("\n\t\t\t\t", $forum_page['frm_info'])."\n\t\t\t" ?>
+<?php if (isset($forum_page['avatar_markup'])): ?>
+						<h3 class="hn ct-legend avatar-demo"><span><?php echo $forum_page['avatar_markup'] ?></span></h3>
+<?php endif; ?>
+						<ul class="info-list">
+							<?php echo implode("\n\t\t\t\t\t", $forum_page['frm_info'])."\n\t\t\t" ?>
 						</ul>
 					</div> 
 						<div id="req-msg" class="req-warn ct-box info-box"> 
@@ -2953,9 +2901,9 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 		($hook = get_hook('pf_change_details_avatar_end')) ? eval($hook) : null;
 
 		$tpl_temp = forum_trim(ob_get_contents());
-		$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+		$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 		ob_end_clean();
-		// END SUBST - <!-- forum_main -->
+		// END SUBST - <forum_main>
 
 		require FORUM_ROOT.'footer.php';
 	}
@@ -2966,7 +2914,7 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 		$forum_page['crumbs'] = array(
 			array($forum_config['o_board_title'], forum_link($forum_url['index'])),
 			array(sprintf($lang_profile['Users profile'], $user['username']), forum_link($forum_url['user'], $id)),
-			array($lang_profile['Section admin'],forum_link($forum_url['profile'], array($id, 'admin')))
+			array($lang_profile['Section admin'], forum_link($forum_url['profile'], array($id, 'admin')))
 		);
 
 		// Check for use of incorrect URLs
@@ -2981,7 +2929,7 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 
 		$forum_page['hidden_fields'] = array(
 			'form_sent'		=> '<input type="hidden" name="form_sent" value="1" />',
-			'csrf_token'		=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
+			'csrf_token'	=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
 		);
 
 		// Setup ban and delete options
@@ -3000,7 +2948,7 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 		define('FORUM_PAGE', 'profile-admin');
 		require FORUM_ROOT.'header.php';
 
-		// START SUBST - <!-- forum_main -->
+		// START SUBST - <forum_main>
 		ob_start();
 
 		($hook = get_hook('pf_change_details_admin_output_start')) ? eval($hook) : null;
@@ -3015,27 +2963,22 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 		</div>
 		<div class="main-content main-frm">
 			<div class="frm-group group<?php echo ++$forum_page['group_count'] ?>">
-
 <?php
 
 		($hook = get_hook('pf_change_details_admin_pre_user_management')) ? eval($hook) : null;
 
 		if (!empty($forum_page['user_management']))
 		{
+			echo "\t\t\t".implode("\n\t\t\t", $forum_page['user_management'])."\n";
+
+			($hook = get_hook('pf_change_details_admin_pre_membership')) ? eval($hook) : null;
+		}
+
+		if ($forum_user['id'] != $user['id'] && !$forum_page['own_profile'])
+		{
+			($hook = get_hook('pf_change_details_admin_pre_group_membership')) ? eval($hook) : null;
 
 ?>
-			<?php echo implode("\n\t\t\t", $forum_page['user_management'])."\n\t\t" ?>
-<?php
-
-			($hook = get_hook('pf_change_details_admin_pre_group1_membership')) ? eval($hook) : null;
-
-			if ($forum_user['g_moderator'] != '1' && !$forum_page['own_profile'])
-			{
-
-				($hook = get_hook('pf_change_details_admin_pre_group2_membership')) ? eval($hook) : null;
-
-?>
-
 			<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 				<div class="sf-box select">
 					<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['User group'] ?></span></label><br />
@@ -3069,10 +3012,8 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 	 				<span class="submit"><input type="submit" name="update_group_membership" value="<?php echo $lang_profile['Update groups'] ?>" /></span>
 	 			</div>
 			</div>
-
 <?php
 
-			}
 		}
 
 		($hook = get_hook('pf_change_details_admin_pre_mod_assignment')) ? eval($hook) : null;
@@ -3082,7 +3023,6 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 			($hook = get_hook('pf_change_details_admin_pre_mod_assignment_fieldset')) ? eval($hook) : null;
 
 ?>
-
 			<fieldset class="mf-set set<?php echo ++$forum_page['item_count'] ?>">
 				<legend><span><?php echo $lang_profile['Moderator assignment'] ?></span></legend>
 <?php ($hook = get_hook('pf_change_details_admin_pre_forum_checklist')) ? eval($hook) : null; ?>
@@ -3096,7 +3036,7 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 				'JOINS'		=> array(
 					array(
 						'INNER JOIN'	=> 'forums AS f',
-						'ON'		=> 'c.id=f.cat_id'
+						'ON'			=> 'c.id=f.cat_id'
 					)
 				),
 				'WHERE'		=> 'f.redirect_url IS NULL',
@@ -3130,14 +3070,11 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 <?php ($hook = get_hook('pf_change_details_admin_pre_mod_assignment_fieldset_end')) ? eval($hook) : null; ?>
 			</fieldset>
 <?php ($hook = get_hook('pf_change_details_admin_mod_assignment_fieldset_end')) ? eval($hook) : null; ?>
-
-
 			<div class="mf-set button-set set<?php echo ++$forum_page['item_count'] ?>">
 				<div class="mf-box text">
 					<span class="submit"><input type="submit" name="update_forums" value="<?php echo $lang_profile['Update forums'] ?>" /></span>
 				</div>
 			</div>
-
 <?php
 
 			($hook = get_hook('pf_change_details_admin_form_end')) ? eval($hook) : null;
@@ -3147,15 +3084,17 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 		</div>
 <?php
 
-		$query = array(
-		'SELECT'	=> 'u.rep_enable_adm',
-		'FROM'		=> 'users AS u',
-		'WHERE'		=> 'u.id='.$user['id']
-		);
-		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-		$rep_enable_adm = $forum_db->result($result);
+		if ($forum_config['o_rep_enabled'])
+		{
+			$query = array(
+				'SELECT'	=> 'u.rep_enable_adm',
+				'FROM'		=> 'users AS u',
+				'WHERE'		=> 'u.id='.$user['id']
+			);
 
-		if ($forum_config['o_rep_enabled']):
+			($hook = get_hook('pf_fl_change_details_qr_rep_enable_adm')) ? eval($hook) : null;
+			$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+			$rep_enable_adm = $forum_db->result($result);
 
 ?>
 	<div class="main-subhead">
@@ -3167,71 +3106,25 @@ $netmask = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', $user[
 				<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_profile['Disable reputation'] ?></span> <?php echo $lang_profile['Disable reputation help'] ?></label>
 			</div>
 		</div>
+<?php ($hook = get_hook('pf_change_details_rep_enable_adm_pre_submit')) ? eval($hook) : null; ?>
 		<div class="frm-buttons">
 			<span class="submit"><input type="submit" name="reputation" value="<?php echo $lang_profile['Update profile'] ?>" /></span><span><?php echo $lang_profile['Instructions'] ?></span>
 		</div>
 	</div>
-<?php endif; ?>
-	</form>
+<?php
 
+		}
+
+?>
+	</form>
 <?php
 
 		($hook = get_hook('pf_change_details_admin_end')) ? eval($hook) : null;
 
 		$tpl_temp = forum_trim(ob_get_contents());
-		$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+		$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 		ob_end_clean();
-		// END SUBST - <!-- forum_main -->
-
-		require FORUM_ROOT.'footer.php';
-	}
-	
-	else if ($section == 'pm' && $forum_user['id'] == $id)
-	{
-
-		// Setup breadcrumbs
-		$forum_page['crumbs'] = array(
-			array($forum_config['o_board_title'], forum_link($forum_url['index'])),
-			array(sprintf($lang_profile['Users profile'], $forum_user['username']), forum_link($forum_url['profile'], array($forum_user['id'], 'about'))),
-			array($lang_profile['Private messages'],forum_link($forum_url['pm'], array($id, 'inbox')))
-		);
-
-		if (!defined('FORUM_PM_FUNCTIONS'))
-			require FORUM_ROOT.'include/functions/pm.php';
-
-		$pm_page = isset($_GET['pmpage']) ? $_GET['pmpage'] : '';
-
-		$forum_links['pm'] = array(
-			'<li'.($pm_page == 'inbox' ? ' class="active item1"' : ' class="normal"').'><a href="'.forum_link($forum_url['pm'], array($forum_user['id'], 'inbox')).'#brd-crumbs-top">'.$lang_profile['Inbox'].'</a></li>',
-			'<li'.($pm_page == 'outbox' ? ' class="active item1"' : ' class="normal"').'><a href="'.forum_link($forum_url['pm'], array($forum_user['id'], 'outbox')).'#brd-crumbs-top">'.$lang_profile['Outbox'].'</a></li>',
-			'<li'.($pm_page == 'outbox' ? ' class="active item1"' : ' class="normal"').'><a href="'.forum_link($forum_url['pm'], array($forum_user['id'], 'write')).'#brd-crumbs-top">'.$lang_profile['Compose message'].'</a></li>'
-		);
-
-		// Check for use of incorrect URLs
-		//confirm_current_url(forum_link($forum_url['pm'], array($id, $pm_page)));
-
-		$pm_page_text = pm_get_page($pm_page);
-
-		define('FORUM_PAGE', 'profile-pm');
-		require FORUM_ROOT.'header.php';
-
-		// START SUBST - <!-- forum_main -->
-		ob_start();
-
-?>
-		<div class="admin-submenu gen-content">
-			<ul>
-				<?php echo implode("\n\t\t\t\t", $forum_links['pm'])."\n" ?>
-			</ul>
-		</div>
-<?php
-
-		echo $pm_page_text;
-
-		$tpl_temp = trim(ob_get_contents());
-		$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
-		ob_end_clean();
-		// END SUBST - <!-- forum_main -->
+		// END SUBST - <forum_main>
 
 		require FORUM_ROOT.'footer.php';
 	}

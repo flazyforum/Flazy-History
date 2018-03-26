@@ -1,6 +1,9 @@
 <?php
+
 /**
 * @version $Id: str_split.php,v 1.1 2006/02/25 13:50:17 harryf Exp $
+* @package utf8
+* @subpackage strings
 */
 
 /**
@@ -10,9 +13,10 @@
 * @param string UTF-8 encoded
 * @param int number to characters to split string by
 * @return string characters in string reverses
-* @package utf8
+* @see http://www.php.net/str_split
+* @see utf8_strlen
 */
-function utf8_str_split($str, $split_len = 1)
+function utf8_str_split($str, $split_len=1)
 {
 	if (!preg_match('/^[0-9]+$/',$split_len) || $split_len < 1)
 		return false;

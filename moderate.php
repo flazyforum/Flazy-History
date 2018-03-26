@@ -3,7 +3,7 @@
  * Скрипт выполнящий модерацию.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -67,7 +67,7 @@ if ($fid < 1)
 
 // Get some info about the forum we're moderating
 $query = array(
-	'SELECT'	=> 'f.forum_name, f.redirect_url, f.num_topics, f.moderators',
+	'SELECT'	=> 'f.forum_name, f.redirect_url, f.num_topics, f.moderators, f.sort_by',
 	'FROM'		=> 'forums AS f',
 	'JOINS'		=> array(
 		array(
@@ -216,7 +216,7 @@ if (isset($_GET['tid']))
 		define('FORUM_PAGE', 'dialogue');
 		require FORUM_ROOT.'header.php';
 
-		// START SUBST - <!-- forum_main -->
+		// START SUBST - <forum_main>
 		ob_start();
 
 		($hook = get_hook('mr_confirm_delete_posts_output_start')) ? eval($hook) : null;
@@ -253,9 +253,9 @@ if (isset($_GET['tid']))
 		($hook = get_hook('mr_confirm_delete_posts_end')) ? eval($hook) : null;
 
 		$tpl_temp = forum_trim(ob_get_contents());
-		$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+		$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 		ob_end_clean();
-		// END SUBST - <!-- forum_main -->
+		// END SUBST - <forum_main>
 
 		require FORUM_ROOT.'footer.php';
 	}
@@ -367,7 +367,7 @@ if (isset($_GET['tid']))
 		define('FORUM_PAGE', 'dialogue');
 		require FORUM_ROOT.'header.php';
 
-		// START SUBST - <!-- forum_main -->
+		// START SUBST - <forum_main>
 		ob_start();
 
 		($hook = get_hook('mr_confirm_split_posts_output_start')) ? eval($hook) : null;
@@ -409,9 +409,9 @@ if (isset($_GET['tid']))
 		($hook = get_hook('mr_confirm_split_posts_end')) ? eval($hook) : null;
 
 		$tpl_temp = forum_trim(ob_get_contents());
-		$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+		$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 		ob_end_clean();
-		// END SUBST - <!-- forum_main -->
+		// END SUBST - <forum_main>
 
 		require FORUM_ROOT.'footer.php';
 	}
@@ -462,7 +462,10 @@ if (isset($_GET['tid']))
 	);
 
 	// Setup main heading
-	$forum_page['main_head'] = sprintf($lang_misc['Moderate topic head'], forum_htmlencode($cur_topic['subject']));
+	$forum_page['main_title'] = sprintf($lang_misc['Moderate topic head'], forum_htmlencode($cur_topic['subject']));
+
+	$forum_page['main_head_options']['select_all'] = '<span '.(empty($forum_page['main_head_options']) ? ' class="first-item"' : '').'><a href="#" onclick="return Forum.toggleCheckboxes(document.getElementById(\'mr-post-actions-form\'))">'.$lang_misc['Select all'].'</a></span>';
+	$forum_page['main_foot_options']['select_all'] = '<span '.(empty($forum_page['main_foot_options']) ? ' class="first-item"' : '').'><a href="#" onclick="return Forum.toggleCheckboxes(document.getElementById(\'mr-post-actions-form\'))">'.$lang_misc['Select all'].'</a></span>';
 
 	if ($forum_page['num_pages'] > 1)
 		$forum_page['main_head_pages'] = sprintf($lang_common['Page info'], $forum_page['page'], $forum_page['num_pages']);
@@ -472,27 +475,33 @@ if (isset($_GET['tid']))
 	define('FORUM_PAGE', 'modtopic');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('mr_post_actions_output_start')) ? eval($hook) : null;
 
 ?>
-	<div class="main-pagehead">
+	<div class="main-head">
+<?php
+
+	if (!empty($forum_page['main_head_options']))
+		echo "\t\t".'<p class="options">'.implode(' ', $forum_page['main_head_options']).'</p>'."\n";
+
+?>
 		<h2 class="hn"><span><?php echo $forum_page['items_info'] ?></span></h2>
 	</div>
 	<form id="mr-post-actions-form" class="newform" method="post" accept-charset="utf-8" action="<?php echo $forum_page['form_action'] ?>">
-	<div class="main-content main-topic">
-		<div class="hidden">
-			<input type="hidden" name="csrf_token" value="<?php echo generate_form_token($forum_page['form_action']) ?>" />
-		</div>
+		<div class="main-content main-topic">
+			<div class="hidden">
+				<input type="hidden" name="csrf_token" value="<?php echo generate_form_token($forum_page['form_action']) ?>" />
+			</div>
 
 <?php
 
 	if (!defined('FORUM_PARSER_LOADED'))
 		require FORUM_ROOT.'include/parser.php';
 
-	$forum_page['item_count'] = 0;	// Keep track of post numbers
+	$forum_page['item_count'] = 0; // Keep track of post numbers
 
 	// Retrieve the posts (and their respective poster)
 	$query = array(
@@ -501,11 +510,11 @@ if (isset($_GET['tid']))
 		'JOINS'		=> array(
 			array(
 				'INNER JOIN'	=> 'users AS u',
-				'ON'		=> 'u.id=p.poster_id'
+				'ON'			=> 'u.id=p.poster_id'
 			),
 			array(
 				'INNER JOIN'	=> 'groups AS g',
-				'ON'		=> 'g.g_id=u.group_id'
+				'ON'			=> 'g.g_id=u.group_id'
 			)
 		),
 		'WHERE'		=> 'p.topic_id='.$tid,
@@ -612,19 +621,28 @@ if (isset($_GET['tid']))
 	</div>
 <?php
 
-$forum_page['mod_options'] = array();
-$forum_page['mod_options']['del_posts'] = '<span class="submit'.(empty($forum_page['mod_options']) ? ' item1' : '').'"><input type="submit" name="delete_posts" value="'.$lang_misc['Delete posts'].'" /></span>';
-$forum_page['mod_options']['split_posts'] = '<span class="submit'.(empty($forum_page['mod_options']) ? ' item1' : '').'"><input type="submit" name="split_posts" value="'.$lang_misc['Split posts'].'" /></span>';
-$forum_page['mod_options']['del_topic'] = '<span'.(empty($forum_page['mod_options']) ? ' class="item1"' : '').'><a href="'.forum_link($forum_url['delete'], $cur_topic['first_post_id']).'">'.$lang_misc['Delete whole topic'].'</a></span>';
+$forum_page['mod_options'] = array(
+	'del_posts'		=> '<span class="submit first-item"><input type="submit" name="delete_posts" value="'.$lang_misc['Delete posts'].'" /></span>',
+	'split_posts'	=> '<span class="submit"><input type="submit" name="split_posts" value="'.$lang_misc['Split posts'].'" /></span>',
+	'del_topic'		=> '<span><a href="'.forum_link($forum_url['delete'], $cur_topic['first_post_id']).'">'.$lang_misc['Delete whole topic'].'</a></span>'
+);
 
 ($hook = get_hook('mr_post_actions_pre_mod_options')) ? eval($hook) : null;
 
 ?>
-	<div class="main-options mod-options gen-content">
-		<p id="select-all"><a href="#" onclick="return Forum.toggleCheckboxes(document.getElementById('mr-post-actions-form'))"><?php echo $lang_misc['Select all'] ?></a></p>
-		<p class="options"><?php echo implode(' ', $forum_page['mod_options']) ?></p>
-	</div>
+		<div class="main-options mod-options gen-content">
+			<p class="options"><?php echo implode(' ', $forum_page['mod_options']) ?></p>
+		</div>
 	</form>
+	<div class="main-foot">
+<?php
+
+	if (!empty($forum_page['main_foot_options']))
+		echo "\t\t".'<p class="options">'.implode(' ', $forum_page['main_foot_options']).'</p>'."\n";
+
+?>
+		<h2 class="hn"><span><?php echo $forum_page['items_info'] ?></span></h2>
+	</div>
 <?php
 
 	$forum_id = $fid;
@@ -632,9 +650,9 @@ $forum_page['mod_options']['del_topic'] = '<span'.(empty($forum_page['mod_option
 	($hook = get_hook('mr_post_actions_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -768,7 +786,8 @@ if (isset($_REQUEST['move_topics']) || isset($_POST['move_topics_to']))
 		$topics = intval($_GET['move_topics']);
 		if ($topics < 1)
 			message($lang_common['Bad request']);
-		
+
+		$action = 'single';
 		// Check for use of incorrect URLs
 		confirm_current_url(forum_link($forum_url['move'], array($fid, $topics)));
 	}
@@ -834,7 +853,7 @@ if (isset($_REQUEST['move_topics']) || isset($_POST['move_topics_to']))
 
 	$forum_page['hidden_fields'] = array(
 		'csrf_token'	=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />',
-		'topics'		=> '<input type="hidden" name="topics" value="'.($action == 'single' ? $topics : implode(',', $topics)).'" />'
+		'topics'	=> '<input type="hidden" name="topics" value="'.$topics.'" />'
 	);
 
 	// Setup breadcrumbs
@@ -846,15 +865,12 @@ if (isset($_REQUEST['move_topics']) || isset($_POST['move_topics_to']))
 		$forum_page['crumbs'][] = array($lang_misc['Moderate forum'], forum_link($forum_url['moderate_forum'], $fid));
 	$forum_page['crumbs'][] = ($action == 'single') ? $lang_misc['Move topic'] : $lang_misc['Move topics'];
 
-	//Setup main heading
-	$forum_page['main_head'] = end($forum_page['crumbs']).' '.$lang_misc['To new forum'];
-
 	($hook = get_hook('mr_move_topics_pre_header_load')) ? eval($hook) : null;
 
 	define('FORUM_PAGE', 'dialogue');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('mr_move_topics_output_start')) ? eval($hook) : null;
@@ -919,9 +935,9 @@ if (isset($_REQUEST['move_topics']) || isset($_POST['move_topics_to']))
 	($hook = get_hook('mr_move_topics_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -936,13 +952,16 @@ else if (isset($_POST['merge_topics']) || isset($_POST['merge_topics_comply']))
 	$topics = isset($_POST['topics']) && !empty($_POST['topics']) ? $_POST['topics'] : array();
 	$topics = array_map('intval', (is_array($topics) ? $topics : explode(',', $topics)));
 
-	if (count($topics) < 2)
-		message($lang_misc['Min topics selected']);
+	if (empty($topics))
+		message($lang_misc['No topics selected']);
+
+	if (count($topics) == 1)
+		message($lang_misc['Merge error']);
 
 	$query = array(
-		'SELECT'	=> 'topic_id',
-		'FROM'		=> 'questions',
-		'WHERE'		=> 'topic_id IN('.implode(',', $topics).')'
+		'SELECT'	=> 'question, read_unvote, revote, poll_created, days_count, votes_count',
+		'FROM'		=> 'topics',
+		'WHERE'		=> 'id IN('.implode(',', $topics).') AND question!=\'\''
 	);
 
 	($hook = get_hook('mr_confirm_merge_topics_qr_questions')) ? eval($hook) : null;
@@ -952,9 +971,7 @@ else if (isset($_POST['merge_topics']) || isset($_POST['merge_topics_comply']))
 	if ($num_polls > 1)
 		message($lang_misc['Merge poll error']);
 	else if ($num_polls == 1)
-		list($question_id) = $forum_db->fetch_row($result);
-
-	unset($num_polls);
+		list($question, $read_unvote, $revote, $poll_created, $days_count, $votes_count) = $forum_db->fetch_row($result);
 
 	if (isset($_POST['merge_topics_comply']))
 	{
@@ -962,25 +979,16 @@ else if (isset($_POST['merge_topics']) || isset($_POST['merge_topics_comply']))
 
 		// Verify that the topic IDs are valid
 		$query = array(
-			'SELECT'	=> 'COUNT(t.id)',
+			'SELECT'	=> 'COUNT(t.id), MIN(t.id)',
 			'FROM'		=> 'topics AS t',
 			'WHERE'		=> 't.id IN('.implode(',', $topics).') AND t.moved_to IS NULL AND t.forum_id='.$fid
 		);
 
 		($hook = get_hook('mr_confirm_merge_topics_qr_verify_topic_ids')) ? eval($hook) : null;
 		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-		if ($forum_db->result($result) != count($topics))
+		list($num_topics, $merge_to_tid) = $forum_db->fetch_row($result);
+		if ($num_topics != count($topics))
 			message($lang_common['Bad request']);
-
-		// Fetch the topic that we're merging into
-		$query = array(
-			'SELECT'	=> 'MIN(t.id)',
-			'FROM'		=> 'topics AS t',
-			'WHERE'		=> 't.id IN('.implode(',', $topics).')'
-		);
-		($hook = get_hook('mr_confirm_merge_topics_qr_fetch_merge_to_topic')) ? eval($hook) : null;
-		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-		$merge_to_tid = $forum_db->result($result);
 
 		// Make any redirect topics point to our new, merged topic
 		$query = array(
@@ -1006,6 +1014,26 @@ else if (isset($_POST['merge_topics']) || isset($_POST['merge_topics_comply']))
 		($hook = get_hook('mr_confirm_merge_topics_qr_merge_posts')) ? eval($hook) : null;
 		$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
+		if ($num_polls)
+		{
+			$query = array(
+				'UPDATE'	=> 'topics',
+				'SET'		=> 'question=\''.$forum_db->escape($question).'\', read_unvote='.$read_unvote.', revote='.$revote.', poll_created='.$revote.', days_count='.$days_count.', votes_count='.$votes_count,
+				'WHERE'		=> 'id='.$merge_to_tid
+			);
+
+			($hook = get_hook('mr_confirm_merge_topics_qr_merge_question')) ? eval($hook) : null;
+			$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+			$query = array(
+				'UPDATE'	=> 'answers',
+				'SET'		=> 'topic_id='.$merge_to_tid,
+				'WHERE'		=> 'topic_id IN('.implode(',', $topics).')'
+			);
+
+			($hook = get_hook('mr_confirm_merge_topics_qr_merge_answers')) ? eval($hook) : null;
+			$forum_db->query_build($query) or error(__FILE__, __LINE__);
+		}
 		// Delete any subscriptions
 		$query = array(
 			'DELETE'	=> 'subscriptions',
@@ -1024,18 +1052,6 @@ else if (isset($_POST['merge_topics']) || isset($_POST['merge_topics_comply']))
 			);
 
 			($hook = get_hook('mr_confirm_merge_topics_qr_delete_merged_topics')) ? eval($hook) : null;
-			$forum_db->query_build($query) or error(__FILE__, __LINE__);
-		}
-
-		if (isset($question_id) && $question_id != $merge_to_tid)
-		{
-			$query = array(
-				'UPDATE'	=> 'questions',
-				'SET'		=> 'topic_id='.$merge_to_tid,
-				'WHERE'		=> 'topic_id='.$question_id
-			);
-
-			($hook = get_hook('mr_confirm_merge_topics_qr_up_questions')) ? eval($hook) : null;
 			$forum_db->query_build($query) or error(__FILE__, __LINE__);
 		}
 
@@ -1069,14 +1085,14 @@ else if (isset($_POST['merge_topics']) || isset($_POST['merge_topics_comply']))
 	);
 
 	// Setup main heading
-	$forum_page['main_head'] = end($forum_page['crumbs']);
+	$forum_page['main_title'] = end($forum_page['crumbs']);
 
 	($hook = get_hook('mr_merge_topics_pre_header_load')) ? eval($hook) : null;
 
 	define('FORUM_PAGE', 'dialogue');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('mr_merge_topics_output_start')) ? eval($hook) : null;
@@ -1113,9 +1129,9 @@ else if (isset($_POST['merge_topics']) || isset($_POST['merge_topics_comply']))
 	($hook = get_hook('mr_merge_topics_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -1183,14 +1199,6 @@ else if (isset($_REQUEST['delete_topics']) || isset($_POST['delete_topics_comply
 		);
 
 		($hook = get_hook('mr_confirm_delete_topics_qr_delete_voting')) ? eval($hook) : null;
-		$forum_db->query_build($query) or error(__FILE__, __LINE__);
-			
-		$query = array(
-			'DELETE'	=> 'questions',
-			'WHERE'		=> 'topic_id IN('.$poll_topic_ids.')'
-		);
-
-		($hook = get_hook('mr_confirm_delete_topics_qr_delete_questions')) ? eval($hook) : null;
 		$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 		$query = array(
@@ -1277,7 +1285,7 @@ else if (isset($_REQUEST['delete_topics']) || isset($_POST['delete_topics_comply
 	define('FORUM_PAGE', 'dialogue');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('mr_delete_topics_output_start')) ? eval($hook) : null;
@@ -1314,9 +1322,9 @@ else if (isset($_REQUEST['delete_topics']) || isset($_POST['delete_topics_comply
 	($hook = get_hook('mr_delete_topics_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -1525,24 +1533,10 @@ confirm_current_url($forum_page['page'] == 1 ? forum_link($forum_url['moderate_f
 
 // Select topics
 $query = array(
-	'SELECT'	=> 't.id, t.poster, t.subject, t.description, t.poll, t.posted, t.last_post, t.last_post_id, t.last_poster, t.num_views, t.num_replies, t.closed, t.sticky, t.moved_to, q.question, u0.id AS user_id, u1.id AS user_id_post',
+	'SELECT'	=> 't.id, t.poster, t.poster_id, t.subject, t.description, t.question, t.posted, t.last_post, t.last_post_id, t.last_poster, t.last_poster_id, t.num_views, t.num_replies, t.closed, t.sticky, t.moved_to',
 	'FROM'		=> 'topics AS t',
-	'JOINS'		=> array(
-                array(
-                        'LEFT JOIN'             => 'questions AS q',
-                        'ON'                    => 't.id=q.topic_id'
-                ),
-		array(
-			'INNER JOIN'		=> 'users AS u0',
-			'ON'			=> 't.poster=u0.username'
-		),
-		array(
-			'LEFT JOIN'		=> 'users AS u1',
-			'ON'			=> 't.last_poster=u1.username'
-		)
-	),
 	'WHERE'		=> 'forum_id='.$fid,
-	'ORDER BY'	=> 't.sticky DESC, last_post DESC',
+	'ORDER BY'	=> 't.sticky DESC, '.(($cur_forum['sort_by'] == '1') ? 't.posted' : 't.last_post').' DESC',
 	'LIMIT'		=> $forum_page['start_from'].', '.$forum_user['disp_topics']
 );
 
@@ -1588,15 +1582,20 @@ $forum_page['crumbs'] = array(
 	sprintf($lang_misc['Moderate forum head'], forum_htmlencode($cur_forum['forum_name']))
 );
 
+// Setup main header
+$forum_page['main_title'] = $lang_misc['Moderate forum head'];
+
 // Setup main heading
 if ($forum_page['num_pages'] > 1)
 	$forum_page['main_head_pages'] = sprintf($lang_common['Page info'], $forum_page['page'], $forum_page['num_pages']);
 
+$forum_page['main_head_options']['select_all'] = '<span '.(empty($forum_page['main_foot_options']) ? ' class="first-item"' : '').'><a href="#" onclick="return Forum.toggleCheckboxes(document.getElementById(\'mr-topic-actions-form\'))">'.$lang_misc['Select all'].'</a></span>';
+$forum_page['main_foot_options']['select_all'] = '<span '.(empty($forum_page['main_foot_options']) ? ' class="first-item"' : '').'><a href="#" onclick="return Forum.toggleCheckboxes(document.getElementById(\'mr-topic-actions-form\'))">'.$lang_misc['Select all'].'</a></span>';
+
 ($hook = get_hook('mr_topic_actions_pre_header_load')) ? eval($hook) : null;
 
-$forum_js->addFile($base_url.'/include/js/jquery.js');
-$forum_js->addFile($base_url.'/include/js/jquery.tooltip.js');
-$forum_js->addCode('$(function() {	
+$forum_js->file(array('jquery', 'tooltip'));
+$forum_js->code('$(function() {
 		$(\'.item-subject a\').tooltip({ track: true, delay: 0, showURL: false, showBody: " - ", fade: 250 });
 		$(\'#block\').click($.tooltip.block);
 	});');
@@ -1604,32 +1603,43 @@ $forum_js->addCode('$(function() {
 define('FORUM_PAGE', 'modforum');
 require FORUM_ROOT.'header.php';
 
-// START SUBST - <!-- forum_main -->
+// START SUBST - <forum_main>
 ob_start();
 
 $forum_page['item_header'] = array();
-$forum_page['item_header']['subject']['title'] = '<strong class="subject-title">'.$lang_forum['Topics'].'</strong>';
+$forum_page['item_header']['title'] = '<th class="item-subject" scope="col">'.$lang_forum['Topics'].'</th>';
+$forum_page['item_header']['replies'] = '<th class="info-replies" scope="col">'.$lang_forum['Replies'].'</th>';
 
 if ($forum_config['o_topic_views'])
-	$forum_page['item_header']['info']['views'] = '<strong class="info-views">'.$lang_forum['views'].'</strong>';
+	$forum_page['item_header']['views'] = '<th class="info-views" scope="col">'.$lang_forum['Views'].'</th>';
 
-$forum_page['item_header']['info']['replies'] = '<strong class="info-replies">'.$lang_forum['replies'].'</strong>';
-$forum_page['item_header']['info']['lastpost'] = '<strong class="info-lastpost">'.$lang_forum['last post'].'</strong>';
+$forum_page['item_header']['lastpost'] = '<th class="info-lastpost" scope="col">'.$lang_forum['Last post'].'</th>';
+$forum_page['item_header']['select'] = '<th class="info-select" scope="col"></th>';
 
 ($hook = get_hook('mr_topic_actions_output_start')) ? eval($hook) : null;
 
 ?>
-	<div class="main-pagehead">
+	<div class="main-head">
+<?php
+
+	if (!empty($forum_page['main_head_options']))
+		echo "\t\t".'<p class="options">'.implode(' ', $forum_page['main_head_options']).'</p>'."\n";
+
+?>
 		<h2 class="hn"><span><?php echo $forum_page['items_info'] ?></span></h2>
 	</div>
-	<div class="main-subhead">
-		<p class="item-summary<?php echo ($forum_config['o_topic_views']) ? ' forum-views' : ' forum-noview' ?>"><span><?php printf($lang_forum['Forum subtitle'], implode(' ', $forum_page['item_header']['subject']), implode(', ', $forum_page['item_header']['info'])) ?></span></p>
-	</div>
 	<form id="mr-topic-actions-form" method="post" accept-charset="utf-8" action="<?php echo $forum_page['form_action'] ?>">
-	<div id="forum<?php echo $fid ?>" class="main-content main-forum<?php echo ($forum_config['o_topic_views']) ? ' forum-views' : ' forum-noview' ?>">
+	<div id="forum<?php echo $fid ?>" class="main-content main-forum">
 		<div class="hidden">
 			<input type="hidden" name="csrf_token" value="<?php echo generate_form_token($forum_page['form_action']) ?>" />
 		</div>
+		<table cellspacing="0">
+		<thead>
+			<tr>
+				<?php echo implode("\n\t\t\t\t", $forum_page['item_header'])."\n" ?>
+			</tr>
+		</thead>
+		<tbody>
 <?php
 
 	$forum_page['item_count'] = 0;
@@ -1646,31 +1656,32 @@ $forum_page['item_header']['info']['lastpost'] = '<strong class="info-lastpost">
 		if ($forum_config['o_censoring'])
 			$cur_topic['subject'] = censor_words($cur_topic['subject']);
 
+		$forum_page['item_subject']['starter'] = '<span class="item-starter">'.sprintf($lang_forum['Topic starter'], '<cite><a href="'.forum_link($forum_url['user'],$cur_topic['poster_id']).'">'.forum_htmlencode($cur_topic['poster']).'</a></cite>').'</span>';
+
 		if ($cur_topic['moved_to'] != null)
 		{
-
-			$forum_page['item_title_status']['moved'] = $lang_forum['Moved'];
+			$forum_page['item_title_status']['moved'] = '<em class="moved">'.$lang_forum['Moved'].'</em>';
 			$forum_page['item_status']['moved'] = 'moved';
 
 			$forum_page['item_title']['status'] = '<span class="item-status">'.sprintf($lang_forum['Item status'], implode(', ', $forum_page['item_title_status'])).'</span>';
 
-			$forum_page['item_title']['link'] = '<span class="item-status"><em class="moved">'.sprintf($lang_forum['Item status'], $lang_forum['Moved']).'</em></span> <a href="'.forum_link($forum_url['topic'], array($cur_topic['moved_to'], sef_friendly($cur_topic['subject']))).'">'.forum_htmlencode($cur_topic['subject']).'</a>';
+			$forum_page['item_title']['link'] = '<strong><a href="'.forum_link($forum_url['topic'], array($cur_topic['moved_to'], sef_friendly($cur_topic['subject']))).'">'.forum_htmlencode($cur_topic['subject']).'</a></strong>';
 
 			// Combine everything to produce the Topic heading
-			$forum_page['item_body']['subject']['title'] = '<h3 class="hn"><span class="item-num">'.forum_number_format($forum_page['start_from'] + $forum_page['item_count']).'</span> '.implode(' ', $forum_page['item_title']).'</h3>';
+			$forum_page['item_body']['subject']['title'] = '<h3>'.implode(' ', $forum_page['item_title']).'</h3>';
 
-			$forum_page['item_subject']['starter'] = '<span class="item-starter">'.sprintf($lang_forum['Topic starter'], '<cite><a href="'.forum_link($forum_url['user'],$cur_topic['user_id']).'">'.forum_htmlencode($cur_topic['poster']).'</a></cite>').'</span>';
+			($hook = get_hook('vf_topic_loop_moved_topic_pre_item_subject_merge')) ? eval($hook) : null;
 
-			($hook = get_hook('mr_topic_actions_moved_row_pre_item_subject_merge')) ? eval($hook) : null;
+			$forum_page['item_body']['subject']['desc'] = implode(' ', $forum_page['item_subject']);
 
-			$forum_page['item_body']['subject']['desc'] = '<p>'.implode(' ', $forum_page['item_subject']).'</p>';
+			$forum_page['item_body']['info']['replies'] = '<td class="info-replies"></td>';
 
 			if ($forum_config['o_topic_views'])
-				$forum_page['item_body']['info']['views'] = '<li class="info-views"><span class="label">'.$lang_forum['No views info'].'</span></li>';
+				$forum_page['item_body']['info']['views'] = '<td class="info-views"></td>';
 
-			$forum_page['item_body']['info']['replies'] = '<li class="info-replies"><span class="label">'.$lang_forum['No replies info'].'</span></li>';
-			$forum_page['item_body']['info']['lastpost'] = '<li class="info-lastpost"><span class="label">'.$lang_forum['No lastpost info'].'</span></li>';
-			$forum_page['item_body']['info']['select'] = '<li class="info-select"><input id="fld'.++$forum_page['fld_count'].'" type="checkbox" name="topics[]" value="'.$cur_topic['id'].'" /> <label for="fld'.$forum_page['fld_count'].'">'.sprintf($lang_forum['Select topic'], forum_htmlencode($cur_topic['subject'])).'</label></li>';
+			$forum_page['item_body']['info']['replies'] = '<td class="info-replies"></td>';
+			$forum_page['item_body']['info']['lastpost'] = '<td class="info-lastpost"></td>';
+			$forum_page['item_body']['info']['select'] = '<td class="info-select"><input id="fld'.++$forum_page['fld_count'].'" type="checkbox" name="topics[]" value="'.$cur_topic['id'].'" /></td>';
 
 			($hook = get_hook('mr_topic_actions_moved_row_pre_output')) ? eval($hook) : null;
 		}
@@ -1697,24 +1708,16 @@ $forum_page['item_header']['info']['lastpost'] = '<strong class="info-lastpost">
 				$forum_page['item_title_status']['closed'] = '<em class="closed">'.$lang_forum['Closed'].'</em>';
 				$forum_page['item_status']['closed'] = 'closed';
 			}
-			else if ($cur_topic['poll'])
+			else if ($cur_topic['question'] != '')
 			{
 				$forum_page['item_title_status']['poll'] = '<em class="poll">'.$lang_forum['Poll'].'</em>';
 				$forum_page['item_status']['poll'] = 'poll';
 			}
 
-			$forum_page['img_topic'] = array();
-			if ($cur_topic['sticky'])
-				$forum_page['img_topic']['sticky'] = '<span class="subject-right sticky-img"></span>';
-			if ($cur_topic['closed'])
-				$forum_page['img_topic']['closed'] = '<span class="subject-right closed-img"></span>';
-			if ($cur_topic['poll'])
-				$forum_page['img_topic']['poll'] = '<span class="subject-right poll-img"></span>';
-
 			($hook = get_hook('mr_topic_loop_normal_topic_pre_item_title_status_merge')) ? eval($hook) : null;
 
 			if (!empty($forum_page['item_title_status']))
-				$forum_page['item_title']['status'] = '<span class="item-status">'.sprintf($lang_forum['Item status'], implode(', ', $forum_page['item_title_status'])).implode('', $forum_page['img_topic']).'</span>';
+				$forum_page['item_title']['status'] = '<span class="item-status">'.sprintf($lang_forum['Item status'], implode(', ', $forum_page['item_title_status'])).'</span>';
 
 			$topic_desc = array();
 			if ($cur_topic['description'] != '')
@@ -1728,11 +1731,7 @@ $forum_page['item_header']['info']['lastpost'] = '<strong class="info-lastpost">
 			if (empty($forum_page['item_status']))
 				$forum_page['item_status']['normal'] = 'normal';
 			
-			$forum_page['item_body']['subject']['title'] = '<h3 class="hn"><span class="item-num">'.forum_number_format($forum_page['start_from'] + $forum_page['item_count']).'</span> '.implode(' ', $forum_page['item_title']).'</h3>';
-
-
-			// Assemble the Topic subject
-			$forum_page['item_subject']['starter'] = '<span class="item-starter">'.sprintf($lang_forum['Topic starter'], '<cite><a href="'.forum_link($forum_url['user'],$cur_topic['user_id']).'">'.forum_htmlencode($cur_topic['poster']).'</a></cite>').'</span>';
+			$forum_page['item_body']['subject']['title'] = '<h3 class="hn">'.implode(' ', $forum_page['item_title']).'</h3>';
 
 			($hook = get_hook('mr_topic_actions_moved_row_pre_item_subject_status_merge')) ? eval($hook) : null;
 
@@ -1753,61 +1752,73 @@ $forum_page['item_header']['info']['lastpost'] = '<strong class="info-lastpost">
 
 			($hook = get_hook('mr_topic_actions_moved_row_pre_item_title_merge')) ? eval($hook) : null;
 
-			$forum_page['item_body']['subject']['desc'] = '<p>'.implode(' ', $forum_page['item_subject']).'</p>';
+			$forum_page['item_body']['subject']['desc'] = implode(' ', $forum_page['item_subject']);
 
-			$forum_page['item_body']['info']['replies'] = '<li class="info-replies"><strong>'.forum_number_format($cur_topic['num_replies']).'</strong> <span class="label">'.(($cur_topic['num_replies'] == 1) ? $lang_forum['Reply'] : $lang_forum['Replies']).'</span></li>';
+			$forum_page['item_body']['info']['replies'] = '<td class="info-replies"><span class="'.item_size($cur_topic['num_replies']).'">'.forum_number_format($cur_topic['num_replies']).'</span></td>';
 
 			if ($forum_config['o_topic_views'])
-				$forum_page['item_body']['info']['views'] = '<li class="info-views"><strong>'.forum_number_format($cur_topic['num_views']).'</strong> <span class="label">'.(($cur_topic['num_views'] == 1) ? $lang_forum['View'] : $lang_forum['Views']).'</span></li>';
+				$forum_page['item_body']['info']['views'] = '<td class="info-views"><span class="'.item_size($cur_topic['num_views']).'">'.forum_number_format($cur_topic['num_views']).'</span></li>';
 
-			$forum_page['item_body']['info']['lastpost'] = '<li class="info-lastpost"><span class="label">'.$lang_forum['Last post'].'</span> <strong><a href="'.forum_link($forum_url['post'], $cur_topic['last_post_id']).'">'.format_time($cur_topic['last_post']).'</a></strong> <cite>'.sprintf($lang_forum['by poster'], '<a href="'.forum_link($forum_url['user'],$cur_topic['user_id_post']).'">'.forum_htmlencode($cur_topic['last_poster']).'</a>').'</cite></li>';
-			$forum_page['item_body']['info']['select'] = '<li class="info-select"><input id="fld'.++$forum_page['fld_count'].'" type="checkbox" name="topics[]" value="'.$cur_topic['id'].'" /> <label for="fld'.$forum_page['fld_count'].'">'.sprintf($lang_forum['Select topic'], forum_htmlencode($cur_topic['subject'])).'</label></li>';
+			$forum_page['item_body']['info']['lastpost'] = '<td class="info-lastpost"><span><a href="'.forum_link($forum_url['post'], $cur_topic['last_post_id']).'">'.format_time($cur_topic['last_post']).'</a></span> <cite>'.sprintf($lang_forum['by poster'], '<a href="'.forum_link($forum_url['user'],$cur_topic['last_poster_id']).'">'.forum_htmlencode($cur_topic['last_poster']).'</a>').'</cite></td>';
+
+			$forum_page['item_body']['info']['select'] = '<td class="info-select"><input id="fld'.++$forum_page['fld_count'].'" type="checkbox" name="topics[]" value="'.$cur_topic['id'].'" /></td>';
 
 			($hook = get_hook('mr_topic_actions_normal_row_pre_output')) ? eval($hook) : null;
 		}
 
 		($hook = get_hook('mr_topic_actions_normal_row_pre_output')) ? eval($hook) : null;
 
-		$forum_page['item_style'] = (($forum_page['item_count'] % 2 != 0) ? ' odd' : ' even').(($forum_page['item_count'] == 1) ? ' main-item1' : '').((!empty($forum_page['item_status'])) ? ' '.implode(' ', $forum_page['item_status']) : '');
+		$forum_page['item_style'] = (($forum_page['item_count'] % 2 != 0) ? ' odd' : ' even').(($forum_page['item_count'] == 1) ? ' main-first-item' : '').((!empty($forum_page['item_status'])) ? ' '.implode(' ', $forum_page['item_status']) : '');
 
 		($hook = get_hook('mr_topic_actions_row_pre_display')) ? eval($hook) : null;
 
 ?>
-			<div id="topic<?php echo $cur_topic['id'] ?>" class="main-item<?php echo $forum_page['item_style'] ?>">
-				<span class="icon <?php echo implode(' ', $forum_page['item_status']) ?>"><!-- --></span>
-				<div class="item-subject">
-					<?php echo implode("\n\t\t\t\t\t", $forum_page['item_body']['subject'])."\n" ?>
-				</div>
-				<ul class="item-info">
-					<?php echo implode("\n\t\t\t\t\t", $forum_page['item_body']['info'])."\n" ?>
-				</ul>
-			</div>
+			<tr class="<?php echo implode(' ', $forum_page['item_status']) ?> <?php echo ($forum_page['item_count'] % 2 != 0) ? 'odd' : 'even' ?><?php echo ($forum_page['item_count'] == 1) ? ' row1' : '' ?>">
+				<td class="item-subject">
+					<div class="icon"><!-- --></div>
+					<div class="tclcon">
+						<?php echo implode("\n\t\t\t\t", $forum_page['item_body']['subject'])."\n" ?>
+					</div>
+				</td>
+				<?php echo implode("\n\t\t\t\t", $forum_page['item_body']['info'])."\n" ?>
+			</tr>
 <?php
 
 	}
 
 ?>
+		</tbody>
+		</table>
 	</div>
 <?php
 
 	($hook = get_hook('mr_topic_actions_post_topic_list')) ? eval($hook) : null;
 
 	// Setup moderator control buttons
-	$forum_page['mod_options'] = array();
-	$forum_page['mod_options']['mod_move'] = '<span class="submit'.(empty($forum_page['mod_options']) ? ' item1' : '').'"><input type="submit" name="move_topics" value="'.$lang_misc['Move'].'" /></span>';
-	$forum_page['mod_options']['mod_delete'] = '<span class="submit'.(empty($forum_page['mod_options']) ? ' item1' : '').'"><input type="submit" name="delete_topics" value="'.$lang_common['Delete'].'" /></span>';
-	$forum_page['mod_options']['mod_merge'] = '<span class="submit'.(empty($forum_page['mod_options']) ? ' item1' : '').'"><input type="submit" name="merge_topics" value="'.$lang_misc['Merge'].'" /></span>';
-	$forum_page['mod_options']['mod_open'] = '<span class="submit'.(empty($forum_page['mod_options']) ? ' item1' : '').'"><input type="submit" name="open" value="'.$lang_misc['Open'].'" /></span>';
-	$forum_page['mod_options']['mod_close'] = '<span class="submit'.(empty($forum_page['mod_options']) ? ' item1' : '').'"><input type="submit" name="close" value="'.$lang_misc['Close'].'" /></span>';
+	$forum_page['mod_options'] = array(
+		'mod_move'		=> '<span class="submit first-item"><input type="submit" name="move_topics" value="'.$lang_misc['Move'].'" /></span>',
+		'mod_delete'	=> '<span class="submit"><input type="submit" name="delete_topics" value="'.$lang_common['Delete'].'" /></span>',
+		'mod_merge'		=> '<span class="submit"><input type="submit" name="merge_topics" value="'.$lang_misc['Merge'].'" /></span>',
+		'mod_open'		=> '<span class="submit"><input type="submit" name="open" value="'.$lang_misc['Open'].'" /></span>',
+		'mod_close'		=> '<span class="submit"><input type="submit" name="close" value="'.$lang_misc['Close'].'" /></span>'
+	);
 
 	($hook = get_hook('mr_topic_actions_pre_mod_option_output')) ? eval($hook) : null;
 
 ?>
-	<div class="main-options mod-options gen-content">
-		<p class="options"><span id="select-all"><a href="#" onclick="return Forum.toggleCheckboxes(document.getElementById('mr-topic-actions-form'))"><?php echo $lang_misc['Select all'] ?></a></span>
-		<?php echo implode(' ', $forum_page['mod_options']) ?></p>
-	</div>
+		<div class="main-options mod-options gen-content">
+			<p class="options"><?php echo implode(' ', $forum_page['mod_options']) ?></p>
+		</div>
 	</form>
+	<div class="main-foot">
+<?php
+
+	if (!empty($forum_page['main_foot_options']))
+		echo "\t\t".'<p class="options">'.implode(' ', $forum_page['main_foot_options']).'</p>'."\n";
+
+?>
+		<h2 class="hn"><span><?php echo $forum_page['items_info'] ?></span></h2>
+	</div>
 <?php
 
 $forum_id = $fid;
@@ -1815,8 +1826,8 @@ $forum_id = $fid;
 ($hook = get_hook('mr_end')) ? eval($hook) : null;
 
 $tpl_temp = forum_trim(ob_get_contents());
-$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 ob_end_clean();
-// END SUBST - <!-- forum_main -->
+// END SUBST - <forum_main>
 
 require FORUM_ROOT.'footer.php';

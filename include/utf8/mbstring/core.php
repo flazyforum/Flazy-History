@@ -1,15 +1,17 @@
 <?php
+
 /**
 * @version $Id: core.php,v 1.5 2006/02/28 22:12:25 harryf Exp $
+* @package utf8
+* @subpackage strings
 */
 
 /**
 * Define UTF8_CORE as required
 */
 if (!defined('UTF8_CORE'))
-	define('UTF8_CORE',TRUE);
+	define('UTF8_CORE', true);
 
-//--------------------------------------------------------------------
 /**
 * Wrapper round mb_strlen
 * Assumes you have mb_internal_encoding to UTF-8 already
@@ -17,7 +19,6 @@ if (!defined('UTF8_CORE'))
 * are simply ignored
 * @param string UTF-8 string
 * @return int number of UTF-8 characters in string
-* @package utf8
 */
 function utf8_strlen($str)
 {
@@ -32,11 +33,10 @@ function utf8_strlen($str)
 * @param string needle (you should validate this with utf8_is_valid)
 * @param integer offset in characters (from left)
 * @return mixed integer position or FALSE on failure
-* @package utf8
 */
 function utf8_strpos($str, $search, $offset = false)
 {
-	if ( $offset === false )
+	if ($offset)
 		return mb_strpos($str, $search);
 	else
 		return mb_strpos($str, $search, $offset);
@@ -50,30 +50,31 @@ function utf8_strpos($str, $search, $offset = false)
 * @param string needle (you should validate this with utf8_is_valid)
 * @param integer (optional) offset (from left)
 * @return mixed integer position or FALSE on failure
-* @package utf8
 */
-function utf8_strrpos($str, $search, $offset = FALSE)
+function utf8_strrpos($str, $search, $offset = false)
 {
-	if ( $offset === FALSE )
+	if ($offset)
 	{
-		# Emulate behaviour of strrpos rather than raising warning
-		if ( empty($str) )
-			return FALSE;
+		// Emulate behaviour of strrpos rather than raising warning
+		if (empty($str))
+			return false;
 
-        	return mb_strrpos($str, $search);
-    	}
+		return mb_strrpos($str, $search);
+	}
 	else
 	{
-        	if (!is_int($offset))
+		if (!is_int($offset))
 		{
-			trigger_error('utf8_strrpos expects parameter 3 to be long',E_USER_WARNING);
-			return FALSE;
-        	}
+			trigger_error('utf8_strrpos expects parameter 3 to be long', E_USER_WARNING);
+			return false;
+		}
+
 		$str = mb_substr($str, $offset);
-		if ( FALSE !== ( $pos = mb_strrpos($str, $search) ) )
+
+		if (($pos = mb_strrpos($str, $search)) !== false)
 			return $pos + $offset;
 
-		return FALSE;
+		return false;
 	}
 }
 
@@ -85,11 +86,10 @@ function utf8_strrpos($str, $search, $offset = FALSE)
 * @param integer number of UTF-8 characters offset (from left)
 * @param integer (optional) length in UTF-8 characters from offset
 * @return mixed string or FALSE if failure
-* @package utf8
 */
 function utf8_substr($str, $offset, $length = false)
 {
-	if ($length === false)
+	if ($length)
 		return mb_substr($str, $offset);
 	else
 		return mb_substr($str, $offset, $length);
@@ -105,7 +105,6 @@ function utf8_substr($str, $offset, $length = false)
 * Annex #21: Case Mappings
 * @param string
 * @return mixed either string in lowercase or FALSE is UTF-8 invalid
-* @package utf8
 */
 function utf8_strtolower($str)
 {
@@ -122,7 +121,6 @@ function utf8_strtolower($str)
 * Annex #21: Case Mappings
 * @param string
 * @return mixed either string in lowercase or FALSE is UTF-8 invalid
-* @package utf8
 */
 function utf8_strtoupper($str)
 {

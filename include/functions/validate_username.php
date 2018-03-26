@@ -1,19 +1,20 @@
 <?php
 /**
- * Проверка имени участника.
- *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
 
-
-// Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
-// Check if a username is occupied
+/**
+ * Проверяет занято ли имя пользователя.
+ * @param string Имя пользователя.
+ * @param int ID зарегистрированого участника которого нужно исключить из проверки, по умолчанию null.
+ * @return mixed FALSE - имя свободно, если занято вернёт username.
+ */
 function check_username_dupe($username, $exclude_id = null)
 {
 	global $forum_db;
@@ -38,7 +39,12 @@ function check_username_dupe($username, $exclude_id = null)
 }
 
 
-// Verifies that the provided username is OK for insertion into the database
+/**
+ * Проверяет соотвеетствует ли имя пользователя критериям необходимым для включения в Базу Данных.
+ * @param string Имя пользователя.
+ * @param int ID зарегистрированого участника которого нужно исключить из проверки, по умолчанию null.
+ * @return array Массив с причинами ошибок.
+ */
 function validate_username($username, $exclude_id = null)
 {
 	global $lang_common, $lang_register, $lang_profile, $forum_config, $forum_bans;
@@ -51,7 +57,6 @@ function validate_username($username, $exclude_id = null)
 
 	// Convert multiple whitespace characters into one (to prevent people from registering with indistinguishable usernames)
 	$username = preg_replace('#\s+#s', ' ', $username);
-
 
 	// Validate username
 	if (utf8_strlen($username) < 2)
@@ -66,7 +71,7 @@ function validate_username($username, $exclude_id = null)
 		$errors[] = $lang_profile['Username IP'];
 	else if ((strpos($username, '[') !== false || strpos($username, ']') !== false) && strpos($username, '\'') !== false && strpos($username, '"') !== false)
 		$errors[] = $lang_profile['Username reserved chars'];
-	else if (preg_match('/(?:\[\/?(?:b|u|i|h|colou?r|quote|code|img|url|wiki|spoiler|size|font|left|right|center|email|list)\]|\[(?:code|quote|list)=)/i', $username))
+	else if (preg_match('/(?:\[\/?(?:b|u|i|h|s|colou?r|quote|code|img|url|wiki|spoiler|size|font|left|right|center|email|list|hr|video)\]|\[(?:code|quote|list)=)/i', $username))
 		$errors[] = $lang_profile['Username BBCode'];
 
 	// Check username for any censored words

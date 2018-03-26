@@ -1,6 +1,9 @@
 <?php
+
 /**
 * @version $Id: str_ireplace.php,v 1.2 2007/08/12 01:20:46 harryf Exp $
+* @package utf8
+* @subpackage strings
 */
 
 /**
@@ -13,9 +16,10 @@
 * which is currently true given the hash table to strtolower
 * @param string
 * @return string
-* @package utf8
+* @see http://www.php.net/str_ireplace
+* @see utf8_strtolower
 */
-function utf8_ireplace($search, $replace, $str, $count = null)
+function utf8_ireplace($search, $replace, $str, $count=null)
 {
 	if (!is_array($search))
 	{
@@ -26,11 +30,13 @@ function utf8_ireplace($search, $replace, $str, $count = null)
 
 		$lendif = strlen($replace) - strlen($search);
 		$search = utf8_strtolower($search);
+
 		$search = preg_quote($search);
 		$lstr = utf8_strtolower($str);
 		$i = 0;
 		$matched = 0;
-		while (preg_match('/(.*)'.$search.'/Us',$lstr, $matches))
+
+		while (preg_match('/(.*)'.$search.'/Us', $lstr, $matches))
 		{
 			if ($i === $count)
 				break;
@@ -41,7 +47,8 @@ function utf8_ireplace($search, $replace, $str, $count = null)
 			$matched += $mlen + $lendif;
 			$i++;
 		}
-        	return $str;
+
+		return $str;
 	}
 	else
 	{
@@ -49,14 +56,15 @@ function utf8_ireplace($search, $replace, $str, $count = null)
 		{
 			if (is_array($replace))
 			{
-				if (array_key_exists($k,$replace))
+				if (array_key_exists($k, $replace))
 					$str = utf8_ireplace($search[$k], $replace[$k], $str, $count);
-				else 
-                   			 $str = utf8_ireplace($search[$k], '', $str, $count);
+				else
+					$str = utf8_ireplace($search[$k], '', $str, $count);
 			}
-			else 
+			else
 				$str = utf8_ireplace($search[$k], $replace, $str, $count);
 		}
+
 		return $str;
 	}
 }

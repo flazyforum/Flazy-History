@@ -5,7 +5,7 @@
  * Allows administrators to control the extensions and hotfixes installed in the site.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -228,7 +228,7 @@ if (isset($_GET['install']) || isset($_GET['install_hotfix']))
 				define('FORUM_PAGE', 'admin-extensions-manage');
 			require FORUM_ROOT.'header.php';
 
-			// START SUBST - <!-- forum_main -->
+			// START SUBST - <forum_main>
 			ob_start();
 
 			($hook = get_hook('aex_install_notices_output_start')) ? eval($hook) : null;
@@ -256,9 +256,9 @@ if (isset($_GET['install']) || isset($_GET['install_hotfix']))
 			($hook = get_hook('aex_install_notices_end')) ? eval($hook) : null;
 
 			$tpl_temp = forum_trim(ob_get_contents());
-			$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+			$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 			ob_end_clean();
-			// END SUBST - <!-- forum_main -->
+			// END SUBST - <forum_main>
 
 			require FORUM_ROOT.'footer.php';
 		}
@@ -284,7 +284,7 @@ if (isset($_GET['install']) || isset($_GET['install_hotfix']))
 
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('aex_install_output_start')) ? eval($hook) : null;
@@ -321,6 +321,8 @@ if (isset($_GET['install']) || isset($_GET['install_hotfix']))
 
 	if (version_compare(clean_version($forum_config['o_cur_version']), clean_version($ext_data['extension']['maxtestedon']), '>'))
 		$form_warnings[] = '<li>'.$lang_admin_ext['Maxtestedon warning'].'</li>';
+	if (!isset($ext_data['extension']['flazy']) )
+		$form_warnings[] = '<li>'.$lang_admin_ext['Punbb extension warning'].'</li>';
 
 	if (!empty($form_warnings))
 	{
@@ -351,9 +353,9 @@ if (isset($_GET['install']) || isset($_GET['install_hotfix']))
 	($hook = get_hook('aex_install_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -460,7 +462,7 @@ else if (isset($_GET['uninstall']))
 			define('FORUM_PAGE', 'admin-extensions-manage');
 			require FORUM_ROOT.'header.php';
 
-			// START SUBST - <!-- forum_main -->
+			// START SUBST - <forum_main>
 			ob_start();
 
 			($hook = get_hook('aex_uninstall_notices_output_start')) ? eval($hook) : null;
@@ -488,9 +490,9 @@ else if (isset($_GET['uninstall']))
 			($hook = get_hook('aex_uninstall_notices_end')) ? eval($hook) : null;
 
 			$tpl_temp = forum_trim(ob_get_contents());
-			$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+			$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 			ob_end_clean();
-			// END SUBST - <!-- forum_main -->
+			// END SUBST - <forum_main>
 
 			require FORUM_ROOT.'footer.php';
 		}
@@ -515,7 +517,7 @@ else if (isset($_GET['uninstall']))
 			define('FORUM_PAGE', 'admin-extensions-manage');
 		require FORUM_ROOT.'header.php';
 
-		// START SUBST - <!-- forum_main -->
+		// START SUBST - <forum_main>
 		ob_start();
 
 		($hook = get_hook('aex_uninstall_output_start')) ? eval($hook) : null;
@@ -539,15 +541,18 @@ else if (isset($_GET['uninstall']))
 					</div>
 				</div>
 			</div>
-<?php if ($ext_data['uninstall_note'] != ''): ?>			<div class="ct-box warn-box">
+<?php if ($ext_data['uninstall_note'] != ''): ?>
+			<div class="ct-box warn-box">
 				<p class="important"><strong><?php echo $lang_admin_ext['Uninstall note'] ?></strong></p>
 				<p><?php echo forum_htmlencode($ext_data['uninstall_note']) ?></p>
 			</div>
 <?php endif; ?>
-<?php if (strpos($id, 'hotfix_') !== 0): ?>			<div class="ct-box warn-box">
+<?php if (strpos($id, 'hotfix_') !== 0): ?>
+			<div class="ct-box warn-box">
 				<p class="warn"><?php echo $lang_admin_ext['Installed extensions warn'] ?></p>
 			</div>
-<?php endif; ?>				<div class="frm-buttons">
+<?php endif; ?>
+			<div class="frm-buttons">
 				<span class="submit"><input type="submit" name="uninstall_comply" value="<?php echo $lang_admin_ext['Uninstall'] ?>" /></span>
 				<span class="cancel"><input type="submit" name="uninstall_cancel" value="<?php echo $lang_admin_common['Cancel'] ?>" /></span>
 			</div>
@@ -558,9 +563,9 @@ else if (isset($_GET['uninstall']))
 		($hook = get_hook('aex_uninstall_end')) ? eval($hook) : null;
 
 		$tpl_temp = forum_trim(ob_get_contents());
-		$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+		$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 		ob_end_clean();
-		// END SUBST - <!-- forum_main -->
+		// END SUBST - <forum_main>
 
 		require FORUM_ROOT.'footer.php';
 	}
@@ -702,7 +707,7 @@ if ($section == 'hotfixes')
 	define('FORUM_PAGE', 'admin-extensions-hotfixes');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('aex_section_hotfixes_output_start')) ? eval($hook) : null;
@@ -731,7 +736,7 @@ if ($section == 'hotfixes')
 		{
 			if (!array_key_exists($hotfix['attributes']['id'], $inst_exts))
 			{
-				$forum_page['ext_item'][] = '<div class="ct-box info-box hotfix available">'."\n\t\t\t".'<h3 class="ct-legend hn"><span>'.forum_htmlencode($hotfix['content']).'</span></h3>'."\n\t\t\t".'<ul>'."\n\t\t\t\t".'<li><span>'.sprintf($lang_admin_ext['Extension by'], 'Flazy').'</span></li>'."\n\t\t\t\t".'<li><span>'.$lang_admin_ext['Hotfix description'].'</span></li>'."\n\t\t\t".'</ul>'."\n\t\t\t\t".'<p class="options"><span class="item1"><a href="'.$base_url.'/admin/extensions.php?install_hotfix='.urlencode($hotfix['attributes']['id']).'">'.$lang_admin_ext['Install hotfix'].'</a></span></p>'."\n\t\t".'</div>';
+				$forum_page['ext_item'][] = '<div class="ct-box info-box hotfix available">'."\n\t\t\t".'<h3 class="ct-legend hn"><span>'.forum_htmlencode($hotfix['content']).'</span></h3>'."\n\t\t\t".'<ul>'."\n\t\t\t\t".'<li><span>'.sprintf($lang_admin_ext['Extension by'], 'Flazy').'</span></li>'."\n\t\t\t\t".'<li><span>'.$lang_admin_ext['Hotfix description'].'</span></li>'."\n\t\t\t".'</ul>'."\n\t\t\t\t".'<p class="options"><span class="first-item"><a href="'.$base_url.'/admin/extensions.php?install_hotfix='.urlencode($hotfix['attributes']['id']).'">'.$lang_admin_ext['Install hotfix'].'</a></span></p>'."\n\t\t".'</div>';
 				++$num_exts;
 			}
 		}
@@ -772,7 +777,7 @@ if ($section == 'hotfixes')
 				continue;
 
 		$forum_page['ext_actions'] = array(
-			'flip'		=> '<span class="item1"><a href="'.$base_url.'/admin/extensions.php?section=hotfixes&amp;flip='.$id.'&amp;csrf_token='.generate_form_token('flip'.$id).'">'.($ext['disabled'] != '1' ? $lang_admin_ext['Disable'] : $lang_admin_ext['Enable']).'</a></span>',
+			'flip'		=> '<span class="first-item"><a href="'.$base_url.'/admin/extensions.php?section=hotfixes&amp;flip='.$id.'&amp;csrf_token='.generate_form_token('flip'.$id).'">'.($ext['disabled'] != '1' ? $lang_admin_ext['Disable'] : $lang_admin_ext['Enable']).'</a></span>',
 			'uninstall'	=> '<span><a href="'.$base_url.'/admin/extensions.php?section=hotfixese&amp;uninstall='.$id.'">'.$lang_admin_ext['Uninstall'].'</a></span>',
 			'upgrade'	=> '<span><a href="'.$base_url.'/admin/extensions.php?section=hotfixes&amp;install_hotfix='.$id.'">'.$lang_admin_ext['Upgrade hotfix'].'</a></span>'
 		);
@@ -813,9 +818,9 @@ if ($section == 'hotfixes')
 	($hook = get_hook('aex_section_hotfixes_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -835,7 +840,7 @@ else if ($section == 'manage')
 	define('FORUM_PAGE', 'admin-extensions-manage');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('aex_section_install_output_start')) ? eval($hook) : null;
@@ -891,7 +896,7 @@ else if ($section == 'manage')
 			{
 				if (!array_key_exists($entry, $inst_exts) || version_compare($inst_exts[$entry]['version'], $ext_data['extension']['version'], '!='))
 				{
-					$forum_page['ext_item'][] = '<div class="ct-box info-box extension available">'."\n\t\t\t".'<h3 class="ct-legend hn"><span>'.forum_htmlencode($ext_data['extension']['title']).'</span></h3>'."\n\t\t\t".'<ul class="data-list">'."\n\t\t\t\t".'<li><span>'.sprintf($lang_admin_ext['Extension by'], forum_htmlencode($ext_data['extension']['author'])).'</span></li>'."\n\t\t\t\t".'<li><span>'.sprintf($lang_admin_ext['Version'], $ext_data['extension']['version']).'</span></li>'.(($ext_data['extension']['description'] != '') ? "\n\t\t\t\t".'<li><span>'.forum_htmlencode($ext_data['extension']['description']).'</span></li>' : '')."\n\t\t\t".'</ul>'."\n\t\t\t".'<p class="options"><span class="item1"><a href="'.$base_url.'/admin/extensions.php?install='.urlencode($entry).'">'.(isset($inst_exts[$entry]['version']) ? $lang_admin_ext['Upgrade extension'] : $lang_admin_ext['Install extension']).'</a></span></p>'."\n\t\t".'</div>';
+					$forum_page['ext_item'][] = '<div class="ct-box info-box extension available">'."\n\t\t\t".'<h3 class="ct-legend hn"><span>'.forum_htmlencode($ext_data['extension']['title']).'</span></h3>'."\n\t\t\t".'<ul class="data-list">'."\n\t\t\t\t".'<li><span>'.sprintf($lang_admin_ext['Extension by'], forum_htmlencode($ext_data['extension']['author'])).'</span></li>'."\n\t\t\t\t".'<li><span>'.sprintf($lang_admin_ext['Version'], $ext_data['extension']['version']).'</span></li>'.(($ext_data['extension']['description'] != '') ? "\n\t\t\t\t".'<li><span>'.forum_htmlencode($ext_data['extension']['description']).'</span></li>' : '')."\n\t\t\t".'</ul>'."\n\t\t\t".'<p class="options"><span class="first-item"><a href="'.$base_url.'/admin/extensions.php?install='.urlencode($entry).'">'.(isset($inst_exts[$entry]['version']) ? $lang_admin_ext['Upgrade extension'] : $lang_admin_ext['Install extension']).'</a></span></p>'."\n\t\t".'</div>';
 					++$num_exts;
 				}
 			}
@@ -948,7 +953,7 @@ else if ($section == 'manage')
 			continue;
 
 		$forum_page['ext_actions'] = array(
-			'flip'		=> '<span class="item1"><a href="'.$base_url.'/admin/extensions.php?section=manage&amp;flip='.$id.'&amp;csrf_token='.generate_form_token('flip'.$id).'">'.($ext['disabled'] != '1' ? $lang_admin_ext['Disable'] : $lang_admin_ext['Enable']).'</a></span>',
+			'flip'		=> '<span class="first-item"><a href="'.$base_url.'/admin/extensions.php?section=manage&amp;flip='.$id.'&amp;csrf_token='.generate_form_token('flip'.$id).'">'.($ext['disabled'] != '1' ? $lang_admin_ext['Disable'] : $lang_admin_ext['Enable']).'</a></span>',
 			'uninstall'	=> '<span><a href="'.$base_url.'/admin/extensions.php?section=manage&amp;uninstall='.$id.'">'.$lang_admin_ext['Uninstall'].'</a></span>',
 			'upgrade'	=> '<span><a href="'.$base_url.'/admin/extensions.php?section=manage&amp;install='.$id.'">'.$lang_admin_ext['Upgrade extension'].'</a></span>'
 		);
@@ -992,9 +997,9 @@ else if ($section == 'manage')
 	($hook = get_hook('aex_section_manage_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -1015,7 +1020,7 @@ else if ($section == 'repository')
 	define('FORUM_PAGE', 'admin-extensions-repository');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('aex_section_rep_install_output_start')) ? eval($hook) : null;
@@ -1044,7 +1049,7 @@ else if ($section == 'repository')
 		{
 			if (!array_key_exists($extension['attributes']['id'], $inst_exts))
 			{
-				$forum_page['ext_item'][] = '<div class="ct-box info-box hotfix available">'."\n\t\t\t".'<h3 class="ct-legend hn"><span>'.forum_htmlencode($extension['content']).'</span></h3>'."\n\t\t\t".'<ul>'."\n\t\t\t\t".'<li><span>'.sprintf($lang_admin_ext['Extension by'], 'Flazy').'</span></li>'."\n\t\t\t\t".'<li><span>'.$lang_admin_ext['Repository description'].'</span></li>'."\n\t\t\t".'</ul>'."\n\t\t\t\t".'<p class="options"><span class="item1"><a href="'.$base_url.'/admin/extensions.php?install_hotfix='.urlencode($extension['attributes']['id']).'">'.$lang_admin_ext['Install extension'].'</a></span></p>'."\n\t\t".'</div>';
+				$forum_page['ext_item'][] = '<div class="ct-box info-box hotfix available">'."\n\t\t\t".'<h3 class="ct-legend hn"><span>'.forum_htmlencode($extension['content']).'</span></h3>'."\n\t\t\t".'<ul>'."\n\t\t\t\t".'<li><span>'.sprintf($lang_admin_ext['Extension by'], 'Flazy').'</span></li>'."\n\t\t\t\t".'<li><span>'.$lang_admin_ext['Repository description'].'</span></li>'."\n\t\t\t".'</ul>'."\n\t\t\t\t".'<p class="options"><span class="first-item"><a href="'.$base_url.'/admin/extensions.php?install_hotfix='.urlencode($extension['attributes']['id']).'">'.$lang_admin_ext['Install extension'].'</a></span></p>'."\n\t\t".'</div>';
 				++$num_exts;
 			}
 		}
@@ -1085,7 +1090,7 @@ else if ($section == 'repository')
 				continue;
 
 		$forum_page['ext_actions'] = array(
-			'flip'		=> '<span class="item1"><a href="'.$base_url.'/admin/extensions.php?section=repository&amp;flip='.$id.'&amp;csrf_token='.generate_form_token('flip'.$id).'">'.($ext['disabled'] != '1' ? $lang_admin_ext['Disable'] : $lang_admin_ext['Enable']).'</a></span>',
+			'flip'		=> '<span class="first-item"><a href="'.$base_url.'/admin/extensions.php?section=repository&amp;flip='.$id.'&amp;csrf_token='.generate_form_token('flip'.$id).'">'.($ext['disabled'] != '1' ? $lang_admin_ext['Disable'] : $lang_admin_ext['Enable']).'</a></span>',
 			'uninstall'	=> '<span><a href="'.$base_url.'/admin/extensions.php?section=repositorye&amp;uninstall='.$id.'">'.$lang_admin_ext['Uninstall'].'</a></span>',
 			'upgrade'	=> '<span><a href="'.$base_url.'/admin/extensions.php?section=manage&amp;install='.$id.'">'.$lang_admin_ext['Upgrade extension'].'</a></span>'
 		);
@@ -1124,9 +1129,9 @@ else if ($section == 'repository')
 	($hook = get_hook('aex_section_repository_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }

@@ -1,19 +1,17 @@
 <?php
 /**
- * Функция ДЕБАГ, показывает запросы к БД.
- *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
 
-
-// Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
-// Показать использованые запросы (если включено)
+/**
+ * Функция ДЕБАГ, показать использованые запросы (если включено).
+ */
 function get_saved_queries()
 {
 	global $forum_db, $lang_common;

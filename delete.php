@@ -5,7 +5,7 @@
  * Удаляет указанное сообщение (и если необходимо, то и всю тему).
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -33,20 +33,20 @@ confirm_current_url(forum_link($forum_url['delete'], $id));
 
 // Fetch some info about the post, the topic and the forum
 $query = array(
-	'SELECT'	=> 'f.id AS fid, f.forum_name, f.moderators, f.redirect_url, fp.post_replies, fp.post_topics, t.id AS tid, t.subject, t.poll, t.first_post_id, t.closed, p.poster, p.poster_id, p.message, p.hide_smilies, p.posted',
+	'SELECT'	=> 'f.id AS fid, f.forum_name, f.moderators, f.redirect_url, fp.post_replies, fp.post_topics, t.id AS tid, t.subject, t.question, t.first_post_id, t.closed, p.poster, p.poster_id, p.message, p.hide_smilies, p.posted',
 	'FROM'		=> 'posts AS p',
 	'JOINS'		=> array(
 		array(
 			'INNER JOIN'	=> 'topics AS t',
-			'ON'		=> 't.id=p.topic_id'
+			'ON'			=> 't.id=p.topic_id'
 		),
 		array(
 			'INNER JOIN'	=> 'forums AS f',
-			'ON'		=> 'f.id=t.forum_id'
+			'ON'			=> 'f.id=t.forum_id'
 		),
 		array(
-			'LEFT JOIN'	=> 'forum_perms AS fp',
-			'ON'		=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
+			'LEFT JOIN'		=> 'forum_perms AS fp',
+			'ON'			=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
 		)
 	),
 	'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1) AND p.id='.$id
@@ -96,9 +96,15 @@ else if (isset($_POST['delete']))
 		if (!defined('FORUM_FUNCTIONS_DELETE_TOPIC'))
 			require FORUM_ROOT.'include/functions/delete_topic.php';
 
-		delete_topic($cur_post['tid'], $cur_post['fid'], $cur_post['poll']);
+		$post_info = array(
+			'topic_id'	=> $cur_post['tid'],
+			'forum_id'	=> $cur_post['fid'],
+			'poll'		=> $cur_post['question']
+		);
 
-		($hook = get_hook('dl_topic_deleted_pre_redirect')) ? eval($hook) : null;
+		($hook = get_hook('dl_topic_deleted_pre_delete_topic')) ? eval($hook) : null;
+
+		delete_topic($post_info);
 
 		redirect(forum_link($forum_url['forum'], array($cur_post['fid'], sef_friendly($cur_post['forum_name']))), $lang_delete['Topic del redirect']);
 	}
@@ -106,11 +112,18 @@ else if (isset($_POST['delete']))
 	{
 		// Delete just this one post
 		if (!defined('FORUM_FUNCTIONS_DELETE_POST'))
-		require FORUM_ROOT.'include/functions/delete_post.php';
+			require FORUM_ROOT.'include/functions/delete_post.php';
 
-		delete_post($id, $cur_post['tid'], $cur_post['fid']);
+		$post_info = array(
+			'post_id'	=> $id,
+			'poster_id'	=> $cur_post['poster_id'],
+			'topic_id'	=> $cur_post['tid'],
+			'forum_id'	=> $cur_post['fid']
+		);
 
-		($hook = get_hook('dl_post_deleted_pre_redirect')) ? eval($hook) : null;
+		($hook = get_hook('dl_post_deleted_pre_delete_post')) ? eval($hook) : null;
+
+		delete_post($post_info);
 
 		redirect(forum_link($forum_url['topic'], array($cur_post['tid'], sef_friendly($cur_post['subject']))), $lang_delete['Post del redirect']);
 	}
@@ -127,7 +140,7 @@ $forum_page['group_count'] = $forum_page['item_count'] = $forum_page['fld_count'
 $forum_page['form_action'] = forum_link($forum_url['delete'], $id);
 
 $forum_page['hidden_fields'] = array(
-	'form_sent'	=> '<input type="hidden" name="form_sent" value="1" />',
+	'form_sent'		=> '<input type="hidden" name="form_sent" value="1" />',
 	'csrf_token'	=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
 );
 
@@ -147,9 +160,15 @@ $forum_page['post_ident']['link'] = '<span class="post-link"><a class="permalink
 
 // Generate the post title
 if ($cur_post['is_topic'])
+{
 	$forum_page['item_subject'] = sprintf($lang_delete['Topic title'], $cur_post['subject']);
+	$forum_page['delete_title'] = $lang_delete['Delete topic'];
+}
 else
+{
 	$forum_page['item_subject'] = sprintf($lang_delete['Reply title'], $cur_post['subject']);
+	$forum_page['delete_title'] = $lang_delete['Delete post'];
+}
 
 $forum_page['item_subject'] = forum_htmlencode($forum_page['item_subject']);
 
@@ -158,7 +177,7 @@ $forum_page['crumbs'] = array(
 	array($forum_config['o_board_title'], forum_link($forum_url['index'])),
 	array($cur_post['forum_name'], forum_link($forum_url['forum'], array($cur_post['fid'], sef_friendly($cur_post['forum_name'])))),
 	array($cur_post['subject'], forum_link($forum_url['topic'], array($cur_post['tid'], sef_friendly($cur_post['subject'])))),
-	(($cur_post['is_topic']) ? $lang_delete['Delete topic'] : $lang_delete['Delete post'])
+	$forum_page['delete_title']
 );
 
 ($hook = get_hook('dl_pre_header_load')) ? eval($hook) : null;
@@ -166,7 +185,7 @@ $forum_page['crumbs'] = array(
 define ('FORUM_PAGE', 'postdelete');
 require FORUM_ROOT.'header.php';
 
-// START SUBST - <!-- forum_main -->
+// START SUBST - <forum_main>
 ob_start();
 
 ($hook = get_hook('dl_main_output_start')) ? eval($hook) : null;
@@ -200,7 +219,7 @@ ob_start();
 			</div>
 <?php ($hook = get_hook('dl_pre_confirm_delete_fieldset')) ? eval($hook) : null; ?>
 			<fieldset class="frm-group group<?php echo ++$forum_page['group_count'] ?>">
-				<legend class="group-legend"><strong><?php echo ($cur_post['is_topic']) ? $lang_delete['Delete topic'] : $lang_delete['Delete post'] ?></strong></legend>
+				<legend class="group-legend"><strong><?php echo $forum_page['delete_title'] ?></strong></legend>
 <?php ($hook = get_hook('dl_pre_confirm_delete_checkbox')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box checkbox">
@@ -212,7 +231,7 @@ ob_start();
 			</fieldset>
 <?php ($hook = get_hook('dl_confirm_delete_fieldset_end')) ? eval($hook) : null; ?>
 			<div class="frm-buttons">
-				<span class="submit"><input type="submit" name="delete" value="<?php echo ($cur_post['is_topic']) ? $lang_delete['Delete topic'] : $lang_delete['Delete post'] ?>" /></span>
+				<span class="submit"><input type="submit" name="delete" value="<?php echo $forum_page['delete_title'] ?>" /></span>
 				<span class="cancel"><input type="submit" name="cancel" value="<?php echo $lang_common['Cancel'] ?>" /></span>
 			</div>
 		</form>
@@ -224,8 +243,8 @@ $forum_id = $cur_post['fid'];
 ($hook = get_hook('dl_end')) ? eval($hook) : null;
 
 $tpl_temp = forum_trim(ob_get_contents());
-$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 ob_end_clean();
-// END SUBST - <!-- forum_main -->
+// END SUBST - <forum_main>
 
 require FORUM_ROOT.'footer.php';

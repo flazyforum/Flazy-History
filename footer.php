@@ -3,7 +3,7 @@
  * Используется в большинстве страниц форума.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,13 +11,9 @@
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
-// Рекорд одновременно прибывания на форуме
-if (!defined('FORUM_FUNCTIONS_RECORD'))
-	require FORUM_ROOT.'include/functions/record.php';
-
-// START SUBST - <!-- forum_about -->
+// START SUBST - <forum_about>
 ob_start();
 
 ($hook = get_hook('ft_about_output_start')) ? eval($hook) : null;
@@ -41,7 +37,7 @@ if ($forum_user['g_read_board'] && $forum_config['o_quickjump'])
 
 	if (!defined('FORUM_QJ_LOADED'))
 	{
-		if (!defined('FORUM_CACHE_FUNCTIONS_QUICKJUMP_LOADED'))
+		if (!defined('FORUM_CACHE_QUICKJUMP_LOADED'))
 			require FORUM_ROOT.'include/cache/quickjump.php';
 
 		generate_quickjump_cache($forum_user['g_id']);
@@ -50,34 +46,13 @@ if ($forum_user['g_read_board'] && $forum_config['o_quickjump'])
 }
 
 $tpl_temp = forum_trim(ob_get_contents());
-$tpl_main = str_replace('<!-- forum_about -->', $tpl_temp, $tpl_main);
+$tpl_main = str_replace('<forum_about>', $tpl_temp, $tpl_main);
 ob_end_clean();
-// END SUBST - <!-- forum_about -->
+// END SUBST - <forum_about>
 
 ($hook = get_hook('ft_about_end')) ? eval($hook) : null;
 
-
-// START SUBST - <!-- forum_google_analytics -->
-if (!empty($forum_config['o_google_analytics']))
-{
-	if ($forum_config['o_google_analytics_type'] == 'old')
-		$tpl_temp = '
-<script src="http://www.google-analytics.com/urchin.js" type="text/javascript"></script>
-<script type="text/javascript">_uacct = "{ID}";urchinTracker();</script>';
-	else if ($forum_config['o_google_analytics_type'] == 'new')
-		$tpl_temp = '
-<script type="text/javascript">var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");document.write(unescape("%3Cscript src=\'" + gaJsHost + "google-analytics.com/ga.js\' type=\'text/javascript\'%3E%3C/script%3E"));</script>
-<script type="text/javascript">var pageTracker = _gat._getTracker("{ID}");pageTracker._trackPageview();</script>';
-
-	$tpl_temp = str_replace('{ID}', $forum_config['o_google_analytics'], $tpl_temp);
-	$tpl_main = str_replace('<!-- forum_google_analytics -->', $tpl_temp, $tpl_main);
-
-}
-// END SUBST - <!-- forum_google_analytics -->
-
-($hook = get_hook('ft_google_analytics_end')) ? eval($hook) : null;
-
-// START SUBST - <!-- forum_debug -->
+// START SUBST - <forum_debug>
 if (defined('FORUM_DEBUG') || defined('FORUM_SHOW_QUERIES'))
 {
 	ob_start();
@@ -87,9 +62,17 @@ if (defined('FORUM_DEBUG') || defined('FORUM_SHOW_QUERIES'))
 	// Display debug info (if enabled/defined)
 	if (defined('FORUM_DEBUG'))
 	{
+		/* Для dev версии
+		$mem_usage = memory_get_usage(false); // true размер страницы false под переменные
+		if ($mem_usage < 1024)
+			$memory_usage =  $mem_usage.' байт';
+		elseif ($mem_usage < 1048576)
+			$memory_usage = round($mem_usage/1024,2).' кб';
+		else
+			$memory_usage = round($mem_usage/1048576,2).' мб';*/
+
 		// Calculate script generation time
-		list($usec, $sec) = explode(' ', microtime());
-		$time_diff = forum_number_format(((float)$usec + (float)$sec) - $forum_start, 3);
+		$time_diff = sprintf('%.3f', get_microtime() - $forum_start);
 		echo '<p id="querytime">[ '.sprintf($lang_common['Querytime'], $time_diff, forum_number_format($forum_db->get_num_queries())).' ]</p>'."\n";
 	}
 
@@ -104,20 +87,22 @@ if (defined('FORUM_DEBUG') || defined('FORUM_SHOW_QUERIES'))
 	($hook = get_hook('ft_debug_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_debug -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_debug>', $tpl_temp, $tpl_main);
 	ob_end_clean();
 }
-// END SUBST - <!-- forum_debug -->
+// END SUBST - <forum_debug>
 
 ($hook = get_hook('ft_forum_debug_end')) ? eval($hook) : null;
 
-if (isset($forum_js))
-	$tpl_main = str_replace('<!-- forum_js -->', $forum_js->headerOut(), $tpl_main);
 
-// START SUBST - <!-- forum_html_bottom -->
-if ($forum_config['o_html_bottom'] && !defined('FORUM_DISABLE_HTML'))
-	$tpl_main = str_replace('<!-- forum_html_bottom -->', $forum_config['o_html_bottom_message'], $tpl_main);
-// END SUBST - <!-- forum_html_bottom -->
+$gen_elements['<forum_js>'] = (isset($forum_js)) ? $forum_js->out() : '';
+$gen_elements['<forum_ga>'] = (!empty($forum_config['o_google_analytics'])) ? '<script type="text/javascript">var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");document.write(unescape("%3Cscript src=\'" + gaJsHost + "google-analytics.com/ga.js\' type=\'text/javascript\'%3E%3C/script%3E"));</script><script type="text/javascript">var pageTracker = _gat._getTracker("'.$forum_config['o_google_analytics'].'");pageTracker._trackPageview();</script>' : '';
+$gen_elements['<forum_html_bottom>'] = ($forum_config['o_html_bottom'] && !defined('FORUM_DISABLE_HTML')) ? $forum_config['o_html_bottom_message'] : '';
+
+($hook = get_hook('ft_gen_elements')) ? eval($hook) : null;
+
+$tpl_main = str_replace(array_keys($gen_elements), array_values($gen_elements), $tpl_main);
+unset($gen_elements);
 
 // Last call!
 ($hook = get_hook('ft_end')) ? eval($hook) : null;
@@ -129,4 +114,4 @@ $forum_db->end_transaction();
 $forum_db->close();
 
 // Spit out the page
-exit($tpl_main);
+die($tpl_main);

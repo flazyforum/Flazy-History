@@ -3,7 +3,7 @@
  * Функция получения файлы.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,7 +11,7 @@
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
 // Attempts to fetch the provided URL using any available means
 function get_remote_file($url, $timeout, $head_only = false, $max_redirects = 10)

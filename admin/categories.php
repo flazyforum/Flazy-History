@@ -5,7 +5,7 @@
  * Allows administrators to create, reposition, and remove categories.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -108,7 +108,7 @@ else if (isset($_POST['del_cat']) || isset($_POST['del_cat_comply']))
 		$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 		// Regenerate the quickjump cache
-		if (!defined('FORUM_CACHE_FUNCTIONS_QUICKJUMP_LOADED'))
+		if (!defined('FORUM_CACHE_QUICKJUMP_LOADED'))
 			require FORUM_ROOT.'include/cache/quickjump.php';
 
 		generate_quickjump_cache();
@@ -155,7 +155,7 @@ else if (isset($_POST['del_cat']) || isset($_POST['del_cat_comply']))
 		define('FORUM_PAGE', 'admin-categories');
 		require FORUM_ROOT.'header.php';
 
-		// START SUBST - <!-- forum_main -->
+		// START SUBST - <forum_main>
 		ob_start();
 
 		($hook = get_hook('acg_del_cat_output_start')) ? eval($hook) : null;
@@ -183,9 +183,9 @@ else if (isset($_POST['del_cat']) || isset($_POST['del_cat_comply']))
 		($hook = get_hook('acg_del_cat_end')) ? eval($hook) : null;
 
 		$tpl_temp = forum_trim(ob_get_contents());
-		$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+		$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 		ob_end_clean();
-		// END SUBST - <!-- forum_main -->
+		// END SUBST - <forum_main>
 
 		require FORUM_ROOT.'footer.php';
 	}
@@ -235,7 +235,7 @@ else if (isset($_POST['update'])) // Change position and name of the categories
 	}
 
 	// Regenerate the quickjump cache
-	if (!defined('FORUM_CACHE_FUNCTIONS_QUICKJUMP_LOADED'))
+	if (!defined('FORUM_CACHE_QUICKJUMP_LOADED'))
 		require FORUM_ROOT.'include/cache/quickjump.php';
 
 	generate_quickjump_cache();
@@ -282,7 +282,7 @@ define('FORUM_PAGE_SECTION', 'start');
 define('FORUM_PAGE', 'admin-categories');
 require FORUM_ROOT.'header.php';
 
-// START SUBST - <!-- forum_main -->
+// START SUBST - <forum_main>
 ob_start();
 
 ($hook = get_hook('acg_main_output_start')) ? eval($hook) : null;
@@ -306,14 +306,14 @@ ob_start();
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_categories['New category label'] ?></span></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="new_cat_name" size="35" maxlength="80" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="new_cat_name" size="35" maxlength="80" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('acg_pre_new_category_position')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_categories['Position label'] ?></span></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="position" size="3" maxlength="3" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="position" size="3" maxlength="3" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('acg_pre_add_cat_fieldset_end')) ? eval($hook) : null; ?>
@@ -401,12 +401,12 @@ $forum_page['group_count'] = $forum_page['item_count'] = 0;
 <?php ($hook = get_hook('acg_pre_edit_cat_name')) ? eval($hook) : null; ?>
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_categories['Category name label'] ?></span></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="cat_name[<?php echo $cur_category['id'] ?>]" value="<?php echo forum_htmlencode($cur_category['cat_name']) ?>" size="35" maxlength="80" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="cat_name[<?php echo $cur_category['id'] ?>]" value="<?php echo forum_htmlencode($cur_category['cat_name']) ?>" size="35" maxlength="80" /></span>
 					</div>
 <?php ($hook = get_hook('acg_pre_edit_cat_position')) ? eval($hook) : null; ?>
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_categories['Position label'] ?></span></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="cat_order[<?php echo $cur_category['id'] ?>]" value="<?php echo $cur_category['disp_position'] ?>" size="3" maxlength="3" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="cat_order[<?php echo $cur_category['id'] ?>]" value="<?php echo $cur_category['disp_position'] ?>" size="3" maxlength="3" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('acg_pre_edit_cur_cat_fieldset_end')) ? eval($hook) : null; ?>
@@ -432,8 +432,8 @@ $forum_page['group_count'] = $forum_page['item_count'] = 0;
 ($hook = get_hook('acg_end')) ? eval($hook) : null;
 
 $tpl_temp = forum_trim(ob_get_contents());
-$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 ob_end_clean();
-// END SUBST - <!-- forum_main -->
+// END SUBST - <forum_main>
 
 require FORUM_ROOT.'footer.php';

@@ -1,6 +1,9 @@
 <?php
+
 /**
 * @version $Id: strcspn.php,v 1.1 2006/02/25 13:50:17 harryf Exp $
+* @package utf8
+* @subpackage strings
 */
 
 /**
@@ -9,19 +12,20 @@
 * Note: requires utf8_strlen and utf8_substr (if start, length are used)
 * @param string
 * @return int
-* @package utf8
+* @see http://www.php.net/strcspn
+* @see utf8_strlen
 */
-function utf8_strcspn($str, $mask, $start = null, $length = null)
+function utf8_strcspn($str, $mask, $start=null, $length=null)
 {
 	if (empty($mask) || strlen($mask) == 0)
 		return null;
 
-	$mask = preg_replace('!([\\\\\\-\\]\\[/^])!','\\\${1}',$mask);
-	
+	$mask = preg_replace('!([\\\\\\-\\]\\[/^])!','\\\${1}', $mask);
+
 	if ($start !== null || $length !== null)
 		$str = utf8_substr($str, $start, $length);
 
-	preg_match('/^[^'.$mask.']+/u',$str, $matches);
+	preg_match('/^[^'.$mask.']+/u', $str, $matches);
 
 	if (isset($matches[0]))
 		return utf8_strlen($matches[0]);

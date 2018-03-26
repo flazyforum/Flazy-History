@@ -3,14 +3,19 @@
  * Скрипт обновления базы данных.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
 
 
-define('UPDATE_TO', '0.4');
-define('UPDATE_TO_DB_REVISION', 7);
+define('UPDATE_TO', '0.7');
+define('PRE_VERSION', '0.6.2');
+define('UPDATE_TO_DB_REVISION', '13');
+
+$version_history = array(
+	UPDATE_TO
+);
 
 // The number of items to process per pageview (lower this if the update script times out during UTF-8 conversion)
 define('PER_PAGE', 300);
@@ -21,8 +26,7 @@ header('Content-Type: text/html; charset=utf-8');
 
 // Make sure we are running at least PHP 4.3.0
 if (!function_exists('version_compare') || version_compare(PHP_VERSION, MIN_PHP_VERSION, '<'))
-	exit('Ваша версия PHP '.PHP_VERSION.'. Чтобы правильно работать, Flazy требуется  хотя бы PHP '.MIN_PHP_VERSION.'. Вам необходимо обновить PHP, и только тогда вы сможите прожолжить установку.');
-
+	die('Ваша версия PHP '.PHP_VERSION.'. Чтобы правильно работать, Flazy требуется  хотя бы PHP '.MIN_PHP_VERSION.'. Вам необходимо обновить PHP, и только тогда вы сможите прожолжить установку.');
 
 define('FORUM_ROOT', '../');
 
@@ -30,10 +34,9 @@ define('FORUM_ROOT', '../');
 if (file_exists(FORUM_ROOT.'include/config.php'))
 	include FORUM_ROOT.'include/config.php';
 
-
 // If FORUM isn't defined, config.php is missing or corrupt or we are outside the root directory
 if (!defined('FORUM'))
-	exit('Не могу найти config.php, вы уверены, что он существует?');
+	die('Не могу найти config.php, вы уверены, что он существует?');
 
 // Enable debug mode
 if (!defined('FORUM_DEBUG'))
@@ -43,7 +46,8 @@ if (!defined('FORUM_DEBUG'))
 error_reporting(E_ALL);
 
 // Turn off magic_quotes_runtime
-set_magic_quotes_runtime(0);
+if (get_magic_quotes_runtime())
+	set_magic_quotes_runtime(0);
 
 // Turn off PHP time limit
 @set_time_limit(0);
@@ -61,8 +65,6 @@ require FORUM_ROOT.'include/functions/common.php';
 
 // Load UTF-8 functions
 require FORUM_ROOT.'include/utf8/utf8.php';
-require FORUM_ROOT.'include/utf8/ucwords.php';
-require FORUM_ROOT.'include/utf8/trim.php';
 
 // Strip out "bad" UTF-8 characters
 forum_remove_bad_characters();
@@ -75,7 +77,13 @@ if (!defined('FORUM_IGNORE_REQUEST_URI'))
 define('FORUM_NO_SET_NAMES', 1);
 
 // Load DB abstraction layer and try to connect
-require FORUM_ROOT.'include/dblayer/common.php';
+if ($db_type == 'mysql' || $db_type == 'mysqli' || $db_type == 'mysql_innodb' || $db_type == 'mysqli_innodb' || $db_type == 'pgsql' ||  $db_type == 'sqlite')
+	require FORUM_ROOT.'include/dblayer/'.$db_type.'.php';
+else
+	error('\''.$db_type.'\' - не правильный тип базы данных. Пожалуйста, проверьте настройки в config.php.', __FILE__, __LINE__);
+
+// Create the database adapter object (and open/connect to/select db)
+$forum_db = new DBLayer($db_host, $db_username, $db_password, $db_name, $db_prefix, $p_connect);
 
 // Check current version
 $query = array(
@@ -87,18 +95,15 @@ $query = array(
 $result = $forum_db->query_build($query);
 $cur_version = $forum_db->result($result);
 
-if (version_compare($cur_version, '0.3', '<'))
-	error('Version mismatch. The database \''.$db_name.'\' doesn\'t seem to be running a Flazy database schema supported by this update script.', __FILE__, __LINE__);
-
-// If we've already done charset conversion in a previous update, we have to do SET NAMES
-$forum_db->set_names(strpos($cur_version, '0.3') === 0 ? 'utf8' : 'latin1');
+// Now we're definitely using UTF-8, so we convert the output properly
+$forum_db->set_names('utf8');
 
 // If MySQL, make sure it's at least 4.1.2
 if ($db_type == 'mysql' || $db_type == 'mysqli')
 {
 	$mysql_info = $forum_db->get_version();
 	if (version_compare($mysql_info['version'], MIN_MYSQL_VERSION, '<'))
-		error('	Вы используете MySQL '.$mysql_version.'. Flazy '.UPDATE_TO.' требует, по минимум MySQL '.MIN_MYSQL_VERSION.' для правильной работы. Сначало вы должны обновить MySQL и тольо тогда вы сможете продолжить');
+		error('Вы используете MySQL '.$mysql_version.'. Flazy '.UPDATE_TO.' требует, по минимум MySQL '.MIN_MYSQL_VERSION.' для правильной работы. Сначало вы должны обновить MySQL и только тогда вы сможете продолжить.');
 }
 
 // Get the forum config
@@ -111,16 +116,21 @@ $result = $forum_db->query_build($query);
 while ($cur_config_item = $forum_db->fetch_row($result))
 	$forum_config[$cur_config_item[0]] = $cur_config_item[1];
 
-// Check the database revision and the current version
-if (isset($forum_config['o_database_revision']) && $forum_config['o_database_revision'] >= UPDATE_TO_DB_REVISION && version_compare($forum_config['o_cur_version'], UPDATE_TO, '>='))
-	error('Ваша база данных не нуждается в обновлении.');
+if (strpos($forum_config['o_cur_version'], 'dev') === false)
+{
+	if (isset($forum_config['o_database_revision']) && $forum_config['o_database_revision'] >= UPDATE_TO_DB_REVISION && version_compare($forum_config['o_cur_version'], UPDATE_TO, '>='))
+		error('Ваша база данных не нуждается в обновлении.');
+
+	if (!version_compare($forum_config['o_cur_version'], PRE_VERSION, '>='))
+		error('Чтобы обновить Ваш форум до версии '.UPDATE_TO.' сначало его требуется обновить до предущей версии '.PRE_VERSION.' и только тогда вы сможете продолжить. Узнать какие версии вам нужны Вы можете <a href="http://flazy.ru/wiki/Скрипты_обновления">здесь</a>.');
+}
 
 // If $base_url isn't set, use o_base_url from config
 if (!isset($base_url))
 	$base_url = $forum_config['o_base_url'];
 
 // There's no $forum_user, but we need the style element
-// We default to Oxygen if the default style is invalid.
+// We default to Flazy_Cold if the default style is invalid.
 if (file_exists(FORUM_ROOT.'style/'.$forum_config['o_default_style'].'/'.$forum_config['o_default_style'].'.php'))
 	$forum_user['style'] = $forum_config['o_default_style'];
 else
@@ -144,7 +154,6 @@ if(empty($style_url))
 // Empty all output buffers and stop buffering
 while (@ob_end_clean());
 
-
 $stage = isset($_GET['stage']) ? $_GET['stage'] : '';
 $old_charset = isset($_GET['req_old_charset']) ? str_replace('ISO8859', 'ISO-8859', strtoupper($_GET['req_old_charset'])) : 'ISO-8859-1';
 $start_at = isset($_GET['start_at']) ? intval($_GET['start_at']) : 0;
@@ -154,7 +163,7 @@ switch ($stage)
 {
 	// Show form
 	case '':
-	
+
 	define ('FORUM_PAGE', 'dbupdate');
 
 ?>
@@ -167,10 +176,11 @@ switch ($stage)
 <?php
 
 // Include the stylesheets
+echo '<link rel="stylesheet" type="text/css" href="'.$base_url.'/style/base.css" />';
 require FORUM_ROOT.'style/'.$forum_user['style'].'/'.$forum_user['style'].'.php';
 
 ?>
-<script type="text/javascript" src="<?php echo $base_url ?>/include/js/common.js"></script>
+<script type="text/javascript" src="<?php echo $base_url ?>/js/common.js"></script>
 </head>
 <body>
 
@@ -183,11 +193,9 @@ require FORUM_ROOT.'style/'.$forum_user['style'].'/'.$forum_user['style'].'.php'
 </div>
 
 <div id="brd-main" class="main basic">
-
 	<div class="main-head">
 		<h1 class="hn"><span>Обновление Базы Данных Flazy: Выполните обновление.</span></h1>
 	</div>
-
 	<div class="main-content frm">
 		<div class="ct-box info-box">
 			<ul class="spaced">
@@ -230,128 +238,111 @@ require FORUM_ROOT.'style/'.$forum_user['style'].'/'.$forum_user['style'].'.php'
 			'SET'		=> 'conf_value=\'1\'',
 			'WHERE'		=> 'conf_name=\'o_maintenance\''
 		);
-
 		$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
-		// p_poll_min_posts
-		$query = array(
-			'SELECT'	=>	'1',
-			'FROM'		=>	'config',
-			'WHERE'		=>	'conf_name="p_poll_min_posts"'
-		);
+		require FORUM_ROOT.'lang/'.$forum_config['o_default_lang'].'/admin_settings.php';
 
-		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-
-		if (!$forum_db->num_rows($result))
-		{
-			$query = array(
-				'INSERT'    => 'conf_name, conf_value',
-				'INTO'      => 'config',
-				'VALUES'    => '\'p_poll_min_posts\', \'0\''
-			);
-
-			$forum_db->query_build($query) or error(__FILE__, __LINE__);
-		}
-
-		// o_show_ua_info
-		$query = array(
-			'SELECT'	=>	'1',
-			'FROM'		=>	'config',
-			'WHERE'		=>	'conf_name="o_show_ua_info"'
-		);
-
-		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-
-		if (!$forum_db->num_rows($result))
-		{
-			$query = array(
-				'INSERT'    => 'conf_name, conf_value',
-				'INTO'      => 'config',
-				'VALUES'    => '\'o_show_ua_info\', \'1\''
-			);
-
-			$forum_db->query_build($query) or error(__FILE__, __LINE__);
-		}
-
-		// reported
-		$query = array(
-			'SELECT'	=>	'reported',
-			'FROM'		=>	'posts',
-		);
-
-		$result = $forum_db->query_build($query);
-
-		if (!$forum_db->num_rows($result))
-			$forum_db->query('ALTER TABLE '.$forum_db->prefix.'posts ADD reported TINYINT(1) DEFAULT 0 NOT NULL AFTER topic_id') or error(__FILE__, __LINE__);
-
-		// voted
-		$query = array(
-			'SELECT'	=>	'voted',
-			'FROM'		=>	'voting',
-		);
-
-		$result = $forum_db->query_build($query);
-
-		if (!$forum_db->num_rows($result))
-			$forum_db->query('ALTER TABLE '.$forum_db->prefix.'voting ADD voted INT(10) UNSIGNED DEFAULT 0 NOT NULL AFTER answer_id') or error(__FILE__, __LINE__);
-
-		// Соц. Сети
-		$query = array(
-			'SELECT'	=>	'vkontakte',
-			'FROM'		=>	'users',
-		);
-
-		$result = $forum_db->query_build($query);
-
-		if (!$forum_db->num_rows($result))
-			$forum_db->query('ALTER TABLE '.$forum_db->prefix.'users ADD vkontakte VARCHAR(12) AFTER magent') or error(__FILE__, __LINE__);
-
-		$query = array(
-			'SELECT'	=>	'classmates',
-			'FROM'		=>	'users',
-		);
-
-		$result = $forum_db->query_build($query);
-
-		if (!$forum_db->num_rows($result))
-			$forum_db->query('ALTER TABLE '.$forum_db->prefix.'users ADD classmates VARCHAR(80) AFTER vkontakte') or error(__FILE__, __LINE__);
-
-		$query = array(
-			'SELECT'	=>	'mirtesen',
-			'FROM'		=>	'users',
-		);
-
-		$result = $forum_db->query_build($query);
-
-		if (!$forum_db->num_rows($result))
-			$forum_db->query('ALTER TABLE '.$forum_db->prefix.'users ADD mirtesen VARCHAR(12) AFTER classmates') or error(__FILE__, __LINE__);
-
-		$query = array(
-			'SELECT'	=>	'moikrug',
-			'FROM'		=>	'users',
-		);
-
-		$result = $forum_db->query_build($query);
-
-		if (!$forum_db->num_rows($result))
-			$forum_db->query('ALTER TABLE '.$forum_db->prefix.'users ADD moikrug VARCHAR(30) AFTER mirtesen') or error(__FILE__, __LINE__);
-
-		// Включение техобслуживания
 		$query = array(
 			'UPDATE'	=> 'config',
-			'SET'		=> 'conf_value=\'На форуме ведутся профилактические работы. Соблюдайте спокойствие. В ближайшее время форум возобновит свою работу. Спасибо за понимание!\'',
+			'SET'		=> 'conf_value=\''.$lang_admin_settings['Maintenance message default'].'\'',
 			'WHERE'		=> 'conf_name=\'o_maintenance_message\''
 		);
-
 		$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+		if (!defined('FORUM_CACHE_FUNCTIONS_LOADED'))
+				require FORUM_ROOT.'include/cache.php';
+
+		generate_config_cache();
+
+		function query_update($version, $cur_version)
+		{
+			global $forum_db, $db_type, $forum_config;
+
+			if ($version == UPDATE_TO && (version_compare($cur_version, UPDATE_TO, '<') || strpos($cur_version, 'dev') !== false))
+			{
+				if (!$forum_db->index_exists('posts', 'posted_idx'))
+					$forum_db->add_index('posts', 'posted_idx', array('posted'));
+
+				if (!$forum_db->field_exists('reports', 'reason'))
+					$forum_db->rename_field('reports', 'message', 'reason', 'TEXT', true);
+				$forum_db->rename_field('reputation', 'rep_plus', 'plus', 'TINYINT(1)', false, 0);
+				$forum_db->rename_field('reputation', 'rep_minus', 'minus', 'TINYINT(1)', false, 0);
+				$forum_db->rename_field('users', 'rep_plus', 'reputation_plus', 'INT(10) UNSIGNED', false, 0);
+				$forum_db->rename_field('users', 'rep_minus', 'reputation_minus', 'INT(10) UNSIGNED', false, 0);
+				$forum_db->rename_field('users', 'pos_plus', 'positive_plus', 'INT(10) UNSIGNED', false, 0);
+				$forum_db->rename_field('users', 'pos_minus', 'positive_minus', 'INT(10) UNSIGNED', false, 0);
+
+				$forum_db->add_field('reports', 'pm_id', 'INT(10) UNSIGNED', false, '0');
+				$forum_db->add_field('reports', 'poster_id', 'INT(10) UNSIGNED', false, '1');
+				$forum_db->add_field('reports', 'message', 'TEXT', true);
+				$forum_db->add_field('users', 'fasety_auth', 'TINYINT(1)', false, '0');
+				$forum_db->add_field('users', 'fasety_last_auth', 'INT(10) UNSIGNED', false, '0');
+				$forum_db->add_field('users', 'fasety_auth_mail', 'TINYINT(1)', false, '0');
+
+				$config = array(
+					'o_spam_username'		=> "'".$forum_config['o_spam_name']."'",
+					'o_gravatar'			=> "'G'",
+				);
+
+				foreach ($config as $conf_name => $conf_value)
+				{
+					if (!isset($forum_config[$conf_name]))
+					{
+						$query = array(
+							'INSERT'	=> 'conf_name, conf_value',
+							'INTO'		=> 'config',
+							'VALUES'	=> '\''.$conf_name.'\', '.$conf_value.''
+						);
+						$forum_db->query_build($query) or error(__FILE__, __LINE__);
+					}
+				}
+
+				// Изменения полей
+				$forum_db->alter_field('topics', 'description', 'VARCHAR(255)', true, '\'\'', 'subject');
+				$forum_db->alter_field('topics', 'question', 'VARCHAR(255)', true, '\'\'', 'description');
+				$forum_db->alter_field('users', 'avatar', 'CHAR(3)', true, null, 'title');
+				$forum_db->alter_field('users', 'time_format', 'TINYINT(1)', false, '0', 'dst');
+				$forum_db->alter_field('users', 'date_format', 'TINYINT(1)', false, '0', 'time_format');
+
+				// DELETE
+				// Удалить историю поиска
+				$query = array(
+					'DELETE'	=> 'search_cache',
+				);
+				$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+				$config_names = array('o_avatars_dir, o_forum_branch, o_spam_name, o_show_ua_info');
+				$query = array(
+					'DELETE'	=> 'config',
+					'WHERE'		=> 'conf_name IN (\''.implode('\', \'', $config_names).'\')'
+				);
+				$forum_db->query_build($query) or error(__FILE__, __LINE__);
+			}
+		}
+
+		foreach ($version_history as $key => $version)
+			query_update($version, $forum_config['o_cur_version']);
 
 		$query_str = '?stage=finish';
 
 		break;
 
 	case 'finish':
-		// Now we're definitely using UTF-8, so we convert the output properly
-		$forum_db->set_names('utf8');
+
+		// Delete hotfix
+		$query = array(
+			'DELETE'	=> 'extension_hooks',
+			'WHERE'		=> 'extension_id LIKE \'hotfix%\''
+		);
+
+		$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+		$query = array(
+			'DELETE'	=> 'extensions',
+			'WHERE'		=> 'id LIKE \'hotfix%\''
+		);
+
+		$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 		// We update the version number
 		$query = array(
@@ -391,8 +382,7 @@ require FORUM_ROOT.'style/'.$forum_user['style'].'/'.$forum_user['style'].'.php'
 		// Empty the PHP cache
 		forum_clear_cache();
 
-
-	define ('FORUM_PAGE', 'dbupdate-finish');
+		define ('FORUM_PAGE', 'dbupdate-finish');
 ?>
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 
@@ -403,10 +393,11 @@ require FORUM_ROOT.'style/'.$forum_user['style'].'/'.$forum_user['style'].'.php'
 <?php
 
 // Include the stylesheets
+echo '<link rel="stylesheet" type="text/css" href="'.$base_url.'/style/base.css" />';
 require FORUM_ROOT.'style/'.$forum_user['style'].'/'.$forum_user['style'].'.php';
 
 ?>
-<script type="text/javascript" src="<?php echo $base_url ?>/include/js/common.js"></script>
+<script type="text/javascript" src="<?php echo $base_url ?>/js/common.js"></script>
 </head>
 <body>
 
@@ -446,4 +437,4 @@ $forum_db->end_transaction();
 $forum_db->close();
 
 if ($query_str != '')
-	exit('<script type="text/javascript">window.location="db_update.php'.$query_str.'"</script><br />JavaScript, кажется, отлючён. <a href="db_update.php'.$query_str.'">Нажмите для продолжения</a>.');
+	die('<script type="text/javascript">window.location="db_update.php'.$query_str.'"</script><br />JavaScript, кажется, отлючён. <a href="db_update.php'.$query_str.'">Нажмите для продолжения</a>.');

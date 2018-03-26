@@ -1,6 +1,9 @@
 <?php
+
 /**
 * @version $Id: strspn.php,v 1.1 2006/02/25 13:50:17 harryf Exp $
+* @package utf8
+* @subpackage strings
 */
 
 /**
@@ -10,15 +13,15 @@
 * @param string
 * @return int
 * @see http://www.php.net/strspn
-* @package utf8
 */
-function utf8_strspn($str, $mask, $start = null, $length = null)
+function utf8_strspn($str, $mask, $start=null, $length=null)
 {
-	$mask = preg_replace('!([\\\\\\-\\]\\[/^])!','\\\${1}',$mask);
+	$mask = preg_replace('!([\\\\\\-\\]\\[/^])!', '\\\${1}', $mask);
+
 	if ($start !== null || $length !== null)
 		$str = utf8_substr($str, $start, $length);
 
-	preg_match('/^['.$mask.']+/u',$str, $matches);
+	preg_match('/^['.$mask.']+/u', $str, $matches);
 
 	if (isset($matches[0]))
 		return utf8_strlen($matches[0]);

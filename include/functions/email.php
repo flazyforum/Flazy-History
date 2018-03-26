@@ -3,17 +3,19 @@
  * Функции используемые в работе с адресом электоронной почты.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
 
-
-// Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
-// Validate an e-mail address
+/**
+ * Проверка адреса электронной почты на валидность.
+ * @param string Email адрес участника.
+ * @return bool Если TRUE, то адрес невалиден.
+ */
 function is_valid_email($email)
 {
 	$return = ($hook = get_hook('em_fn_is_valid_email_start')) ? eval($hook) : null;
@@ -26,7 +28,12 @@ function is_valid_email($email)
 	return preg_match('/^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|("[^"]+"))@((\[\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\])|(([a-zA-Z\d\-]+\.)+[a-zA-Z]{2,}))$/', $email);
 }
 
-// Check if $email is banned
+
+/**
+ * Проверка адреса электронной почты не заблокирован ли он.
+ * @param string Email адрес участника.
+ * @return bool Если TRUE, то заблокирован.
+ */
 function is_banned_email($email)
 {
 	global $forum_db, $forum_bans;
@@ -46,7 +53,47 @@ function is_banned_email($email)
 	return false;
 }
 
-// Wrapper for PHP's mail()
+
+/**
+ * Проверка зарегистрирован ли кто-то с текущим адресом электронной почты.
+ * @param string Email адрес участника.
+ * @return mixed Если адрес уже использован вернёт массив с именами участников которым он принадлежит, если нет возвратит false.
+ */
+function is_dupe_email($email)
+{
+	global $forum_db;
+
+	$return = ($hook = get_hook('em_fn_is_dupe_email_start')) ? eval($hook) : null;
+	if ($return != null)
+		return $return;
+
+	$query = array(
+		'SELECT'	=> 'u.username',
+		'FROM'		=> 'users AS u',
+		'WHERE'		=> 'u.email=\''.$forum_db->escape($email).'\''
+	);
+
+	($hook = get_hook('rg_register_qr_check_email_dupe')) ? eval($hook) : null;
+	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+	if ($forum_db->num_rows($result))
+	{
+		while ($cur_dupe = $forum_db->fetch_assoc($result))
+			$dupe_list[] = $cur_dupe['username'];
+
+		return $dupe_list;
+	}
+
+	return false;
+}
+
+/**
+ * Обёртка PHP функции mail().
+ * @param string Email адрес получателя сообщения.
+ * @param string Тема электронного письма.
+ * @param string Тело сообщения электронного письма.
+ * @param string ...
+ * @param string ...
+ */
 function forum_mail($to, $subject, $message, $reply_to_email = '', $reply_to_name = '')
 {
 	global $forum_config, $lang_common;

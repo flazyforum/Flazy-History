@@ -5,7 +5,7 @@
  * Allows administrators to control the tags given to posters based on their post count
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -180,7 +180,7 @@ define('FORUM_PAGE_SECTION', 'users');
 define('FORUM_PAGE', 'admin-ranks');
 require FORUM_ROOT.'header.php';
 
-// START SUBST - <!-- forum_main -->
+// START SUBST - <forum_main>
 ob_start();
 
 ($hook = get_hook('ark_main_output_start')) ? eval($hook) : null;
@@ -206,12 +206,12 @@ ob_start();
 <?php ($hook = get_hook('ark_pre_add_rank_title')) ? eval($hook) : null; ?>
 						<div class="mf-field mf-field1 text">
 							<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="fld-label"><?php echo $lang_admin_ranks['Rank title label'] ?></span></label><br />
-							<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="new_rank" size="24" maxlength="50" class="inputbox" /></span>
+							<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="new_rank" size="24" maxlength="50" /></span>
 						</div>
 <?php ($hook = get_hook('ark_pre_add_rank_min_posts')) ? eval($hook) : null; ?>
 						<div class="mf-field text">
 							<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="fld-label"><?php echo $lang_admin_ranks['Min posts label'] ?></span></label><br />
-							<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="new_min_posts" size="7" maxlength="7" class="inputbox" /></span>
+							<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="new_min_posts" size="7" maxlength="7" /></span>
 						</div>
 <?php ($hook = get_hook('ark_pre_add_rank_submit')) ? eval($hook) : null; ?>
 						<div class="mf-field text">
@@ -250,12 +250,12 @@ if (!empty($forum_ranks))
 <?php ($hook = get_hook('ark_pre_edit_cur_rank_title')) ? eval($hook) : null; ?>
 						<div class="mf-field text mf-field1">
 							<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_ranks['Rank title label'] ?></span></label><br />
-							<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="rank[<?php echo $cur_rank['id'] ?>]" value="<?php echo forum_htmlencode($cur_rank['rank']) ?>" size="24" maxlength="50" class="inputbox" /></span>
+							<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="rank[<?php echo $cur_rank['id'] ?>]" value="<?php echo forum_htmlencode($cur_rank['rank']) ?>" size="24" maxlength="50" /></span>
 						</div>
 <?php ($hook = get_hook('ark_pre_edit_cur_rank_min_posts')) ? eval($hook) : null; ?>
 						<div class="mf-field text">
 							<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span class="fld-label"><?php echo $lang_admin_ranks['Min posts label'] ?></span></label><br />
-							<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="min_posts[<?php echo $cur_rank['id'] ?>]" value="<?php echo $cur_rank['min_posts'] ?>" size="7" maxlength="7" class="inputbox" /></span>
+							<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="min_posts[<?php echo $cur_rank['id'] ?>]" value="<?php echo $cur_rank['min_posts'] ?>" size="7" maxlength="7" /></span>
 						</div>
 <?php ($hook = get_hook('ark_pre_edit_cur_rank_submit')) ? eval($hook) : null; ?>
 						<div class="mf-field">
@@ -297,8 +297,8 @@ else
 ($hook = get_hook('ark_end')) ? eval($hook) : null;
 
 $tpl_temp = forum_trim(ob_get_contents());
-$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 ob_end_clean();
-// END SUBST - <!-- forum_main -->
+// END SUBST - <forum_main>
 
 require FORUM_ROOT.'footer.php';

@@ -3,7 +3,7 @@
  * Замема SEF URL на реальные адреса.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -85,11 +85,12 @@ if (empty($rewritten_url))
 {
 	define('FORUM_HTTP_RESPONSE_CODE_SET', 1);
 
-	require FORUM_ROOT.'error.php';
-	exit;
+	header('HTTP/1.1 404 Not Found');
 
 	// Allow an extension to override the "Bad request" message with a custom 404 page
 	($hook = get_hook('re_page_not_found')) ? eval($hook) : null;
+
+	error('Страница не найдена (ошибка 404): Запрашиваемая страница <em>'.forum_htmlencode($request_uri).'</em> отсутствует на сервере.');
 }
 
 // We change $_SERVER['PHP_SELF'] so that it reflects the file we're actually loading

@@ -3,7 +3,7 @@
  * Функции используемые для поиска на форуме.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,7 +11,7 @@
 
 // Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
 // Cache the results of a search and redirect the user to the results page
 function create_search_cache($keywords, $author, $search_in = false, $forum = array(-1), $show_as = 'topics', $sort_by = null, $sort_dir = 'DESC')
@@ -57,8 +57,8 @@ function create_search_cache($keywords, $author, $search_in = false, $forum = ar
 		);
 	}
 
-      	($hook = get_hook('sf_fn_create_search_cache_qr_update_last_search_time')) ? eval($hook) : null;
-      	$forum_db->query_build($query) or error(__FILE__, __LINE__);
+	($hook = get_hook('sf_fn_create_search_cache_qr_update_last_search_time')) ? eval($hook) : null;
+	$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
 	// We need to grab results, insert them into the cache and reload with a search id before showing them
 	$keyword_results = $author_results = array();
@@ -81,7 +81,7 @@ function create_search_cache($keywords, $author, $search_in = false, $forum = ar
 
 		$word_count = 0;
 		$match_type = 'and';
-		$result_list = array();
+		$keywords_list = $result_list = array();
 
 		foreach ($keywords_array as $cur_word)
 		{
@@ -95,13 +95,15 @@ function create_search_cache($keywords, $author, $search_in = false, $forum = ar
 
 				default:
 				{
+					$keywords_list[] = $cur_word;
+
 					$query = array(
 						'SELECT'	=> 'm.post_id',
 						'FROM'		=> 'search_words AS w',
 						'JOINS'		=> array(
 							array(
 								'INNER JOIN'	=> 'search_matches AS m',
-								'ON'		=> 'm.word_id=w.id'
+								'ON'			=> 'm.word_id=w.id'
 							)
 						),
 						'WHERE'		=> 'w.word LIKE \''.$forum_db->escape(str_replace('*', '%', $cur_word)).'\''
@@ -209,11 +211,11 @@ function create_search_cache($keywords, $author, $search_in = false, $forum = ar
 		'JOINS'		=> array(
 			array(
 				'INNER JOIN'	=> 'topics AS t',
-				'ON'		=> 't.id=p.topic_id'
+				'ON'			=> 't.id=p.topic_id'
 			),
 			array(
-				'LEFT JOIN'	=> 'forum_perms AS fp',
-				'ON'		=> '(fp.forum_id=t.forum_id AND fp.group_id='.$forum_user['g_id'].')'
+				'LEFT JOIN'		=> 'forum_perms AS fp',
+				'ON'			=> '(fp.forum_id=t.forum_id AND fp.group_id='.$forum_user['g_id'].')'
 			)
 		),
 		'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1) AND p.id IN('.implode(',', $search_ids).')',
@@ -265,12 +267,19 @@ function create_search_cache($keywords, $author, $search_in = false, $forum = ar
 	$search_results = implode(',', $search_ids);
 
 	// Fill an array with our results and search properties
-	$temp = serialize(array(
+
+	$temp = array(
 		'search_results'	=> $search_results,
-		'sort_by'		=> $sort_by,
-		'sort_dir'		=> $sort_dir,
-		'show_as'		=> $show_as
-	));
+		'sort_by'			=> $sort_by,
+		'sort_dir'			=> $sort_dir,
+		'show_as'			=> $show_as
+	);
+
+	if ($keywords && $show_as == 'posts')
+		$temp['keywords'] = implode('|', $keywords_list);
+
+	$temp = serialize($temp);
+
 	$search_id = mt_rand(1, 2147483647);
 	$ident = ($forum_user['is_guest']) ? get_remote_address() : $forum_user['username'];
 
@@ -292,12 +301,12 @@ function create_search_cache($keywords, $author, $search_in = false, $forum = ar
 
 	// Redirect the user to the cached result page
 	header('Location: '.str_replace('&amp;', '&', forum_link($forum_url['search_results'], $search_id)));
-	exit;
+	die;
 }
 
 
 // Generate query to grab the results for a cached search
-function generate_cached_search_query($search_id, &$show_as)
+function generate_cached_search_query($search_id, &$show_as, &$keywords)
 {
 	global $forum_db, $db_type, $forum_user, $forum_config;
 
@@ -323,6 +332,7 @@ function generate_cached_search_query($search_id, &$show_as)
 		$sort_by = $temp['sort_by'];
 		$sort_dir = $temp['sort_dir'];
 		$show_as = $temp['show_as'];
+		$keywords = (!empty($temp['keywords']) ? $temp['keywords']: '');
 
 		unset($temp);
 	}
@@ -348,7 +358,7 @@ function generate_cached_search_query($search_id, &$show_as)
 			break;
 
 		default:
-			$sort_by_sql = ($show_as == 'topics') ? 't.posted' : 'p.posted';
+			$sort_by_sql = ($show_as == 'topics') ? 't.last_post' : 'p.posted';
 			($hook = get_hook('sf_fn_generate_cached_search_query_qr_cached_sort_by')) ? eval($hook) : null;
 			break;
 	}
@@ -356,16 +366,16 @@ function generate_cached_search_query($search_id, &$show_as)
 	if ($show_as == 'posts')
 	{
 		$query = array(
-			'SELECT'	=> 'p.id AS pid, p.poster AS pposter, p.posted AS pposted, p.poster_id, p.message, p.hide_smilies, t.id AS tid, t.poster, t.subject, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.num_replies, t.forum_id, f.forum_name',
+			'SELECT'	=> 'p.id AS pid, p.poster AS pposter, p.posted AS pposted, p.poster_id, p.message, p.hide_smilies, t.id AS tid, t.poster, t.subject, t.description, t.question, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.num_replies, t.forum_id, f.forum_name',
 			'FROM'		=> 'posts AS p',
 			'JOINS'		=> array(
 				array(
 					'INNER JOIN'	=> 'topics AS t',
-					'ON'		=> 't.id=p.topic_id'
+					'ON'			=> 't.id=p.topic_id'
 				),
 				array(
 					'INNER JOIN'	=> 'forums AS f',
-					'ON'		=> 'f.id=t.forum_id'
+					'ON'			=> 'f.id=t.forum_id'
 				)
 			),
 			'WHERE'		=> 'p.id IN('.$search_results.')',
@@ -377,25 +387,13 @@ function generate_cached_search_query($search_id, &$show_as)
 	else
 	{
 		$query = array(
-			'SELECT'	=> 't.id AS tid, t.poster, t.subject, t.description, t.poll, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.num_replies, t.closed, t.sticky, t.forum_id, f.forum_name, q.question, u0.id AS user_id, u1.id AS user_id_post',
+			'SELECT'	=> 't.id AS tid, t.poster, t.poster_id, t.subject, t.description, t.question, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.last_poster_id, t.num_replies, t.closed, t.sticky, t.forum_id, f.forum_name',
 			'FROM'		=> 'topics AS t',
 			'JOINS'		=> array(
 				array(
 					'INNER JOIN'	=> 'forums AS f',
-					'ON'		=> 'f.id=t.forum_id'
-				),
-				array(
-					'LEFT JOIN'	=> 'questions AS q',
-					'ON'		=> 't.id=q.topic_id'
-				),
-				array(
-					'INNER JOIN'	=> 'users AS u0',
-					'ON'		=> 't.last_poster=u0.username'
-				),
-				array(
-					'INNER JOIN'	=> 'users AS u1',
-					'ON'		=> 't.last_poster=u1.username'
-				),
+					'ON'			=> 'f.id=t.forum_id'
+				)
 			),
 			'WHERE'		=> 't.id IN('.$search_results.')',
 			'ORDER BY'	=> $sort_by_sql.' '.$sort_dir
@@ -439,28 +437,16 @@ function generate_action_search_query($action, $value, &$search_id, &$url_type, 
 				message($lang_common['No permission']);
 
 			$query = array(
-				'SELECT'	=> 't.id AS tid, t.poster, t.subject, t.description, t.poll, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.num_replies, t.closed, t.sticky, t.forum_id, f.forum_name, q.question, u0.id AS user_id, u1.id AS user_id_post',
+				'SELECT'	=> 't.id AS tid, t.poster, t.poster_id, t.subject, t.description, t.question, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.last_poster_id, t.num_replies, t.closed, t.sticky, t.forum_id, f.forum_name',
 				'FROM'		=> 'topics AS t',
 				'JOINS'		=> array(
 					array(
 						'INNER JOIN'	=> 'forums AS f',
-						'ON'		=> 'f.id=t.forum_id'
+						'ON'			=> 'f.id=t.forum_id'
 					),
 					array(
-						'LEFT JOIN'	=> 'forum_perms AS fp',
-						'ON'		=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
-					),
-					array(
-						'LEFT JOIN'	=> 'questions AS q',
-						'ON'		=> 't.id=q.topic_id'
-					),
-					array(
-						'LEFT JOIN'	=> 'users AS u0',
-						'ON'		=> 't.poster=u0.username'
-					),
-					array(
-						'LEFT JOIN'	=> 'users AS u1',
-						'ON'		=> 't.last_poster=u1.username'
+						'LEFT JOIN'		=> 'forum_perms AS fp',
+						'ON'			=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
 					)
 				),
 				'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1) AND t.last_post>'.$forum_user['last_visit'].' AND t.moved_to IS NULL',
@@ -492,28 +478,16 @@ function generate_action_search_query($action, $value, &$search_id, &$url_type, 
 
 		case 'show_recent':
 			$query = array(
-				'SELECT'	=> 't.id AS tid, t.poster, t.subject, t.description, t.poll, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.num_replies, t.closed, t.sticky, t.forum_id, f.forum_name, q.question, u0.id AS user_id, u1.id AS user_id_post',
+				'SELECT'	=> 't.id AS tid, t.poster, t.poster_id, t.subject, t.description, t.question, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.last_poster_id, t.num_replies, t.closed, t.sticky, t.forum_id, f.forum_name',
 				'FROM'		=> 'topics AS t',
 				'JOINS'		=> array(
 					array(
 						'INNER JOIN'	=> 'forums AS f',
-						'ON'		=> 'f.id=t.forum_id'
+						'ON'			=> 'f.id=t.forum_id'
 					),
 					array(
-						'LEFT JOIN'	=> 'forum_perms AS fp',
-						'ON'		=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
-					),
-					array(
-						'LEFT JOIN'	=> 'questions AS q',
-						'ON'		=> 't.id=q.topic_id'
-					),
-					array(
-						'INNER JOIN'	=> 'users AS u0',
-						'ON'		=> 't.poster=u0.username'
-					),
-					array(
-						'INNER JOIN'	=> 'users AS u1',
-						'ON'		=> 't.last_poster=u1.username'
+						'LEFT JOIN'		=> 'forum_perms AS fp',
+						'ON'			=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
 					)
 				),
 				'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1) AND t.last_post>'.(time() - $value).' AND t.moved_to IS NULL',
@@ -542,24 +516,20 @@ function generate_action_search_query($action, $value, &$search_id, &$url_type, 
 
 		case 'show_user_posts':
 			$query = array(
-				'SELECT'	=> 'p.id AS pid, p.poster AS pposter, p.posted AS pposted, p.poster_id, p.message, p.hide_smilies, t.id AS tid, t.poster, t.subject, t.description, t.poll, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.num_replies, t.forum_id, f.forum_name, q.question',
+				'SELECT'	=> 'p.id AS pid, p.poster AS pposter, p.posted AS pposted, p.poster_id, p.message, p.hide_smilies, t.id AS tid, t.poster, t.subject, t.description, t.question, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.num_replies, t.forum_id, f.forum_name',
 				'FROM'		=> 'posts AS p',
 				'JOINS'		=> array(
 					array(
 						'INNER JOIN'	=> 'topics AS t',
-						'ON'		=> 't.id=p.topic_id'
+						'ON'			=> 't.id=p.topic_id'
 					),
 					array(
 						'INNER JOIN'	=> 'forums AS f',
-						'ON'		=> 'f.id=t.forum_id'
+						'ON'			=> 'f.id=t.forum_id'
 					),
 					array(
-						'LEFT JOIN'	=> 'forum_perms AS fp',
-						'ON'		=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
-					),
-					array(
-						'LEFT JOIN'	=> 'questions AS q',
-						'ON'		=> 't.id=q.topic_id'
+						'LEFT JOIN'		=> 'forum_perms AS fp',
+						'ON'			=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
 					)
 				),
 				'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1) AND p.poster_id='.$value,
@@ -576,32 +546,20 @@ function generate_action_search_query($action, $value, &$search_id, &$url_type, 
 
 		case 'show_user_topics':
 			$query = array(
-				'SELECT'	=> 't.id AS tid, t.poster, t.subject, t.description, t.poll, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.num_replies, t.closed, t.sticky, t.forum_id, f.forum_name, q.question, u0.id AS user_id, u1.id AS user_id_post',
+				'SELECT'	=> 't.id AS tid, t.poster, t.poster_id, t.subject, t.description, t.question, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.last_poster_id, t.num_replies, t.closed, t.sticky, t.forum_id, f.forum_name',
 				'FROM'		=> 'topics AS t',
 				'JOINS'		=> array(
 					array(
 						'INNER JOIN'	=> 'posts AS p',
-						'ON'		=> 't.first_post_id=p.id'
+						'ON'			=> 't.first_post_id=p.id'
 					),
 					array(
 						'INNER JOIN'	=> 'forums AS f',
-						'ON'		=> 'f.id=t.forum_id'
+						'ON'			=> 'f.id=t.forum_id'
 					),
 					array(
-						'LEFT JOIN'	=> 'forum_perms AS fp',
-						'ON'		=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
-					),
-					array(
-						'LEFT JOIN'	=> 'questions AS q',
-						'ON'		=> 't.id=q.topic_id'
-					),
-					array(
-						'INNER JOIN'	=> 'users AS u0',
-						'ON'		=> 't.poster=u0.username'
-					),
-					array(
-						'INNER JOIN'	=> 'users AS u1',
-						'ON'		=> 't.last_poster=u1.username'
+						'LEFT JOIN'		=> 'forum_perms AS fp',
+						'ON'			=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
 					)
 				),
 				'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1) AND p.poster_id='.$value,
@@ -637,32 +595,20 @@ function generate_action_search_query($action, $value, &$search_id, &$url_type, 
 				message($lang_common['Bad request']);
 
 			$query = array(
-				'SELECT'	=> 't.id AS tid, t.poster, t.subject, t.description, t.poll, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.num_replies, t.closed, t.sticky, t.forum_id, f.forum_name, q.question, u0.id AS user_id, u1.id AS user_id_post',
+				'SELECT'	=> 't.id AS tid, t.poster, t.poster_id, t.subject, t.description, t.question, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.last_poster_id, t.num_replies, t.closed, t.sticky, t.forum_id, f.forum_name',
 				'FROM'		=> 'topics AS t',
 				'JOINS'		=> array(
 					array(
 						'INNER JOIN'	=> 'subscriptions AS s',
-						'ON'		=> '(t.id=s.topic_id AND s.user_id='.$value.')'
+						'ON'			=> '(t.id=s.topic_id AND s.user_id='.$value.')'
 					),
 					array(
 						'INNER JOIN'	=> 'forums AS f',
-						'ON'		=> 'f.id=t.forum_id'
+						'ON'			=> 'f.id=t.forum_id'
 					),
 					array(
-						'LEFT JOIN'	=> 'forum_perms AS fp',
-						'ON'		=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
-					),
-					array(
-						'LEFT JOIN'	=> 'questions AS q',
-						'ON'		=> 't.id=q.topic_id'
-					),
-					array(
-						'INNER JOIN'	=> 'users AS u0',
-						'ON'		=> 't.poster=u0.username'
-					),
-					array(
-						'INNER JOIN'	=> 'users AS u1',
-						'ON'		=> 't.last_poster=u1.username'
+						'LEFT JOIN'		=> 'forum_perms AS fp',
+						'ON'			=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
 					)
 				),
 				'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1)',
@@ -691,28 +637,16 @@ function generate_action_search_query($action, $value, &$search_id, &$url_type, 
 
 		case 'show_unanswered':
 			$query = array(
-				'SELECT'	=> 't.id AS tid, t.poster, t.subject, t.description, t.poll, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.num_replies, t.closed, t.sticky, t.forum_id, f.forum_name, q.question, u0.id AS user_id, u1.id AS user_id_post',
+				'SELECT'	=> 't.id AS tid, t.poster, t.poster_id, t.subject, t.description, t.question, t.first_post_id, t.posted, t.last_post, t.last_post_id, t.last_poster, t.last_poster_id, t.num_replies, t.closed, t.sticky, t.forum_id, f.forum_name',
 				'FROM'		=> 'topics AS t',
 				'JOINS'		=> array(
 					array(
 						'INNER JOIN'	=> 'forums AS f',
-						'ON'		=> 'f.id=t.forum_id'
+						'ON'			=> 'f.id=t.forum_id'
 					),
 					array(
-						'LEFT JOIN'	=> 'forum_perms AS fp',
-						'ON'		=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
-					),
-					array(
-						'INNER JOIN'	=> 'questions AS q',
-						'ON'		=> 't.id=q.topic_id'
-					),
-					array(
-						'INNER JOIN'	=> 'users AS u0',
-						'ON'		=> 't.poster=u0.username'
-					),
-					array(
-						'INNER JOIN'	=> 'users AS u1',
-						'ON'		=> 't.last_poster=u1.username'
+						'LEFT JOIN'		=> 'forum_perms AS fp',
+						'ON'			=> '(fp.forum_id=f.id AND fp.group_id='.$forum_user['g_id'].')'
 					)
 				),
 				'WHERE'		=> '(fp.read_forum IS NULL OR fp.read_forum=1) AND t.num_replies=0 AND t.moved_to IS NULL',
@@ -839,46 +773,46 @@ function generate_search_crumbs($action = null)
 		case 'show_new':
 			$forum_page['crumbs'][] = $lang_search['Topics with new'];
 			$forum_page['items_info'] = generate_items_info($lang_search['Topics found'], ($forum_page['start_from'] + 1), $num_hits);
-			$forum_page['main_options']['defined_search'] = '<span'.(empty($forum_page['main_options']) ? ' class="item1"' : '').'><a class="mod-option-search" href="'.forum_link($forum_url['search']).'">'.$lang_search['User defined search'].'</a></span>';
-			$forum_page['main_options']['mark_all'] = '<span'.(empty($forum_page['main_options']) ? ' class="item1"' : '').'><a class="mark-all-read" href="'.forum_link($forum_url['mark_read'], generate_form_token('markread'.$forum_user['id'])).'">'.$lang_common['Mark all as read'].'</a></span>';
+			$forum_page['main_options']['defined_search'] = '<span'.(empty($forum_page['main_options']) ? ' class="first-item"' : '').'><a class="mod-option-search" href="'.forum_link($forum_url['search']).'">'.$lang_search['User defined search'].'</a></span>';
+			$forum_page['main_options']['mark_all'] = '<span'.(empty($forum_page['main_options']) ? ' class="first-item"' : '').'><a class="mark-all-read" href="'.forum_link($forum_url['mark_read'], generate_form_token('markread'.$forum_user['id'])).'">'.$lang_common['Mark all as read'].'</a></span>';
 			break;
 
 		case 'show_recent':
 			$forum_page['crumbs'][] = $lang_search['Recently active topics'];
 			$forum_page['items_info'] = generate_items_info($lang_search['Topics found'], ($forum_page['start_from'] + 1), $num_hits);
-			$forum_page['main_options']['defined_search'] = '<span'.(empty($forum_page['main_options']) ? ' class="item1"' : '').'><a class="mod-option-search" href="'.forum_link($forum_url['search']).'">'.$lang_search['User defined search'].'</a></span>';
+			$forum_page['main_options']['defined_search'] = '<span'.(empty($forum_page['main_options']) ? ' class="first-item"' : '').'><a class="mod-option-search" href="'.forum_link($forum_url['search']).'">'.$lang_search['User defined search'].'</a></span>';
 			break;
 
 		case 'show_unanswered':
 			$forum_page['crumbs'][] = $lang_search['Unanswered topics'];
 			$forum_page['items_info'] = generate_items_info($lang_search['Topics found'], ($forum_page['start_from'] + 1), $num_hits);
-			$forum_page['main_options']['defined_search'] = '<span'.(empty($forum_page['main_options']) ? ' class="item1"' : '').'><a class="mod-option-search" href="'.forum_link($forum_url['search']).'">'.$lang_search['User defined search'].'</a></span>';
+			$forum_page['main_options']['defined_search'] = '<span'.(empty($forum_page['main_options']) ? ' class="first-item"' : '').'><a class="mod-option-search" href="'.forum_link($forum_url['search']).'">'.$lang_search['User defined search'].'</a></span>';
 			break;
 
 		case 'show_user_posts':
 			$forum_page['crumbs'][] = sprintf($lang_search['Posts by'], $search_set[0]['pposter'], ($forum_page['start_from'] + 1), $num_hits);
 			$forum_page['items_info'] = generate_items_info($lang_search['Posts found'], ($forum_page['start_from'] + 1), $num_hits);
-			$forum_page['main_options']['user_topics'] = '<span'.(empty($forum_page['main_options']) ? ' class="item1"' : '').'><a class="mod-option-utopic" href="'.forum_link($forum_url['search_user_topics'], $search_id).'">'.sprintf($lang_search['Topics by'], forum_htmlencode($search_set[0]['pposter'])).'</a></span>';
-			$forum_page['main_options']['defined_search'] = '<span'.(empty($forum_page['main_options']) ? ' class="item1"' : '').'><a class="mod-option-search" href="'.forum_link($forum_url['search']).'">'.$lang_search['User defined search'].'</a></span>';
+			$forum_page['main_options']['user_topics'] = '<span'.(empty($forum_page['main_options']) ? ' class="first-item"' : '').'><a class="mod-option-utopic" href="'.forum_link($forum_url['search_user_topics'], $search_id).'">'.sprintf($lang_search['Topics by'], forum_htmlencode($search_set[0]['pposter'])).'</a></span>';
+			$forum_page['main_options']['defined_search'] = '<span'.(empty($forum_page['main_options']) ? ' class="first-item"' : '').'><a class="mod-option-search" href="'.forum_link($forum_url['search']).'">'.$lang_search['User defined search'].'</a></span>';
 			break;
 
 		case 'show_user_topics':
 			$forum_page['crumbs'][] = sprintf($lang_search['Topics by'], forum_htmlencode($search_set[0]['poster']));
 			$forum_page['items_info'] = generate_items_info($lang_search['Topics found'], ($forum_page['start_from'] + 1), $num_hits);
-			$forum_page['main_options']['user_posts'] =  '<span'.(empty($forum_page['main_options']) ? ' class="item1"' : '').'><a class="mod-option-upost" href="'.forum_link($forum_url['search_user_posts'], $search_id).'">'.sprintf($lang_search['Posts by'], $search_set[0]['poster']).'</a></span>';
-			$forum_page['main_options']['defined_search'] = '<span'.(empty($forum_page['main_options']) ? ' class="item1"' : '').'><a class="mod-option-search" href="'.forum_link($forum_url['search']).'">'.$lang_search['User defined search'].'</a></span>';
+			$forum_page['main_options']['user_posts'] =  '<span'.(empty($forum_page['main_options']) ? ' class="first-item"' : '').'><a class="mod-option-upost" href="'.forum_link($forum_url['search_user_posts'], $search_id).'">'.sprintf($lang_search['Posts by'], $search_set[0]['poster']).'</a></span>';
+			$forum_page['main_options']['defined_search'] = '<span'.(empty($forum_page['main_options']) ? ' class="first-item"' : '').'><a class="mod-option-search" href="'.forum_link($forum_url['search']).'">'.$lang_search['User defined search'].'</a></span>';
 			break;
 
 		case 'show_subscriptions':
 			$forum_page['crumbs'][] = $lang_search['Subscriptions'];
 			$forum_page['items_info'] = generate_items_info($lang_search['Topics found'], ($forum_page['start_from'] + 1), $num_hits);
-			$forum_page['main_options']['defined_search'] = '<span'.(empty($forum_page['main_options']) ? ' class="item1"' : '').'><a class="mod-option-search" href="'.forum_link($forum_url['search']).'">'.$lang_search['User defined search'].'</a></span>';
+			$forum_page['main_options']['defined_search'] = '<span'.(empty($forum_page['main_options']) ? ' class="first-item"' : '').'><a class="mod-option-search" href="'.forum_link($forum_url['search']).'">'.$lang_search['User defined search'].'</a></span>';
 			break;
 
 		default:
 			$forum_page['crumbs'][] = $lang_search['Search results'];
 			$forum_page['items_info'] = generate_items_info((($show_as == 'topics') ? $lang_search['Topics found'] : $lang_search['Posts found']), ($forum_page['start_from'] + 1), $num_hits);
-			$forum_page['main_options']['new_search'] = '<span'.(empty($forum_page['main_options']) ? ' class="item1"' : '').'><a class="mod-option-search" href="'.forum_link($forum_url['search']).'">'.$lang_search['Perform new search'].'</a></span>';
+			$forum_page['main_options']['new_search'] = '<span'.(empty($forum_page['main_options']) ? ' class="first-item"' : '').'><a class="mod-option-search" href="'.forum_link($forum_url['search']).'">'.$lang_search['Perform new search'].'</a></span>';
 			break;
 	}
 }

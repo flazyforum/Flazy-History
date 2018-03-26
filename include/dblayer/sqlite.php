@@ -1,9 +1,7 @@
 <?php
 /**
- * A database layer class that relies on the SQLite PHP extension.
- *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,9 +9,11 @@
 
 // Make sure we have built in support for SQLite
 if (!function_exists('sqlite_open'))
-	exit('Эта PHP среда не имеет встроенной поддержки SQLite. Она необходима, если вы хотите использовать базу данных SQLite для работы этого форума. Изучите PHP документацию для получения дополнительной информации.');
+	die('Эта PHP среда не имеет встроенной поддержки SQLite. Она необходима, если вы хотите использовать базу данных SQLite для работы этого форума. Изучите PHP документацию для получения дополнительной информации.');
 
-
+/**
+ * Абстрактная прослойка для работы PHP с базой данных SQLite.
+ */
 class DBLayer
 {
 	var $prefix;
@@ -92,7 +92,7 @@ class DBLayer
 	function query($sql, $unbuffered = false)
 	{
 		if (strlen($sql) > 140000)
-			exit('Безумно большой запрос. Прервано.');
+			die('Безумно большой запрос. Прервано.');
 
 		if (defined('FORUM_SHOW_QUERIES'))
 			$q_start = get_microtime();
@@ -356,14 +356,14 @@ class DBLayer
 
 	function table_exists($table_name, $no_prefix = false)
 	{
-		$result = $this->query('SELECT 1 FROM sqlite_master WHERE name = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND type=\'table\'');
+		$result = $this->query('SELECT 1 FROM sqlite_master WHERE name=\''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND type=\'table\'');
 		return $this->num_rows($result) > 0;
 	}
 
 
 	function field_exists($table_name, $field_name, $no_prefix = false)
 	{
-		$result = $this->query('SELECT sql FROM sqlite_master WHERE name = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND type=\'table\'');
+		$result = $this->query('SELECT sql FROM sqlite_master WHERE name=\''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND type=\'table\'');
 		if (!$this->num_rows($result))
 			return false;
 
@@ -373,7 +373,7 @@ class DBLayer
 
 	function index_exists($table_name, $index_name, $no_prefix = false)
 	{
-		$result = $this->query('SELECT 1 FROM sqlite_master WHERE tbl_name = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND name = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'_'.$this->escape($index_name).'\' AND type=\'index\'');
+		$result = $this->query('SELECT 1 FROM sqlite_master WHERE tbl_name=\''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND name = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'_'.$this->escape($index_name).'\' AND type=\'index\'');
 		return $this->num_rows($result) > 0;
 	}
 
@@ -534,6 +534,18 @@ class DBLayer
 	}
 
 
+	function alter_field($table_name, $field_name, $field_type, $allow_null, $default_value = null, $after_field = null, $no_prefix = false)
+	{
+		return;
+	}
+
+
+	function rename_field($table_name, $field_name, $field_new_name, $field_type, $allow_null, $default_value = null, $after_field = null, $no_prefix = false)
+	{
+		return;
+	}
+
+
 	function drop_field($table_name, $field_name, $no_prefix = false)
 	{
 		if (!$this->field_exists($table_name, $field_name, $no_prefix))
@@ -574,7 +586,8 @@ class DBLayer
 		if (!empty($table['indices']))
 		{
 			foreach ($table['indices'] as $cur_index)
-				$this->query($cur_index) or error(__FILE__, __LINE__);
+				if (!preg_match('#\(.*'.$field_name.'.*\)#', $cur_index))
+					$this->query($cur_index) or error(__FILE__, __LINE__);
 		}
 
 		//Copy content back

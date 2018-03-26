@@ -3,7 +3,7 @@
  * FAQ форума.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL версии 2 или выше
  * @package Flazy
  */
@@ -33,18 +33,8 @@ $forum_page['crumbs'] = array(
 	$lang_help['Help']
 );
 
-$forum_js->addFile($base_url.'/include/js/jquery.js');
-$forum_js->addCode('$(document).ready( function() {
-	$(\'.spoiler-head\').toggle(
-		function() {
-		$(this).children().text(\''.$lang_common['Hide spoiler'].'\');
-			$(this).next().show("slow");
-		},
-		function() {
-			$(this).children().text(\''.$lang_common['Show spoiler'].'\');
-			$(this).next().hide("slow");
-		}
-	);
+$forum_js->file('jquery');
+$forum_js->code('$(document).ready( function() {
 	$(\'.hide-head\').toggle(
 		function() {
 		$(this).children().text(\''.$lang_common['Hidden text'].'\');
@@ -60,7 +50,7 @@ $forum_js->addCode('$(document).ready( function() {
 define('FORUM_PAGE', 'help');
 require FORUM_ROOT.'header.php';
 
-// START SUBST - <!-- forum_main -->
+// START SUBST - <forum_main>
 ob_start();
 
 ($hook = get_hook('he_main_output_start')) ? eval($hook) : null;
@@ -115,6 +105,10 @@ if (!$section || $section == 'bbcode')
 				<div class="entry-content"><h5><samp><?php echo $lang_help['Heading text'] ?></samp></h5></div>
 			</div>
 			<div class="entry-content">
+				<code>[hr]</code> <span><?php echo $lang_help['produces'] ?></span>
+				<div class="entry-content"><hr /></div>
+			</div>
+			<div class="entry-content">
 				<code>[wiki=ru]<?php echo $lang_help['Simple example loc'] ?>[/wiki]</code> <span><?php echo $lang_help['produces'] ?></span>
 				<samp><a href="http://ru.wikipedia.org/wiki/Зеленоград" class="wiki_link" onclick="window.open(this.href); return false"><?php echo $lang_help['Simple example loc'] ?></a></samp>
 			</div>
@@ -123,14 +117,12 @@ if (!$section || $section == 'bbcode')
 				<samp><a href="http://en.wikipedia.org/wiki/Zelenograd" class="wiki_link" onclick="window.open(this.href); return false"><?php echo $lang_help['Simple example en'] ?></a></samp>
 			</div>
 			<div class="entry-content">
-				<code>[spoiler]<?php echo $lang_help['Simple text'] ?>[/spoiler]</code> <span><?php echo $lang_help['produces'] ?></span>
-				<div class="spoiler-wrap"><span class="spoiler-head"><span><?php echo $lang_common['Show spoiler'] ?></span></span><span class="spoiler-text"><?php echo $lang_help['Simple text'] ?></span></div>
-			</div>
-			<div class="entry-content">
 				<code>[hide]<?php echo $lang_help['Simple text'] ?>[/hide]</code> <span><?php echo $lang_help['produces'] ?></span>
-				<div class="hide-wrap"><span class="hide-head"><span><?php echo $lang_common['Hidden show text'] ?></span></span><span class="hide-text"><?php echo $lang_help['Simple text'] ?></span></div>
-				<code>[hide=10]<?php echo $lang_help['Simple text'] ?>[/hide]</code> <span><?php echo $lang_help['produces'] ?></span>
-				<div class="hide-wrap"><span class="hide-head"><span><?php echo $lang_common['Hidden show text'] ?></span></span><span class="hide-text"><?php echo $lang_help['Simple text'] ?></span></div>
+				<div class="hide-wrap"><span class="hide-head"><span><?php echo $lang_common['Hidden show text'] ?></span></span><div class="hide-text"><?php echo $lang_help['Simple text'] ?></div></div>
+				<code>[hide=0]<?php echo $lang_help['Hide guest'] ?>[/hide]</code> <span><?php echo $lang_help['produces'] ?></span>
+				<div class="hide-wrap"><span class="hide-head"><span><?php echo $lang_common['Hidden show text'] ?></span></span><div class="hide-text"><?php echo $lang_help['Hide guest'] ?></div></div>
+				<code>[hide=10]<?php echo $lang_help['Hide users'] ?>[/hide]</code> <span><?php echo $lang_help['produces'] ?></span>
+				<div class="hide-wrap"><span class="hide-head"><span><?php echo $lang_common['Hidden show text'] ?></span></span><div class="hide-text"><?php echo $lang_help['Hide users'] ?></div></div>
 			</div>
 <?php ($hook = get_hook('he_new_bbcode_text_style')) ? eval($hook) : null; ?>
 		</div>
@@ -252,8 +244,8 @@ else if ($section == 'smilies')
 ($hook = get_hook('he_end')) ? eval($hook) : null;
 
 $tpl_temp = forum_trim(ob_get_contents());
-$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 ob_end_clean();
-// END SUBST - <!-- forum_main -->
+// END SUBST - <forum_main>
 
 require FORUM_ROOT.'footer.php';

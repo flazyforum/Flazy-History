@@ -1,20 +1,18 @@
-<?
+<?php
 /**
- * Функции кэша. Создать кеш быстрого перехода.
- *
- * Этот скрипт содержит все функции используемые для создания кэш-файлов.
- *
- * @copyright Copyright (C) 2008-2009 Flazy.ru, based on code copyright (C) 2002-2009 PunBB.org
- * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
+ * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
+ * @modified Copyright (C) 2008 Flazy.ru
+ * @license http://www.gnu.org/licenses/gpl.html GPL версии 2 или выше
  * @package Flazy
  */
 
-
-// Убедимся что никто не пытается запусть этот сценарий напрямую
 if (!defined('FORUM'))
-	exit;
+	die;
 
-// Создать кеш quickjump
+/**
+ * Кеш быстрого перехода.
+ * @param int ID группы пользователей, если переменная определена, создаем кэш только для этой группы.
+ */
 function generate_quickjump_cache($group_id = false)
 {
 	global $forum_db, $lang_common, $forum_url, $forum_config, $forum_user, $base_url;
@@ -48,9 +46,9 @@ function generate_quickjump_cache($group_id = false)
 		// Output quickjump as PHP code
 		$fh = @fopen(FORUM_CACHE_DIR.'cache_quickjump_'.$group_id.'.php', 'wb');
 		if (!$fh)
-			error('Невозможно записать файл быстрого перехода в кэш каталог. Пожалуйста, убедитесь, что PHP имеет доступ на запись в папку \'cache\'.', __FILE__, __LINE__);
+			error('Невозможно записать файл быстрого перехода в кеш каталог. Пожалуйста, убедитесь, что PHP имеет доступ на запись в папку \'cache\'.', __FILE__, __LINE__);
 
-		$output = '<?php'."\n\n".'if (!defined(\'FORUM\')) exit;'."\n".'define(\'FORUM_QJ_LOADED\', 1);'."\n".'$forum_id = isset($forum_id) ? $forum_id : 0;'."\n\n".'?>';
+		$output = '<?php'."\n\n".'if (!defined(\'FORUM\')) die;'."\n".'define(\'FORUM_QJ_LOADED\', 1);'."\n".'$forum_id = isset($forum_id) ? $forum_id : 0;'."\n\n".'?>';
 		$output .= '<form id="qjump" method="get" accept-charset="utf-8" action="'.$base_url.'/viewforum.php">'."\n\t".'<div class="frm-fld frm-select">'."\n\t\t".'<label for="qjump-select"><span><?php echo $lang_common[\'Jump to\'] ?>'.'</span></label><br />'."\n\t\t".'<span class="frm-input"><select id="qjump-select" name="id">'."\n";
 
 		// Get the list of categories and forums from the DB
@@ -60,11 +58,11 @@ function generate_quickjump_cache($group_id = false)
 			'JOINS'		=> array(
 				array(
 					'INNER JOIN'	=> 'forums AS f',
-					'ON'		=> 'c.id=f.cat_id'
+					'ON'			=> 'c.id=f.cat_id'
 				),
 				array(
-					'LEFT JOIN'	=> 'forum_perms AS fp',
-					'ON'		=> '(fp.forum_id=f.id AND fp.group_id='.$group_id.')'
+					'LEFT JOIN'		=> 'forum_perms AS fp',
+					'ON'			=> '(fp.forum_id=f.id AND fp.group_id='.$group_id.')'
 				)
 			),
 			'WHERE'		=> 'fp.read_forum IS NULL OR fp.read_forum=1',
@@ -105,7 +103,7 @@ function generate_quickjump_cache($group_id = false)
 		$output .= "\n".'</script>'."\n";
 
 		if ($forum_count < 2)
-			$output = '<?php'."\n\n".'if (!defined(\'FORUM\')) exit;'."\n".'define(\'FORUM_QJ_LOADED\', 1);';
+			$output = '<?php'."\n\n".'if (!defined(\'FORUM\')) die;'."\n".'define(\'FORUM_QJ_LOADED\', 1);';
 
 		fwrite($fh, $output);
 
@@ -113,6 +111,4 @@ function generate_quickjump_cache($group_id = false)
 	}
 }
 
-define('FORUM_CACHE_FUNCTIONS_QUICKJUMP_LOADED', 1);
-
-?>
+define('FORUM_CACHE_QUICKJUMP_LOADED', 1);

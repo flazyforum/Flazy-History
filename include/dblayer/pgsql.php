@@ -1,9 +1,7 @@
 <?php
 /**
- * A database layer class that relies on the PostgreSQL PHP extension.
- *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -11,9 +9,11 @@
 
 // Make sure we have built in support for PostgreSQL
 if (!function_exists('pg_connect'))
-	exit('Эта PHP среда не имеет встроенной поддержки PostgreSQL. Она необходима, если вы хотите использовать базу данных PostgreSQL для работы этого форума. Изучите PHP документацию для получения дополнительной информации.');
+	die('Эта PHP среда не имеет встроенной поддержки PostgreSQL. Она необходима, если вы хотите использовать базу данных PostgreSQL для работы этого форума. Изучите PHP документацию для получения дополнительной информации.');
 
-
+/**
+ *  Абстрактная прослойка для работы PHP с базой данных PostgreSQL.
+ */
 class DBLayer
 {
 	var $prefix;
@@ -29,10 +29,10 @@ class DBLayer
 	var $error_msg = 'Unknown';
 
 	var $datatype_transformations = array(
-		'/^(TINY|SMALL)INT( )?(\\([0-9]+\\))?( )?(UNSIGNED)?$/i'		=>	'SMALLINT',
-		'/^(MEDIUM)?INT( )?(\\([0-9]+\\))?( )?(UNSIGNED)?$/i'			=>	'INTEGER',
+		'/^(TINY|SMALL)INT( )?(\\([0-9]+\\))?( )?(UNSIGNED)?$/i'	=>	'SMALLINT',
+		'/^(MEDIUM)?INT( )?(\\([0-9]+\\))?( )?(UNSIGNED)?$/i'		=>	'INTEGER',
 		'/^BIGINT( )?(\\([0-9]+\\))?( )?(UNSIGNED)?$/i'				=>	'BIGINT',
-		'/^(TINY|MEDIUM|LONG)?TEXT$/i'						=>	'TEXT',
+		'/^(TINY|MEDIUM|LONG)?TEXT$/i'								=>	'TEXT',
 		'/^DOUBLE( )?(\\([0-9,]+\\))?( )?(UNSIGNED)?$/i'			=>	'DOUBLE PRECISION',
 		'/^FLOAT( )?(\\([0-9]+\\))?( )?(UNSIGNED)?$/i'				=>	'REAL'
 	);
@@ -100,10 +100,10 @@ class DBLayer
 	}
 
 
-	function query($sql, $unbuffered = false)	// $unbuffered is ignored since there is no pgsql_unbuffered_query()
+	function query($sql, $unbuffered = false) // $unbuffered is ignored since there is no pgsql_unbuffered_query()
 	{
 		if (strlen($sql) > 140000)
-			exit('Безумно большой запрос. Прервано.');
+			die('Безумно большой запрос. Прервано.');
 
 		if (strrpos($sql, 'LIMIT') !== false)
 			$sql = preg_replace('#LIMIT ([0-9]+),([ 0-9]+)#', 'LIMIT \\2 OFFSET \\1', $sql);
@@ -362,21 +362,21 @@ class DBLayer
 
 	function table_exists($table_name, $no_prefix = false)
 	{
-		$result = $this->query('SELECT 1 FROM pg_class WHERE relname = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\'');
+		$result = $this->query('SELECT 1 FROM pg_class WHERE relname=\''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\'');
 		return $this->num_rows($result) > 0;
 	}
 
 
 	function field_exists($table_name, $field_name, $no_prefix = false)
 	{
-		$result = $this->query('SELECT 1 FROM pg_class c INNER JOIN pg_attribute a ON a.attrelid = c.oid WHERE c.relname = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND a.attname = \''.$this->escape($field_name).'\'');
+		$result = $this->query('SELECT 1 FROM pg_class c INNER JOIN pg_attribute a ON a.attrelid=c.oid WHERE c.relname=\''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND a.attname=\''.$this->escape($field_name).'\'');
 		return $this->num_rows($result) > 0;
 	}
 
 
 	function index_exists($table_name, $index_name, $no_prefix = false)
 	{
-		$result = $this->query('SELECT 1 FROM pg_index i INNER JOIN pg_class c1 ON c1.oid = i.indrelid INNER JOIN pg_class c2 ON c2.oid = i.indexrelid WHERE c1.relname = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND c2.relname = \''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'_'.$this->escape($index_name).'\'');
+		$result = $this->query('SELECT 1 FROM pg_index i INNER JOIN pg_class c1 ON c1.oid=i.indrelid INNER JOIN pg_class c2 ON c2.oid = i.indexrelid WHERE c1.relname=\''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'\' AND c2.relname=\''.($no_prefix ? '' : $this->prefix).$this->escape($table_name).'_'.$this->escape($index_name).'\'');
 		return $this->num_rows($result) > 0;
 	}
 
@@ -459,6 +459,40 @@ class DBLayer
 
 		if (!$allow_null)
 			$this->query('ALTER TABLE '.($no_prefix ? '' : $this->prefix).$table_name.' ALTER '.$field_name.' SET NOT NULL') or error(__FILE__, __LINE__);
+	}
+
+
+	function alter_field($table_name, $field_name, $field_type, $allow_null, $default_value = null, $after_field = null, $no_prefix = false)
+	{
+		if (!$this->field_exists($table_name, $field_name, $no_prefix))
+			return;
+
+		$field_type = preg_replace(array_keys($this->datatype_transformations), array_values($this->datatype_transformations), $field_type);
+
+		$this->add_field($table_name, 'tmp_'.$field_name, $field_type, $allow_null, $default_value, $after_field, $no_prefix);
+		$this->query('UPDATE '.($no_prefix ? '' : $this->prefix).$table_name.' SET tmp_'.$field_name.' = '.$field_name) or error(__FILE__, __LINE__);
+		$this->drop_field($table_name, $field_name, $no_prefix);
+		$this->query('ALTER TABLE '.($no_prefix ? '' : $this->prefix).$table_name.' RENAME COLUMN tmp_'.$field_name.' TO '.$field_name) or error(__FILE__, __LINE__);
+
+		// Set the default value
+		if ($default_value === null)
+			$default_value = 'NULL';
+		else if (!is_int($default_value) && !is_float($default_value))
+			$default_value = '\''.$this->escape($default_value).'\'';
+
+		$this->query('ALTER TABLE '.($no_prefix ? '' : $this->prefix).$table_name.' ALTER '.$field_name.' SET DEFAULT '.$default_value) or error(__FILE__, __LINE__);
+
+		if (!$allow_null)
+			$this->query('ALTER TABLE '.($no_prefix ? '' : $this->prefix).$table_name.' ALTER '.$field_name.' SET NOT NULL') or error(__FILE__, __LINE__);
+	}
+
+
+	function rename_field($table_name, $field_name, $field_new_name, $field_type = null, $allow_null = null, $default_value = null, $no_prefix = false)
+	{
+		if (!$this->field_exists($table_name, $field_name, $no_prefix))
+			return;
+
+		$this->query('ALTER TABLE '.($no_prefix ? '' : $this->prefix).$table_name.' RENAME '.$field_name.' TO '.$field_new_name) or error(__FILE__, __LINE__);
 	}
 
 

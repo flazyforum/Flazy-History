@@ -3,7 +3,7 @@
  * Вход\выход, возможность смены пароля
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -39,8 +39,6 @@ if (!$action && isset($_POST['form_sent']))
 
 	if (is_valid_email($form_username))
 	{
-		$lang_login['Wrong user/pass'] = $lang_login['Wrong e-mail/password'];
-
 		$query = array(
 			'SELECT'	=> 'username',
 			'FROM'		=> 'users',
@@ -55,12 +53,11 @@ if (!$action && isset($_POST['form_sent']))
 	$form_password = forum_trim($_POST['req_password']);
 	$save_pass = isset($_POST['save_pass']);
 
-
 	($hook = get_hook('li_login_form_submitted')) ? eval($hook) : null;
 
 	// Get user info matching login attempt
 	$query = array(
-		'SELECT'	=> 'u.id, u.security_ip, u.user_agent, u.group_id, u.password, u.salt',
+		'SELECT'	=> 'u.id, u.group_id, u.password, u.salt, u.security_ip, u.user_agent, u.fasety_auth, u.fasety_last_auth, u.fasety_auth_mail',
 		'FROM'		=> 'users AS u'
 	);
 
@@ -71,7 +68,7 @@ if (!$action && isset($_POST['form_sent']))
 
 	($hook = get_hook('li_login_qr_get_login_data')) ? eval($hook) : null;
 	$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-	list($user_id, $security_ip, $user_agent, $group_id, $db_password_hash, $salt) = $forum_db->fetch_row($result);
+	list($user_id, $group_id, $db_password_hash, $salt,$security_ip, $user_agent, $fasety_auth, $fasety_last_auth, $fasety_auth_mail) = $forum_db->fetch_row($result);
 
 	$authorized = false;
 	if (!empty($db_password_hash))
@@ -103,8 +100,57 @@ if (!$action && isset($_POST['form_sent']))
 
 	($hook = get_hook('li_login_pre_auth_message')) ? eval($hook) : null;
 
-	if (!$authorized)
+	$now = time();
+	if ($fasety_auth >= 3 && $fasety_last_auth > $now-600)
+	{
+		$errors[] = $lang_login['Blocking login'];
+
+		if (!$fasety_auth_mail)
+		{
+			$mail_tpl = forum_trim(file_get_contents(FORUM_ROOT.'lang/'.$user_info['language'].'/mail_templates/fasety_auth.tpl'));
+
+			// The first row contains the subject
+			$first_crlf = strpos($mail_tpl, "\n");
+			$mail_subject = forum_trim(substr($mail_tpl, 8, $first_crlf-8));
+			$mail_message = forum_trim(substr($mail_tpl, $first_crlf));
+
+			$mail_message = str_replace('<username>', $form_username, $mail_message);
+			$mail_message = str_replace('<obtain_pass>', forum_link($forum_url['request_password']), $mail_message);
+			$mail_message = str_replace('<board_mailer>', sprintf($lang_common['Forum mailer'], $forum_config['o_board_title']), $mail_message);
+
+			($hook = get_hook('li_login_send_auth_mail')) ? eval($hook) : null;
+
+			forum_mail($user_info['email'], $mail_subject, $mail_message);
+		}
+		else
+		{
+			$query = array(
+				'UPDATE'	=> 'users',
+				'SET'		=> 'fasety_auth_mail=1',
+				'WHERE'		=> 'id='.$user_id
+			);
+
+			($hook = get_hook('li_login_qr_update_user_fasety_auth_mail')) ? eval($hook) : null;
+			$forum_db->query_build($query) or error(__FILE__, __LINE__);
+		}
+	}
+
+	if (!$authorized && empty($errors))
+	{
 		$errors[] = sprintf($lang_login['Wrong user/pass']);
+
+		if ($fasety_last_auth < $now-600)
+			$fasety_auth = 0;
+
+		$query = array(
+			'UPDATE'	=> 'users',
+			'SET'		=> 'fasety_auth='.($fasety_auth+1).', fasety_last_auth='.$now,
+			'WHERE'		=> 'id='.$user_id
+		);
+
+		($hook = get_hook('li_login_qr_update_user_fasety_auth')) ? eval($hook) : null;
+		$forum_db->query_build($query) or error(__FILE__, __LINE__);
+	}
 
 	// Did everything go according to plan?
 	if (empty($errors))
@@ -120,6 +166,24 @@ if (!$action && isset($_POST['form_sent']))
 
 			($hook = get_hook('li_login_qr_update_user_group')) ? eval($hook) : null;
 			$forum_db->query_build($query) or error(__FILE__, __LINE__);
+
+			// Regenerate cache
+			if (!defined('FORUM_CACHE_STAT_USER_LOADED'))
+				require FORUM_ROOT.'include/cache/stat_user.php';
+
+			generate_stat_user_cache();
+		}
+
+		if ($fasety_auth_mail)
+		{
+			$query = array(
+				'UPDATE'	=> 'users',
+				'SET'		=> 'fasety_auth_mail=0',
+				'WHERE'		=> 'id='.$user_id
+			);
+
+			($hook = get_hook('li_login_qr_update_user_unfasety_auth_mail')) ? eval($hook) : null;
+			$forum_db->query_build($query) or error(__FILE__, __LINE__);
 		}
 
 		// Remove this user's guest entry from the online list
@@ -134,33 +198,32 @@ if (!$action && isset($_POST['form_sent']))
 		$ip = get_remote_address();
 		if ($security_ip)
 		{
-			$security_enabled = preg_match('/^([0-9]{1,3})\.([0-9]{1,3})$/', $security_ip) ? true : false;
+			$security_enabled = (preg_match('/^([0-9]{1,3})\.([0-9]{1,3})$/', $security_ip) || preg_match('/^([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4})$/',  $security_ip)) ? true : false;
 			if ($security_enabled)
-				$ip = ereg('([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})', get_remote_address(), $ip_part) ? $ip_part[1].'.'.$ip_part[2] : '0';
+				$ip = (preg_match('/^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$/', $ip, $matches) || preg_match('/^([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4})$/', $ip, $matches)) ? $matches[1].'.'.$matches[2] : '0';
 		}
 
-		$cur_user_agent = !empty($_SERVER['HTTP_USER_AGENT']) ? str_replace(' ', '', $_SERVER['HTTP_USER_AGENT']) : '';
-
+		$cur_user_agent = get_user_agent();
 		if ($user_agent != $cur_user_agent)
 		{
 			$query = array(
 				'UPDATE'	=> 'users',
-				'SET'		=> 'user_agent=\''.$cur_user_agent.'\'',
+				'SET'		=> 'user_agent=\''.$forum_db->escape($cur_user_agent).'\'',
 				'WHERE'		=> 'id='.$user_id
 			);
 
-			($hook = get_hook('li_login_qr_update_user_agent')) ? eval($hook) : null;
+			($hook = get_hook('li_fl_login_qr_update_user_agent')) ? eval($hook) : null;
 			$forum_db->query_build($query) or error(__FILE__, __LINE__);
 		}
 		if ($security_ip != $ip)
 		{
 			$query = array(
 				'UPDATE'	=> 'users',
-				'SET' 		=> 'registration_ip=\''.$ip.'\', security_ip=\''.$ip.'\'',
+				'SET' 		=> 'security_ip=\''.$forum_db->escape($ip).'\'',
 				'WHERE'		=> 'id='.$user_id
 			);
 
-			($hook = get_hook('li_login_qr_update_user_ip')) ? eval($hook) : null;
+			($hook = get_hook('li_fl_login_qr_update_user_ip')) ? eval($hook) : null;
 			$forum_db->query_build($query) or error(__FILE__, __LINE__);
 		}
 
@@ -179,7 +242,7 @@ else if ($action == 'out')
 	if ($forum_user['is_guest'] || !isset($_GET['id']) || $_GET['id'] != $forum_user['id'])
 	{
 		header('Location: '.forum_link($forum_url['index']));
-		exit;
+		die;
 	}
 	
 	// Check for use of incorrect URLs
@@ -336,7 +399,7 @@ else if ($action == 'forget')
 	define ('FORUM_PAGE', 'reqpass');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('li_forgot_pass_output_start')) ? eval($hook) : null;
@@ -400,9 +463,9 @@ else if ($action == 'forget')
 	($hook = get_hook('li_forgot_pass_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -418,7 +481,7 @@ $forum_page['group_count'] = $forum_page['item_count'] = $forum_page['fld_count'
 $forum_page['form_action'] = forum_link($forum_url['login']);
 
 $forum_page['hidden_fields'] = array(
-	'form_sent'		=> '<input type="hidden" name="form_sent" value="1" />',
+	'form_sent'			=> '<input type="hidden" name="form_sent" value="1" />',
 	'redirect_url'		=> '<input type="hidden" name="redirect_url" value="'.forum_htmlencode($forum_user['prev_url']).'" />',
 	'csrf_token'		=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
 );
@@ -434,14 +497,14 @@ $forum_page['crumbs'] = array(
 define('FORUM_PAGE', 'login');
 require FORUM_ROOT.'header.php';
 
-// START SUBST - <!-- forum_main -->
+// START SUBST - <forum_main>
 ob_start();
 
 ($hook = get_hook('li_login_output_start')) ? eval($hook) : null;
 
 ?>
 	<div class="main-content main-frm">
-		<div class="content-head">
+		<div class="ct-box info-box">
 			<p class="hn"><?php printf($lang_login['Login options'], '<a href="'.forum_link($forum_url['register']).'">'.$lang_login['register'].'</a>', '<a href="'.forum_link($forum_url['request_password']).'">'.$lang_login['Obtain pass'].'</a>') ?></p>
 		</div>
 <?php
@@ -480,14 +543,14 @@ if (!empty($errors))
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text required">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_login['Username'] ?> <em><?php echo $lang_common['Required'] ?></em></span></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_username" value="<?php echo isset($_POST['req_username']) ? forum_htmlencode($_POST['req_username']) : '' ?>" size="35" maxlength="25" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_username" value="<?php echo isset($_POST['req_username']) ? forum_htmlencode($_POST['req_username']) : '' ?>" size="35" maxlength="25" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('li_login_pre_pass')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text required">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_login['Password'] ?> <em><?php echo $lang_common['Required'] ?></em></span></label><br />
-						<span class="fld-input"><input type="password" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_password" value="<?php echo isset($_POST['req_password']) ? forum_htmlencode($_POST['req_password']) : '' ?>" size="35" class="inputbox" /></span>
+						<span class="fld-input"><input type="password" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_password" value="<?php echo isset($_POST['req_password']) ? forum_htmlencode($_POST['req_password']) : '' ?>" size="35" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('li_login_pre_remember_me_checkbox')) ? eval($hook) : null; ?>
@@ -510,8 +573,8 @@ if (!empty($errors))
 ($hook = get_hook('li_end')) ? eval($hook) : null;
 
 $tpl_temp = forum_trim(ob_get_contents());
-$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 ob_end_clean();
-// END SUBST - <!-- forum_main -->
+// END SUBST - <forum_main>
 
 require FORUM_ROOT.'footer.php';

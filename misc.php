@@ -3,7 +3,7 @@
  * Различные функции форума для пользователей (например: отображение правил, отправление электронных сообщений через форум и т.д.).
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -44,7 +44,7 @@ if ($action == 'rules')
 	define('FORUM_PAGE', 'rules');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('mi_rules_output_start')) ? eval($hook) : null;
@@ -60,9 +60,9 @@ if ($action == 'rules')
 	($hook = get_hook('mi_rules_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -152,6 +152,71 @@ else if ($action == 'markforumread')
 }
 
 
+else if ($action == 'smilies')
+{
+	if (!$forum_user['g_read_board'])
+		message($lang_common['No view']);
+
+	// Check for use of incorrect URLs
+	confirm_current_url(forum_link($forum_url['smilies']));
+
+	// Setup breadcrumbs
+	$forum_page['crumbs'] = array(
+		array($forum_config['o_board_title'], forum_link($forum_url['index'])),
+		array($lang_misc['Smilies'], forum_link($forum_url['smilies']))
+	);
+
+	($hook = get_hook('mi_smilies_pre_header_load')) ? eval($hook) : null;
+
+	$forum_js->file($base_url.'/js/bb.smilies.js');
+
+	define('FORUM_PAGE', 'smilies');
+	require FORUM_ROOT.'header.php';
+
+	// START SUBST - <forum_main>
+	ob_start();
+
+	($hook = get_hook('mi_smilies_output_start')) ? eval($hook) : null;
+
+?>
+	<div class="main-subhead">
+		<h2 class="hn"><span><?php echo $lang_misc['Click smilies'] ?></span></h2>
+	</div>
+	<div class="main-content">
+		<div class="ct-box">
+<?php
+
+	require FORUM_ROOT.'include/smilies.php';
+
+	$smiley_groups = array();
+	foreach ($smilies as $smiley_text => $smiley_img)
+		$smiley_groups[$smiley_img][] = $smiley_text;
+
+	foreach ($smiley_groups as $smiley_img => $smiley_texts)
+	{
+	
+?>
+			<a href="javascript:insert_text('<?php echo $smiley_texts['0'] ?>', '');"><img src="<?php echo $base_url ?>/img/smilies/<?php echo $smiley_img ?>" alt="<?php echo $smiley_texts['0'] ?>" title="<?php echo $smiley_texts['0'] ?>"/></a>
+<?php
+
+	}
+
+?>
+		</div>
+		<p style="text-align:center"><a href="javascript:self.close();"><strong><?php echo $lang_misc['Closed'] ?></strong></a></p>
+	</div>
+<?php
+
+	($hook = get_hook('mi_smilies_end')) ? eval($hook) : null;
+
+	$tpl_temp = forum_trim(ob_get_contents());
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
+	ob_end_clean();
+	// END SUBST - <forum_main>
+
+	require FORUM_ROOT.'footer.php';
+}
+
 // Send form e-mail?
 else if (isset($_GET['email']))
 {
@@ -186,7 +251,6 @@ else if (isset($_GET['email']))
 
 	if ($email_setting == 2 && !$forum_user['is_admmod'])
 		message($lang_misc['Form e-mail disabled']);
-
 
 	if (isset($_POST['form_sent']))
 	{
@@ -268,7 +332,7 @@ else if (isset($_GET['email']))
 	define('FORUM_PAGE', 'formemail');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('mi_email_output_start')) ? eval($hook) : null;
@@ -315,14 +379,14 @@ else if (isset($_GET['email']))
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text required longtext">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_misc['E-mail subject'] ?>  <em><?php echo $lang_common['Required'] ?></em></span></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_subject" value="<?php echo(isset($_POST['req_subject']) ? forum_htmlencode($_POST['req_subject']) : '') ?>" size="75" maxlength="70" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_subject" value="<?php echo(isset($_POST['req_subject']) ? forum_htmlencode($_POST['req_subject']) : '') ?>" size="75" maxlength="70" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('mi_email_pre_message_contents')) ? eval($hook) : null; ?>
 				<div class="txt-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="txt-box textarea required">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_misc['E-mail message'] ?>  <em><?php echo $lang_common['Required'] ?></em></span></label>
-						<div class="txt-input"><span class="fld-input"><textarea id="fld<?php echo $forum_page['fld_count'] ?>" class="inputbox" name="req_message" rows="10" cols="95"><?php echo(isset($_POST['req_message']) ? forum_htmlencode($_POST['req_message']) : '') ?></textarea></span></div>
+						<div class="txt-input"><span class="fld-input"><textarea id="fld<?php echo $forum_page['fld_count'] ?>" name="req_message" rows="10" cols="95"><?php echo(isset($_POST['req_message']) ? forum_htmlencode($_POST['req_message']) : '') ?></textarea></span></div>
 					</div>
 				</div>
 <?php ($hook = get_hook('mi_email_pre_fieldset_end')) ? eval($hook) : null; ?>
@@ -339,9 +403,9 @@ else if (isset($_GET['email']))
 	($hook = get_hook('mi_email_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -358,6 +422,9 @@ else if (isset($_GET['report']))
 	$post_id = intval($_GET['report']);
 	if ($post_id < 1)
 		message($lang_common['Bad request']);
+
+	// Check for use of incorrect URLs
+	confirm_current_url(forum_link($forum_url['report'], array($post_id, $action)));
 
 	($hook = get_hook('mi_report_selected')) ? eval($hook) : null;
 
@@ -378,39 +445,45 @@ else if (isset($_GET['report']))
 		if ($reason == '')
 			message($lang_misc['No reason']);
 
-		// Get some info about the topic we're reporting
-		$query = array(
-			'SELECT'	=> 't.id, t.subject, t.forum_id',
-			'FROM'		=> 'posts AS p',
-			'JOINS'		=> array(
-				array(
-					'INNER JOIN'	=> 'topics AS t',
-					'ON'		=> 't.id=p.topic_id'
-				)
-			),
-			'WHERE'		=> 'p.id='.$post_id
-		);
-
-		($hook = get_hook('mi_report_qr_get_topic_data')) ? eval($hook) : null;
-		$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
-		if (!$forum_db->num_rows($result))
-			message($lang_common['Bad request']);
-
-		list($topic_id, $subject, $forum_id) = $forum_db->fetch_row($result);
-
-		($hook = get_hook('mi_report_pre_reports_sent')) ? eval($hook) : null;
-
-		// Should we use the internal report handling?
-		if ($forum_config['o_report_method'] == 0 || $forum_config['o_report_method'] == 2)
+		$topic_id = $subject = $forum_id = $pm_id = 0;
+		if ($action == 'pm')
 		{
+			$pm_id = $post_id;
+
 			$query = array(
-				'INSERT'	=> 'post_id, topic_id, forum_id, reported_by, created, message',
-				'INTO'		=> 'reports',
-				'VALUES'	=> $post_id.', '.$topic_id.', '.$forum_id.', '.$forum_user['id'].', '.time().', \''.$forum_db->escape($reason).'\''
+				'SELECT'	=> 'pm.sender_id, pm.message',
+				'FROM'		=> 'pm AS pm',
+				'WHERE'		=> 'pm.id='.$pm_id.' AND receiver_id='.$forum_user['id']
 			);
 
-			($hook = get_hook('mi_report_add_report')) ? eval($hook) : null;
-			$forum_db->query_build($query) or error(__FILE__, __LINE__);
+			($hook = get_hook('mi_fl_report_qr_get_pm_data')) ? eval($hook) : null;
+			$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+			if (!$forum_db->num_rows($result))
+				message($lang_common['Bad request']);
+
+			list($poster_id, $message) = $forum_db->fetch_row($result);
+		}
+		else
+		{
+			// Get some info about the topic we're reporting
+			$query = array(
+				'SELECT'	=> 't.id, t.subject, t.forum_id, p.poster_id, p.message',
+				'FROM'		=> 'posts AS p',
+				'JOINS'		=> array(
+					array(
+						'INNER JOIN'	=> 'topics AS t',
+						'ON'			=> 't.id=p.topic_id'
+					)
+				),
+				'WHERE'		=> 'p.id='.$post_id
+			);
+
+			($hook = get_hook('mi_report_qr_get_topic_data')) ? eval($hook) : null;
+			$result = $forum_db->query_build($query) or error(__FILE__, __LINE__);
+			if (!$forum_db->num_rows($result))
+				message($lang_common['Bad request']);
+
+			list($topic_id, $subject, $forum_id, $poster_id, $message) = $forum_db->fetch_row($result);
 
 			$query = array(
 				'UPDATE'	=> 'posts',
@@ -419,6 +492,21 @@ else if (isset($_GET['report']))
 			);
 
 			($hook = get_hook('mi_report_update_report')) ? eval($hook) : null;
+			$forum_db->query_build($query) or error(__FILE__, __LINE__);
+		}
+
+		($hook = get_hook('mi_report_pre_reports_sent')) ? eval($hook) : null;
+
+		// Should we use the internal report handling?
+		if ($forum_config['o_report_method'] == 0 || $forum_config['o_report_method'] == 2)
+		{
+			$query = array(
+				'INSERT'	=> 'post_id, topic_id, forum_id, pm_id, reported_by, created, poster_id, message, reason',
+				'INTO'		=> 'reports',
+				'VALUES'	=> $post_id.', '.$topic_id.', '.$forum_id.', '.$pm_id.', '.$forum_user['id'].', '.time().', '.$poster_id.', \''.$forum_db->escape($message).'\', \''.$forum_db->escape($reason).'\''
+			);
+
+			($hook = get_hook('mi_report_add_report')) ? eval($hook) : null;
 			$forum_db->query_build($query) or error(__FILE__, __LINE__);
 		}
 
@@ -460,17 +548,21 @@ else if (isset($_GET['report']))
 		($hook = get_hook('mi_report_qr_update_last_email_sent')) ? eval($hook) : null;
 		$forum_db->query_build($query) or error(__FILE__, __LINE__);
 
+		if (!defined('FORUM_CACHE_FUNCTIONS_LOADED'))
+			require FORUM_ROOT.'include/cache/report.php';
+		generate_report_cache();
+
 		($hook = get_hook('mi_report_pre_redirect')) ? eval($hook) : null;
 
-		redirect(forum_link($forum_url['post'], $post_id), $lang_misc['Report redirect']);
+		redirect(forum_link($forum_url[($action == 'pm' ? 'pm_view' : 'post')], $post_id), $lang_misc['Report redirect']);
 	}
 
 	// Setup form
 	$forum_page['group_count'] = $forum_page['item_count'] = $forum_page['fld_count'] = 0;
-	$forum_page['form_action'] = forum_link($forum_url['report'], $post_id);
+	$forum_page['form_action'] = forum_link($forum_url['report'], array($post_id, $action));
 
 	$forum_page['hidden_fields'] = array(
-		'form_sent'	=> '<input type="hidden" name="form_sent" value="1" />',
+		'form_sent'		=> '<input type="hidden" name="form_sent" value="1" />',
 		'csrf_token'	=> '<input type="hidden" name="csrf_token" value="'.generate_form_token($forum_page['form_action']).'" />'
 	);
 
@@ -485,7 +577,7 @@ else if (isset($_GET['report']))
 	define('FORUM_PAGE', 'report');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('mi_report_output_start')) ? eval($hook) : null;
@@ -508,7 +600,7 @@ else if (isset($_GET['report']))
 				<div class="txt-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="txt-box textarea required">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_misc['Reason'] ?> <em><?php echo $lang_common['Required'] ?></em></span> <small><?php echo $lang_misc['Reason help'] ?></small></label><br />
-						<div class="txt-input"><span class="fld-input"><textarea id="fld<?php echo $forum_page['fld_count'] ?>" class="inputbox" name="req_reason" rows="5" cols="60"></textarea></span></div>
+						<div class="txt-input"><span class="fld-input"><textarea id="fld<?php echo $forum_page['fld_count'] ?>" name="req_reason" rows="5" cols="60"></textarea></span></div>
 					</div>
 				</div>
 <?php ($hook = get_hook('mi_report_pre_fieldset_end')) ? eval($hook) : null; ?>
@@ -525,9 +617,9 @@ else if (isset($_GET['report']))
 	($hook = get_hook('mi_report_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -624,7 +716,7 @@ else if (isset($_GET['unsubscribe']))
 		'JOINS'		=> array(
 			array(
 				'INNER JOIN'	=> 'subscriptions AS s',
-				'ON'		=> 's.user_id='.$forum_user['id'].' AND s.topic_id=t.id'
+				'ON'			=> 's.user_id='.$forum_user['id'].' AND s.topic_id=t.id'
 			)
 		),
 		'WHERE'		=> 't.id='.$topic_id
@@ -663,12 +755,12 @@ else if (isset($_GET['admin_action']) && $_GET['admin_action'] == 'change_engine
 	else if ($db_type == 'mysql' || $db_type == 'mysqli')
 		$to = 'MyISAM';
 	else
-		message($lang_misc['Engine conversion not supported']);
+		message($lang_misc['Conversion not supported']);
 
 	if ($from == $to)
-		message($lang_misc['Engine already converted']);
+		message($lang_misc['Already converted']);
 
-	if (isset($_POST['perform_engine_conversion_comply']))
+	if (isset($_POST['conversion']))
 	{
 		$result = $forum_db->query('SHOW TABLE STATUS FROM `'.$db_name.'` LIKE \''.$db_prefix.'%\'') or error(__FILE__, __LINE__);
 		while ($row = $forum_db->fetch_assoc($result))
@@ -692,7 +784,7 @@ else if (isset($_GET['admin_action']) && $_GET['admin_action'] == 'change_engine
 
 		generate_config_cache();
 
-		redirect(forum_link('admin/admin.php'), sprintf($lang_misc['Database engine conversion successful'], $from, $to));
+		redirect(forum_link('admin/admin.php'), sprintf($lang_misc['Conversion successful'], $from, $to));
 	}
 
 	// Setup form
@@ -708,7 +800,7 @@ else if (isset($_GET['admin_action']) && $_GET['admin_action'] == 'change_engine
 	define('FORUM_PAGE', 'engine-change');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 ?>
@@ -723,12 +815,12 @@ else if (isset($_GET['admin_action']) && $_GET['admin_action'] == 'change_engine
 			<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 				<div class="sf-box checkbox">
 					<span class="fld-input"><input type="checkbox" id="fld<?php echo ++$forum_page['fld_count'] ?>" name="perform_engine_conversion" value="1" checked="checked" /></span>
-					<label for="fld<?php echo $forum_page['fld_count'] ?>"><span><?php echo $lang_misc['Perform engine conversion'] ?></span> <?php printf($lang_misc['Perform engine conversion label'], $from, $to) ?></label>
+					<label for="fld<?php echo $forum_page['fld_count'] ?>"><span><?php echo $lang_misc['Perform conversion'] ?></span> <?php printf($lang_misc['Perform conversion label'], $from, $to) ?></label>
 				</div>
 			</div>
 		</fieldset>
 		<div class="frm-buttons">
-			<span class="submit"><input type="submit" name="perform_engine_conversion_comply" value="<?php echo $lang_common['Submit'] ?>" /></span>
+			<span class="submit"><input type="submit" name="conversion" value="<?php echo $lang_common['Submit'] ?>" /></span>
 			<span class="cancel"><input type="submit" name="cancel" value="<?php echo $lang_common['Cancel'] ?>" /></span>
 		</div>
 	</form>
@@ -736,9 +828,9 @@ else if (isset($_GET['admin_action']) && $_GET['admin_action'] == 'change_engine
 <?php
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }

@@ -3,7 +3,7 @@
  * Позволяет администраторам удалять старые темы с сайта.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -29,6 +29,7 @@ if (isset($_GET['action']) || isset($_POST['prune']) || isset($_POST['prune_comp
 	if (isset($_POST['prune_comply']))
 	{
 		$prune_from = $_POST['prune_from'];
+		$prune_sticky = isset($_POST['prune_sticky']) ? '1' : '0';
 		$prune_days = intval($_POST['prune_days']);
 		$prune_date = ($prune_days) ? time() - ($prune_days*86400) : -1;
 
@@ -54,14 +55,14 @@ if (isset($_GET['action']) || isset($_POST['prune']) || isset($_POST['prune_comp
 			{
 				$fid = $forum_db->result($result, $i);
 
-				prune($fid, $_POST['prune_sticky'], $prune_date);
+				prune($fid, $prune_sticky, $prune_date);
 				sync_forum($fid);
 			}
 		}
 		else
 		{
 			$prune_from = intval($prune_from);
-			prune($prune_from, $_POST['prune_sticky'], $prune_date);
+			prune($prune_from, $prune_sticky, $prune_date);
 			sync_forum($prune_from);
 		}
 
@@ -107,7 +108,7 @@ if (isset($_GET['action']) || isset($_POST['prune']) || isset($_POST['prune_comp
 
 	if ($prune_from != 'all')
 		$query['WHERE'] .= ' AND t.forum_id='.$prune_from;
-	if (!isset($_POST['prune_sticky']))
+	if (!isset($prune_sticky))
 		$query['WHERE'] .= ' AND t.sticky=0';
 
 	($hook = get_hook('apr_prune_comply_qr_get_topic_count')) ? eval($hook) : null;
@@ -133,7 +134,7 @@ if (isset($_GET['action']) || isset($_POST['prune']) || isset($_POST['prune_comp
 	define('FORUM_PAGE', 'admin-prune');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 
@@ -148,11 +149,11 @@ if (isset($_GET['action']) || isset($_POST['prune']) || isset($_POST['prune_comp
 			<div class="hidden">
 				<input type="hidden" name="csrf_token" value="<?php echo generate_form_token(forum_link('admin/prune.php').'?action=foo') ?>" />
 				<input type="hidden" name="prune_days" value="<?php echo $prune_days ?>" />
-				<input type="hidden" name="prune_sticky" value="<?php echo intval($_POST['prune_sticky']) ?>" />
+				<input type="hidden" name="prune_sticky" value="<?php echo $prune_sticky ?>" />
 				<input type="hidden" name="prune_from" value="<?php echo $prune_from ?>" />
 			</div>
 			<div class="ct-box">
-				<p class="warn"><span><?php printf($lang_admin_prune['Prune topics info 1'], $num_topics, isset($_POST['prune_sticky']) ? ' ('.$lang_admin_prune['Include sticky'].')' : '') ?></span></p>
+				<p class="warn"><span><?php printf($lang_admin_prune['Prune topics info 1'], $num_topics, ($prune_sticky) ? ' ('.$lang_admin_prune['Include sticky'].')' : '') ?></span></p>
 				<p class="warn"><span><?php printf($lang_admin_prune['Prune topics info 2'], $prune_days) ?></span></p>
 			</div>
 <?php ($hook = get_hook('apr_prune_comply_pre_buttons')) ? eval($hook) : null; ?>
@@ -166,9 +167,9 @@ if (isset($_GET['action']) || isset($_POST['prune']) || isset($_POST['prune_comp
 	($hook = get_hook('apr_prune_comply_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -193,7 +194,7 @@ else
 	define('FORUM_PAGE', 'admin-prune');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('apr_main_output_start')) ? eval($hook) : null;
@@ -266,7 +267,7 @@ else
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text required">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_prune['Days old'] ?> <em><?php echo $lang_admin_common['Required'] ?></em></span></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_prune_days" size="4" maxlength="4" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="req_prune_days" size="4" maxlength="4" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('apr_pre_prune_sticky')) ? eval($hook) : null; ?>
@@ -289,9 +290,9 @@ else
 	($hook = get_hook('apr_end')) ? eval($hook) : null;
 
 	$tpl_temp = forum_trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }

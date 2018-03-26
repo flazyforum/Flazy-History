@@ -5,7 +5,7 @@
  * Allows administrators and moderators to create, modify, and delete bans.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -147,7 +147,7 @@ if (isset($_REQUEST['add_ban']) || isset($_GET['edit_ban']))
 	define('FORUM_PAGE', 'admin-bans');
 	require FORUM_ROOT.'header.php';
 
-	// START SUBST - <!-- forum_main -->
+	// START SUBST - <forum_main>
 	ob_start();
 
 	($hook = get_hook('aba_add_edit_ban_output_start')) ? eval($hook) : null;
@@ -175,46 +175,46 @@ if (isset($_REQUEST['add_ban']) || isset($_GET['edit_ban']))
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_bans['Username to ban label'] ?></span></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="ban_user" size="25" maxlength="25" value="<?php if (isset($ban_user)) echo forum_htmlencode($ban_user); ?>" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="ban_user" size="25" maxlength="25" value="<?php if (isset($ban_user)) echo forum_htmlencode($ban_user); ?>" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('aba_add_edit_ban_pre_email')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_bans['E-mail/domain to ban label'] ?></span> <small><?php echo $lang_admin_bans['E-mail/domain help'] ?></small></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="ban_email" size="40" maxlength="80" value="<?php if (isset($ban_email)) echo forum_htmlencode(strtolower($ban_email)); ?>" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="ban_email" size="40" maxlength="80" value="<?php if (isset($ban_email)) echo forum_htmlencode(utf8_strtolower($ban_email)); ?>" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('aba_add_edit_ban_pre_ip')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_bans['IP-addresses to ban label'] ?></span> <small><?php echo $lang_admin_bans['IP-addresses help']; if ($ban_user != '' && isset($user_id)) echo ' '.$lang_admin_bans['IP-addresses help stats'].'<a href="'.forum_link('admin/users.php').'?ip_stats='.$user_id.'">'.$lang_admin_bans['IP-addresses help link'].'</a>' ?></small></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="ban_ip" size="45" maxlength="255" value="<?php if (isset($ban_ip)) echo $ban_ip; ?>" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="ban_ip" size="45" maxlength="255" value="<?php if (isset($ban_ip)) echo $ban_ip; ?>" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('aba_add_edit_ban_pre_message')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_bans['Ban message label'] ?></span> <small><?php echo $lang_admin_bans['Ban message help'] ?></small></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="ban_message" size="50" maxlength="255" value="<?php if (isset($ban_message)) echo forum_htmlencode($ban_message); ?>" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="ban_message" size="50" maxlength="255" value="<?php if (isset($ban_message)) echo forum_htmlencode($ban_message); ?>" /></span>
 					</div>
 				</div>
 <?php ($hook = get_hook('aba_add_edit_ban_pre_expire')) ? eval($hook) : null; ?>
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_bans['Expire date label'] ?></span> <small><?php echo $lang_admin_bans['Expire date help'] ?></small></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="ban_expire" size="17" maxlength="10" value="<?php if (isset($ban_expire)) echo $ban_expire; ?>" class="inputbox" /> или <select name="ban_expire" id="fld<?php echo $forum_page['fld_count'] ?>" value="<?php if (isset($ban_expire)) echo $ban_expire; ?>" tabindex="5">
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="ban_expire" size="17" maxlength="10" value="<?php if (isset($ban_expire)) echo $ban_expire; ?>" /> или <select name="ban_expire" id="fld<?php echo $forum_page['fld_count'] ?>" value="<?php if (isset($ban_expire)) echo $ban_expire; ?>" tabindex="5">
 						<option value="">Выбирите число дней</option>
-						<option value="1day">1 <?php echo $lang_admin_bans['Day'] ?></option>
+						<option value="1day">1 <?php echo $lang_common['Day'] ?></option>
 						<option value="2day">2 <?php echo $lang_admin_bans['Days'] ?></option>
 						<option value="3day">3 <?php echo $lang_admin_bans['Days'] ?></option>
 						<option value="4day">4 <?php echo $lang_admin_bans['Days'] ?></option>
-						<option value="5day">5 <?php echo $lang_admin_bans['Days2'] ?></option>
-						<option value="6day">6 <?php echo $lang_admin_bans['Days2'] ?></option>
-						<option value="7day">1 <?php echo $lang_admin_bans['Week'] ?> (7 <?php echo $lang_admin_bans['Days2'] ?>)</option>
-						<option value="14day">2 <?php echo $lang_admin_bans['Weeks'] ?> (14 <?php echo $lang_admin_bans['Days2'] ?>)</option>
-						<option value="21day">3 <?php echo $lang_admin_bans['Weeks'] ?> (21 <?php echo $lang_admin_bans['Day'] ?>)</option>
-						<option value="28day">4 <?php echo $lang_admin_bans['Weeks'] ?> (28 <?php echo $lang_admin_bans['Days2'] ?>)</option>
+						<option value="5day">5 <?php echo $lang_common['Days2'] ?></option>
+						<option value="6day">6 <?php echo $lang_common['Days2'] ?></option>
+						<option value="7day">1 <?php echo $lang_admin_bans['Week'] ?> (7 <?php echo $lang_common['Days2'] ?>)</option>
+						<option value="14day">2 <?php echo $lang_common['Weeks'] ?> (14 <?php echo $lang_common['Days2'] ?>)</option>
+						<option value="21day">3 <?php echo $lang_common['Weeks'] ?> (21 <?php echo $lang_common['Day'] ?>)</option>
+						<option value="28day">4 <?php echo $lang_common['Weeks'] ?> (28 <?php echo $lang_common['Days2'] ?>)</option>
 						</select></span>
 					</div>
 				</div>
@@ -231,9 +231,9 @@ if (isset($_REQUEST['add_ban']) || isset($_GET['edit_ban']))
 	($hook = get_hook('aba_add_edit_ban_end')) ? eval($hook) : null;
 
 	$tpl_temp = trim(ob_get_contents());
-	$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+	$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 	ob_end_clean();
-	// END SUBST - <!-- forum_main -->
+	// END SUBST - <forum_main>
 
 	require FORUM_ROOT.'footer.php';
 }
@@ -242,11 +242,11 @@ if (isset($_REQUEST['add_ban']) || isset($_GET['edit_ban']))
 // Add/edit a ban (stage 2)
 else if (isset($_POST['add_edit_ban']))
 {
-	$ban_user = trim($_POST['ban_user']);
-	$ban_ip = trim($_POST['ban_ip']);
-	$ban_email = strtolower(trim($_POST['ban_email']));
-	$ban_message = trim($_POST['ban_message']);
-	$ban_expire = trim($_POST['ban_expire']);
+	$ban_user = forum_trim($_POST['ban_user']);
+	$ban_ip = forum_trim($_POST['ban_ip']);
+	$ban_email = utf8_strtolower(forum_trim($_POST['ban_email']));
+	$ban_message = forum_trim($_POST['ban_message']);
+	$ban_expire = forum_trim($_POST['ban_expire']);
 
 	if ($ban_user == '' && $ban_ip == '' && $ban_email == '')
 		message($lang_admin_bans['Must enter message']);
@@ -415,7 +415,7 @@ define('FORUM_PAGE_SECTION', 'users');
 define('FORUM_PAGE', 'admin-bans');
 require FORUM_ROOT.'header.php';
 
-// START SUBST - <!-- forum_main -->
+// START SUBST - <forum_main>
 ob_start();
 
 ($hook = get_hook('aba_main_output_start')) ? eval($hook) : null;
@@ -437,7 +437,7 @@ ob_start();
 				<div class="sf-set set<?php echo ++$forum_page['item_count'] ?>">
 					<div class="sf-box text">
 						<label for="fld<?php echo ++$forum_page['fld_count'] ?>"><span><?php echo $lang_admin_bans['Username to ban label'] ?></span></label><br />
-						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="new_ban_user" size="25" maxlength="25" class="inputbox" /></span>
+						<span class="fld-input"><input type="text" id="fld<?php echo $forum_page['fld_count'] ?>" name="new_ban_user" size="25" maxlength="25" /></span>
 					</div>
 				</div>
 			</fieldset>
@@ -528,8 +528,8 @@ else
 ($hook = get_hook('aba_end')) ? eval($hook) : null;
 
 $tpl_temp = trim(ob_get_contents());
-$tpl_main = str_replace('<!-- forum_main -->', $tpl_temp, $tpl_main);
+$tpl_main = str_replace('<forum_main>', $tpl_temp, $tpl_main);
 ob_end_clean();
-// END SUBST - <!-- forum_main -->
+// END SUBST - <forum_main>
 
 require FORUM_ROOT.'footer.php';

@@ -3,7 +3,7 @@
  * Общие данные, выполение различных функций, необходимых для правильной работы форума.
  *
  * @copyright Copyright (C) 2008 PunBB, partially based on code copyright (C) 2008 FluxBB.org
- * @modified Copyright (C) 2008-2009 Flazy.ru
+ * @modified Copyright (C) 2008 Flazy.ru
  * @license http://www.gnu.org/licenses/gpl.html GPL version 2 or higher
  * @package Flazy
  */
@@ -12,17 +12,17 @@
 if (!defined('FORUM_ROOT'))
 {
 	header('Content-type: text/html; charset=utf-8');
-	exit('Константа FORUM_ROOT должны быть определена и ссылаться на действующий корневой каталог Flazy.');
+	die('Константа FORUM_ROOT должны быть определена и ссылаться на действующий корневой каталог Flazy.');
 }
 if (!defined('FORUM_ESSENTIALS_LOADED'))
 	require FORUM_ROOT.'include/essentials.php';
 
 // Turn off magic_quotes_runtime
-if (get_magic_quotes_runtime())
+if (get_magic_quotes_runtime() && !defined('FORUM_DISABLE_MAGIC_RUNTIME'))
 	set_magic_quotes_runtime(0);
 
 // Strip slashes from GET/POST/COOKIE (if magic_quotes_gpc is enabled)
-if (get_magic_quotes_gpc())
+if (get_magic_quotes_gpc() && !defined('FORUM_DISABLE_MAGIC_GPG'))
 {
 	function stripslashes_array($array)
 	{
@@ -44,8 +44,9 @@ if (empty($cookie_name))
 // Enable output buffering
 if (!defined('FORUM_DISABLE_BUFFERING'))
 {
+	$_SERVER['HTTP_ACCEPT_ENCODING'] = isset($_SERVER['HTTP_ACCEPT_ENCODING']) ? $_SERVER['HTTP_ACCEPT_ENCODING'] : '';
+
 	// Should we use gzip output compression?
-	//if ($forum_config['o_gzip'] && extension_loaded('zlib'))
 	if (!empty($forum_config['o_gzip']) && extension_loaded('zlib') && !empty($_SERVER['HTTP_ACCEPT_ENCODING']) && (strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'gzip') !== false || strpos($_SERVER['HTTP_ACCEPT_ENCODING'], 'deflate') !== false))
 		ob_start('ob_gzhandler');
 	else
@@ -67,7 +68,7 @@ cookie_login($forum_user);
 if (file_exists(FORUM_ROOT.'lang/'.$forum_user['language'].'/common.php'))
 	include FORUM_ROOT.'lang/'.$forum_user['language'].'/common.php';
 else
-	error('There is no valid language pack \''.forum_htmlencode($forum_user['language']).'\' installed. Please reinstall a language of that name.');
+	error('Установленный языковой пакет \''.forum_htmlencode($forum_user['language']).'\' неправильный. Пожалyйста переустановите его.');
 
 // Setup the URL rewriting scheme
 if (file_exists(FORUM_ROOT.'include/url/'.$forum_config['o_sef'].'/forum_urls.php'))
@@ -80,10 +81,8 @@ else
 
 
 // Verify that we are running the proper database schema revision
-if (defined('PUN') || !isset($forum_config['o_database_revision']) || $forum_config['o_database_revision'] < FORUM_DB_REVISION || version_compare($forum_config['o_cur_version'], FORUM_VERSION, '<') && $forum_user['g_id'] == FORUM_ADMIN)
-{
+if ((!isset($forum_config['o_database_revision']) || $forum_config['o_database_revision'] < FORUM_DB_REVISION || version_compare($forum_config['o_cur_version'], FORUM_VERSION, '<')) && $forum_user['g_id'] == FORUM_ADMIN)
 	error('Ваша база данных Flazy устарела и должна быть обновлена. Пожалуйста запустите <a href="'.$base_url.'/admin/db_update.php">db_update.php</a> чтобы закончить процесс обновления.');
-}
 
 // Check if we are to display a maintenance message
 if ($forum_config['o_maintenance'] && $forum_user['g_id'] > FORUM_ADMIN && !defined('FORUM_TURN_OFF_MAINT'))
@@ -111,21 +110,6 @@ if ($forum_user['g_id'] == FORUM_ADMIN)
 		generate_updates_cache();
 		require FORUM_CACHE_DIR.'cache_updates.php';
 	}
-
-/*
-	// Загружать информацию из репозитория
-	if (file_exists(FORUM_CACHE_DIR.'cache_repository.php'))
-		include FORUM_CACHE_DIR.'cache_repository.php';
-
-	if (!defined('FORUM_REPOSITIRY_LOADED') || $forum_repository['cached'] < $cached)
-	{
-		if (!defined('FORUM_CACHE_FUNCTIONS_LOADED'))
-			require FORUM_ROOT.'include/cache.php';
-
-		generate_repository_cache();
-		require FORUM_CACHE_DIR.'cache_repository.php';
-	}
-*/
 }
 
 // Load cached bans
